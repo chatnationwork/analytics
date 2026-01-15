@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+dist/
+.npm
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build
+build/
+.next/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
+.turbo

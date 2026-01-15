@@ -1,0 +1,51 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "declaration": true,
+        "removeComments": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "allowSyntheticDefaultImports": true,
+        "target": "ES2021",
+        "sourceMap": true,
+        "outDir": "./dist",
+        "baseUrl": "./",
+        "incremental": true,
+        "skipLibCheck": true,
+        "strictNullChecks": true,
+        "noImplicitAny": true,
+        "strictBindCallApply": true,
+        "forceConsistentCasingInFileNames": true,
+        "noFallthroughCasesInSwitch": true,
+        "paths": {
+            "@lib/common": [
+                "libs/common/src"
+            ],
+            "@lib/common/*": [
+                "libs/common/src/*"
+            ],
+            "@lib/database": [
+                "libs/database/src"
+            ],
+            "@lib/database/*": [
+                "libs/database/src/*"
+            ],
+            "@lib/queue": [
+                "libs/queue/src"
+            ],
+            "@lib/queue/*": [
+                "libs/queue/src/*"
+            ],
+            "@lib/events": [
+                "libs/events/src"
+            ],
+            "@lib/events/*": [
+                "libs/events/src/*"
+            ]
+        }
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}

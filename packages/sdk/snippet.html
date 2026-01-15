@@ -1,0 +1,56 @@
+<!-- 
+  Analytics SDK Async Loader Snippet
+  Copy this into your HTML <head> tag
+-->
+<script>
+  !function(){
+    var analytics = window.analytics = window.analytics || [];
+    if (!analytics.initialize) {
+      if (analytics.invoked) {
+        window.console && console.error && console.error("Analytics snippet included twice.");
+      } else {
+        analytics.invoked = !0;
+        analytics.methods = ["init","page","track","identify","reset","flush"];
+        analytics.factory = function(method) {
+          return function() {
+            var args = Array.prototype.slice.call(arguments);
+            args.unshift(method);
+            analytics.push(args);
+            return analytics;
+          };
+        };
+        for (var i = 0; i < analytics.methods.length; i++) {
+          var method = analytics.methods[i];
+          analytics[method] = analytics.factory(method);
+        }
+        analytics.load = function(writeKey, options) {
+          var script = document.createElement("script");
+          script.type = "text/javascript";
+          script.async = !0;
+          script.src = "https://your-cdn.com/analytics.js";
+          script.onload = function() {
+            window.analytics.init(writeKey, options);
+            // Replay queued calls
+            while (analytics.length > 0) {
+              var call = analytics.shift();
+              var method = call.shift();
+              if (window.analytics[method]) {
+                window.analytics[method].apply(window.analytics, call);
+              }
+            }
+          };
+          var first = document.getElementsByTagName("script")[0];
+          first.parentNode.insertBefore(script, first);
+        };
+      }
+    }
+  }();
+
+  // Initialize with your write key
+  analytics.load("YOUR_WRITE_KEY", {
+    apiEndpoint: "https://analytics.yourdomain.com/v1/capture"
+  });
+
+  // Track initial page view
+  analytics.page();
+</script>

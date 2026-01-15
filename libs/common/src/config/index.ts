@@ -1,0 +1,104 @@
+/**
+ * =============================================================================
+ * CONFIGURATION FACTORY FUNCTIONS
+ * =============================================================================
+ * 
+ * TYPE-SAFE CONFIGURATION IN NESTJS
+ * ---------------------------------
+ * NestJS provides a ConfigModule for loading environment variables.
+ * These factory functions provide type-safe configuration objects.
+ * 
+ * HOW IT WORKS:
+ * ------------
+ * 1. ConfigModule loads .env file and process.env
+ * 2. registerAs() creates a named configuration namespace
+ * 3. ConfigService.get('namespace.key') retrieves typed values
+ * 
+ * BENEFITS:
+ * --------
+ * - Type safety: You get autocomplete and type checking
+ * - Defaults: Provide fallback values if env vars are missing
+ * - Organization: Group related config together
+ * - Testing: Easy to mock configuration
+ * 
+ * USAGE:
+ * -----
+ * const port = configService.get<number>('app.collectorPort');
+ * const dbHost = configService.get<string>('database.host');
+ */
+
+
+
+import { registerAs } from '@nestjs/config';
+
+/**
+ * Validates that an environment variable is set.
+ * Throws an error if the value is missing or empty.
+ */
+function validate(key: string, defaultValue?: string): string {
+  const value = process.env[key] || defaultValue;
+  if (value === undefined) {
+    throw new Error(`Environment variable "${key}" is required but was not set.`);
+  }
+  return value;
+}
+
+/**
+ * Application configuration
+ * Accessed via: configService.get('app.xxx')
+ */
+export const appConfig = registerAs('app', () => ({
+  /** Current environment: 'development', 'production', 'test' */
+  nodeEnv: validate('NODE_ENV', 'development'),
+  
+  /** Port for the Collector API (default: 3000) */
+  collectorPort: parseInt(validate('COLLECTOR_PORT', '3000'), 10),
+  
+  /** Port for the Dashboard API (default: 3001) */
+  dashboardApiPort: parseInt(validate('DASHBOARD_API_PORT', '3001'), 10),
+}));
+
+/**
+ * Database (PostgreSQL) configuration
+ * Accessed via: configService.get('database.xxx')
+ */
+export const databaseConfig = registerAs('database', () => ({
+  /** Database host */
+  host: validate('DB_HOST'),
+  
+  /** Database port */
+  port: parseInt(validate('DB_PORT', '5432'), 10),
+  
+  /** Database username */
+  username: validate('DB_USERNAME'),
+  
+  /** Database password */
+  password: validate('DB_PASSWORD'),
+  
+  /** Database name */
+  database: validate('DB_DATABASE'),
+}));
+
+/**
+ * Redis configuration
+ * Accessed via: configService.get('redis.xxx')
+ */
+export const redisConfig = registerAs('redis', () => ({
+  /** Redis host */
+  host: validate('REDIS_HOST'),
+  
+  /** Redis port */
+  port: parseInt(validate('REDIS_PORT', '6379'), 10),
+}));
+
+/**
+ * Rate limiting configuration
+ * Accessed via: configService.get('rateLimit.xxx')
+ */
+export const rateLimitConfig = registerAs('rateLimit', () => ({
+  /** Time window in seconds (default: 60 = 1 minute) */
+  ttl: parseInt(validate('RATE_LIMIT_TTL', '60'), 10),
+  
+  /** Maximum requests per time window (default: 100) */
+  max: parseInt(validate('RATE_LIMIT_MAX', '100'), 10),
+}));

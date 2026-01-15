@@ -1,0 +1,280 @@
+{
+    "info": {
+        "_postman_id": "analytics-platform-collection",
+        "name": "Analytics Platform",
+        "description": "Collection for testing the Analytics Platform APIs (Collector and Dashboard).",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Collector API",
+            "item": [
+                {
+                    "name": "Health Check",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{collector_url}}/v1/health",
+                            "host": [
+                                "{{collector_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "health"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Track Event",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-write-key",
+                                "value": "{{write_key}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"type\": \"track\",\n    \"event\": \"button_clicked\",\n    \"userId\": \"user_123\",\n    \"anonymousId\": \"anon_456\",\n    \"properties\": {\n        \"button_id\": \"signup_btn\",\n        \"page\": \"landing\"\n    },\n    \"timestamp\": \"2024-01-01T12:00:00Z\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{collector_url}}/v1/capture",
+                            "host": [
+                                "{{collector_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "capture"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Identify User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-write-key",
+                                "value": "{{write_key}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"type\": \"identify\",\n    \"userId\": \"user_123\",\n    \"anonymousId\": \"anon_456\",\n    \"traits\": {\n        \"email\": \"user@example.com\",\n        \"name\": \"John Doe\"\n    },\n    \"timestamp\": \"2024-01-01T12:05:00Z\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{collector_url}}/v1/capture",
+                            "host": [
+                                "{{collector_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "capture"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Page View",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-write-key",
+                                "value": "{{write_key}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"type\": \"page\",\n    \"anonymousId\": \"anon_456\",\n    \"properties\": {\n        \"title\": \"Home Page\",\n        \"path\": \"/home\",\n        \"referrer\": \"https://google.com\"\n    },\n    \"context\": {\n        \"userAgent\": \"Mozilla/5.0...\",\n        \"locale\": \"en-US\"\n    },\n    \"timestamp\": \"2024-01-01T12:00:00Z\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{collector_url}}/v1/capture",
+                            "host": [
+                                "{{collector_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "capture"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Dashboard API",
+            "item": [
+                {
+                    "name": "Get Overview Stats",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{dashboard_url}}/api/dashboard/overview?projectId={{project_id}}&from=2024-01-01&to=2024-01-31",
+                            "host": [
+                                "{{dashboard_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "dashboard",
+                                "overview"
+                            ],
+                            "query": [
+                                {
+                                    "key": "projectId",
+                                    "value": "{{project_id}}"
+                                },
+                                {
+                                    "key": "from",
+                                    "value": "2024-01-01"
+                                },
+                                {
+                                    "key": "to",
+                                    "value": "2024-01-31"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Realtime Visitors",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{dashboard_url}}/api/dashboard/overview/realtime?projectId={{project_id}}",
+                            "host": [
+                                "{{dashboard_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "dashboard",
+                                "overview",
+                                "realtime"
+                            ],
+                            "query": [
+                                {
+                                    "key": "projectId",
+                                    "value": "{{project_id}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Sessions",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{dashboard_url}}/api/dashboard/sessions?projectId={{project_id}}&page=1&limit=10",
+                            "host": [
+                                "{{dashboard_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "dashboard",
+                                "sessions"
+                            ],
+                            "query": [
+                                {
+                                    "key": "projectId",
+                                    "value": "{{project_id}}"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{dashboard_url}}/api/dashboard/events?projectId={{project_id}}&limit=20",
+                            "host": [
+                                "{{dashboard_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "dashboard",
+                                "events"
+                            ],
+                            "query": [
+                                {
+                                    "key": "projectId",
+                                    "value": "{{project_id}}"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "collector_url",
+            "value": "http://localhost:3000",
+            "type": "string"
+        },
+        {
+            "key": "dashboard_url",
+            "value": "http://localhost:3001",
+            "type": "string"
+        },
+        {
+            "key": "write_key",
+            "value": "wk_123456789",
+            "type": "string"
+        },
+        {
+            "key": "project_id",
+            "value": "proj_123",
+            "type": "string"
+        }
+    ]
+}
