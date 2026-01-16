@@ -5,15 +5,15 @@ services:
     container_name: analytics-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: analytics
-      POSTGRES_PASSWORD: analytics_dev
-      POSTGRES_DB: analytics
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U analytics" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
     container_name: analytics-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
@@ -33,6 +33,93 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Collector API (event ingestion)
+  collector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: collector
+    container_name: analytics-collector
+    restart: unless-stopped
+    ports:
+      - "${COLLECTOR_PORT}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - COLLECTOR_PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RATE_LIMIT_TTL=${RATE_LIMIT_TTL}
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Processor Worker (queue consumer)
+  processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: processor
+    container_name: analytics-processor
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Dashboard API
+  dashboard-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dashboard-api
+    container_name: analytics-dashboard-api
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_API_PORT}:3001"
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - DASHBOARD_API_PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Dashboard UI (Next.js)
+  dashboard-ui:
+    build:
+      context: ./packages/dashboard-ui
+      dockerfile: Dockerfile
+    container_name: analytics-dashboard-ui
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_UI_PORT}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://dashboard-api:3001
+    depends_on:
+      - dashboard-api
 
 volumes:
   postgres_data:
