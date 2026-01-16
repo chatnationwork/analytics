@@ -52,10 +52,10 @@ export const appConfig = registerAs('app', () => ({
   nodeEnv: validate('NODE_ENV', 'development'),
   
   /** Port for the Collector API (default: 3000) */
-  collectorPort: parseInt(validate('COLLECTOR_PORT', '3000'), 10),
+  collectorPort: parseInt(validate('COLLECTOR_PORT'), 10),
   
   /** Port for the Dashboard API (default: 3001) */
-  dashboardApiPort: parseInt(validate('DASHBOARD_API_PORT', '3001'), 10),
+  dashboardApiPort: parseInt(validate('DASHBOARD_API_PORT'), 10),
 }));
 
 /**
@@ -67,7 +67,7 @@ export const databaseConfig = registerAs('database', () => ({
   host: validate('DB_HOST'),
   
   /** Database port */
-  port: parseInt(validate('DB_PORT', '5432'), 10),
+  port: parseInt(validate('DB_PORT'), 10),
   
   /** Database username */
   username: validate('DB_USERNAME'),
@@ -77,6 +77,9 @@ export const databaseConfig = registerAs('database', () => ({
   
   /** Database name */
   database: validate('DB_DATABASE'),
+
+  /** Auto-sync schema (Dangerous in prod, use with care) */
+  synchronize: process.env.DB_SYNCHRONIZE === 'true',
 }));
 
 /**
@@ -88,7 +91,7 @@ export const redisConfig = registerAs('redis', () => ({
   host: validate('REDIS_HOST'),
   
   /** Redis port */
-  port: parseInt(validate('REDIS_PORT', '6379'), 10),
+  port: parseInt(validate('REDIS_PORT'), 10),
 }));
 
 /**
@@ -97,8 +100,8 @@ export const redisConfig = registerAs('redis', () => ({
  */
 export const rateLimitConfig = registerAs('rateLimit', () => ({
   /** Time window in seconds (default: 60 = 1 minute) */
-  ttl: parseInt(validate('RATE_LIMIT_TTL', '60'), 10),
+  ttl: parseInt(validate('RATE_LIMIT_TTL'), 10),
   
   /** Maximum requests per time window (default: 100) */
-  max: parseInt(validate('RATE_LIMIT_MAX', '100'), 10),
+  max: parseInt(validate('RATE_LIMIT_MAX'), 10),
 }));

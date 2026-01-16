@@ -101,8 +101,8 @@ export class DatabaseModule {
             // All entities this connection can use
             entities,
             
-            // Auto-create tables (DEV ONLY - use migrations in production)
-            synchronize: configService.get('app.nodeEnv') === 'development',
+            // Auto-create tables (DEV ONLY or explicit override)
+            synchronize: configService.get('app.nodeEnv') === 'development' || configService.get('database.synchronize'),
             
             // Log SQL queries in development
             logging: ['error', 'warn'],
