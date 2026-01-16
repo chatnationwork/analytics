@@ -112,12 +112,14 @@ services:
     build:
       context: ./packages/dashboard-ui
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: analytics-dashboard-ui
     restart: unless-stopped
     ports:
       - "${DASHBOARD_UI_PORT}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://dashboard-api:3001
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     depends_on:
       - dashboard-api
 
