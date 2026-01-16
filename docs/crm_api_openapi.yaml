@@ -1,0 +1,898 @@
+openapi: 3.0.3
+info:
+  title: CRM API
+  description: |
+    API for managing contacts, custom fields, campaigns, and messages in the chatbot and automation platform.
+    
+    ## Authentication
+    All endpoints require an API key passed in the `API-KEY` header.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@yourdomain.com
+
+servers:
+  - url: https://api.yourdomain.com
+    description: Production server
+  - url: https://staging-api.yourdomain.com
+    description: Staging server
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Contact
+    description: Manage contacts/chats in the CRM
+  - name: Custom Field
+    description: Manage global custom fields
+  - name: Campaign
+    description: Manage marketing and messaging campaigns
+  - name: Messages
+    description: Retrieve message history
+
+paths:
+  /crm/chat:
+    get:
+      tags:
+        - Contact
+      summary: List Contacts
+      description: Retrieve a paginated list of all contacts
+      operationId: listContacts
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Contact
+      summary: Create Contact
+      description: Create a new contact with WhatsApp number, email, and custom fields
+      operationId: createContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+      responses:
+        '201':
+          description: Contact created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /crm/chat/search:
+    get:
+      tags:
+        - Contact
+      summary: Search Contact
+      description: Search for contacts using specific criteria
+      operationId: searchContact
+      parameters:
+        - name: search_field
+          in: query
+          required: true
+          description: Field to search (email, whatsapp_number, name)
+          schema:
+            type: string
+            enum: [email, whatsapp_number, name]
+        - name: search_value
+          in: query
+          required: true
+          description: Value to search for
+          schema:
+            type: string
+        - name: condition
+          in: query
+          required: true
+          description: Search condition
+          schema:
+            type: string
+            enum: [contains, equal to, starts with, ends with]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactSearchResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /crm/chat/{chat_id}:
+    delete:
+      tags:
+        - Contact
+      summary: Delete Contact
+      description: Remove a contact/chat from the system
+      operationId: deleteContact
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Contact deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /crm/chat/setting/{chat_id}/custom-field:
+    get:
+      tags:
+        - Contact
+      summary: List Custom Fields for Chat
+      description: Retrieve custom fields specific to a chat/contact
+      operationId: listChatCustomFields
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCustomFieldsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /crm/chat/setting/{chat_id}/operator/mark_as_done:
+    post:
+      tags:
+        - Contact
+      summary: Mark Chat as Done
+      description: Mark a conversation as completed
+      operationId: markChatAsDone
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkAsDoneRequest'
+      responses:
+        '200':
+          description: Chat marked as done
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /crm/chat/setting/{chat_id}/operator/assign_chat:
+    post:
+      tags:
+        - Contact
+      summary: Assign Chat
+      description: Assign a chat to an operator
+      operationId: assignChat
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignChatRequest'
+      responses:
+        '200':
+          description: Chat assigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignChatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /crm/chat/{chat_id}/messages:
+    get:
+      tags:
+        - Messages
+      summary: Get Messages
+      description: Retrieve message history for a specific chat
+      operationId: getMessages
+      parameters:
+        - $ref: '#/components/parameters/ChatId'
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Messages per page
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: sort
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [newest, oldest]
+            default: newest
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /crm/setting/custom-field:
+    get:
+      tags:
+        - Custom Field
+      summary: List All Custom Fields
+      description: Retrieve all globally defined custom fields
+      operationId: listCustomFields
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomFieldListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Custom Field
+      summary: Create Custom Field
+      description: Create a new global custom field
+      operationId: createCustomField
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomFieldRequest'
+      responses:
+        '201':
+          description: Custom field created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomFieldResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /crm/setting/custom-field/{custom_field_id}:
+    delete:
+      tags:
+        - Custom Field
+      summary: Delete Custom Field
+      description: Remove a custom field
+      operationId: deleteCustomField
+      parameters:
+        - $ref: '#/components/parameters/CustomFieldId'
+      responses:
+        '200':
+          description: Custom field deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /crm/campaign:
+    get:
+      tags:
+        - Campaign
+      summary: List All Campaigns
+      description: Retrieve all campaigns
+      operationId: listCampaigns
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Campaign
+      summary: Create Quick/Bulk Campaign
+      description: Create and schedule a campaign to send messages to multiple recipients
+      operationId: createCampaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCampaignRequest'
+      responses:
+        '201':
+          description: Campaign created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /crm/campaign/{campaign_id}/report:
+    get:
+      tags:
+        - Campaign
+      summary: Campaign Report
+      description: Get detailed metrics for a specific campaign
+      operationId: getCampaignReport
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignReportResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /crm/campaign/clone:
+    post:
+      tags:
+        - Campaign
+      summary: Create Campaign Clone
+      description: Clone an existing campaign to a new set of receivers
+      operationId: cloneCampaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloneCampaignRequest'
+      responses:
+        '201':
+          description: Campaign cloned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /crm/campaign/{campaign_id}/trigger:
+    post:
+      tags:
+        - Campaign
+      summary: Trigger Campaign
+      description: Manually trigger a created campaign to start sending
+      operationId: triggerCampaign
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      responses:
+        '200':
+          description: Campaign triggered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerCampaignResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: API-KEY
+      description: API key for authentication
+
+  parameters:
+    ChatId:
+      name: chat_id
+      in: path
+      required: true
+      description: The unique identifier of the chat
+      schema:
+        type: string
+
+    CampaignId:
+      name: campaign_id
+      in: path
+      required: true
+      description: The unique identifier of the campaign
+      schema:
+        type: string
+
+    CustomFieldId:
+      name: custom_field_id
+      in: path
+      required: true
+      description: The unique identifier of the custom field
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            developer_message: Invalid or missing API key
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            developer_message: Resource not found
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+  schemas:
+    # Common schemas
+    SuccessMessage:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Validation failed
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    # Contact schemas
+    Contact:
+      type: object
+      properties:
+        chat_id:
+          type: string
+        whatsapp_number:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    CreateContactRequest:
+      type: object
+      required:
+        - whatsapp_number
+      properties:
+        whatsapp_number:
+          type: string
+          example: "+254712345678"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        custom_fields:
+          type: object
+          additionalProperties:
+            type: string
+
+    ContactResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Contact'
+
+    ContactListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contact'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ContactSearchResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contact'
+
+    ChatCustomFieldsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              field_id:
+                type: string
+              field_name:
+                type: string
+              field_type:
+                type: string
+              value:
+                type: string
+
+    MarkAsDoneRequest:
+      type: object
+      properties:
+        metadata:
+          type: object
+          properties:
+            resolution_notes:
+              type: string
+
+    AssignChatRequest:
+      type: object
+      required:
+        - operator_email
+      properties:
+        operator_email:
+          type: string
+          format: email
+        pause_automation:
+          type: boolean
+          default: false
+
+    AssignChatResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            assigned_to:
+              type: string
+
+    # Custom Field schemas
+    CustomField:
+      type: object
+      properties:
+        custom_field_id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        required:
+          type: boolean
+
+    CreateCustomFieldRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          example: "department"
+        type:
+          type: string
+          example: "string"
+        required:
+          type: boolean
+          default: false
+        default_value:
+          type: string
+
+    CustomFieldResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/CustomField'
+
+    CustomFieldListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomField'
+
+    # Campaign schemas
+    Campaign:
+      type: object
+      properties:
+        campaign_id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [draft, scheduled, active, in_progress, completed, failed]
+        created_at:
+          type: string
+          format: date-time
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CampaignReceiver:
+      type: object
+      required:
+        - whatsapp_number
+      properties:
+        whatsapp_number:
+          type: string
+        variables:
+          type: object
+          additionalProperties:
+            type: string
+
+    CreateCampaignRequest:
+      type: object
+      required:
+        - name
+        - template_name
+        - receivers
+      properties:
+        name:
+          type: string
+          example: "Product Launch Announcement"
+        template_name:
+          type: string
+          example: "product_launch_v1"
+        template_language:
+          type: string
+          default: "en"
+        receivers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CampaignReceiver'
+        scheduled_at:
+          type: string
+          format: date-time
+
+    CloneCampaignRequest:
+      type: object
+      required:
+        - source_campaign_id
+        - new_name
+        - receivers
+      properties:
+        source_campaign_id:
+          type: string
+        new_name:
+          type: string
+        receivers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CampaignReceiver'
+
+    CampaignResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Campaign'
+
+    CampaignListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Campaign'
+        count:
+          type: integer
+        page:
+          type: integer
+        rows:
+          type: integer
+
+    CampaignReportResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            campaign_id:
+              type: string
+            name:
+              type: string
+            metrics:
+              type: object
+              properties:
+                total_recipients:
+                  type: integer
+                delivered:
+                  type: integer
+                read:
+                  type: integer
+                replied:
+                  type: integer
+                failed:
+                  type: integer
+            delivery_rate:
+              type: string
+            read_rate:
+              type: string
+            reply_rate:
+              type: string
+
+    TriggerCampaignResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            campaign_id:
+              type: string
+            status:
+              type: string
+
+    # Messages schemas
+    Message:
+      type: object
+      properties:
+        message_id:
+          type: string
+        type:
+          type: string
+          enum: [text, image, document, audio, video, template]
+        content:
+          type: string
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        status:
+          type: string
+          enum: [sent, delivered, read, received, failed]
+        timestamp:
+          type: string
+          format: date-time
+
+    MessagesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/Message'
+            pagination:
+              $ref: '#/components/schemas/Pagination'

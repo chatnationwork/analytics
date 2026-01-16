@@ -1,0 +1,655 @@
+{
+    "info": {
+        "_postman_id": "crm-api-collection-v1",
+        "name": "CRM APIs",
+        "description": "Collection of CRM APIs for managing contacts, custom fields, campaigns, and messages in the chatbot and automation platform.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "apikey",
+        "apikey": [
+            {
+                "key": "key",
+                "value": "API-KEY",
+                "type": "string"
+            },
+            {
+                "key": "value",
+                "value": "{{access_token}}",
+                "type": "string"
+            },
+            {
+                "key": "in",
+                "value": "header",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "crmapi_domain",
+            "value": "https://api.yourdomain.com",
+            "type": "string",
+            "description": "Base URL for the CRM API"
+        },
+        {
+            "key": "access_token",
+            "value": "",
+            "type": "string",
+            "description": "Your API access token"
+        },
+        {
+            "key": "chat_id",
+            "value": "",
+            "type": "string",
+            "description": "Chat/Contact unique identifier"
+        },
+        {
+            "key": "campaign_id",
+            "value": "",
+            "type": "string",
+            "description": "Campaign unique identifier"
+        },
+        {
+            "key": "custom_field_id",
+            "value": "",
+            "type": "string",
+            "description": "Custom field unique identifier"
+        }
+    ],
+    "item": [
+        {
+            "name": "Contact API",
+            "description": "Endpoints for managing contacts/chats in the CRM",
+            "item": [
+                {
+                    "name": "Create Contact",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"whatsapp_number\": \"+254712345678\",\n  \"email\": \"user@example.com\",\n  \"name\": \"John Doe\",\n  \"custom_fields\": {\n    \"company\": \"Acme Inc\",\n    \"role\": \"Developer\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/chat",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "chat"
+                            ]
+                        },
+                        "description": "Creates a new contact with WhatsApp number, email, and custom fields."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "originalRequest": {
+                                "method": "POST",
+                                "url": {
+                                    "raw": "{{crmapi_domain}}/crm/chat",
+                                    "host": [
+                                        "{{crmapi_domain}}"
+                                    ],
+                                    "path": [
+                                        "crm",
+                                        "chat"
+                                    ]
+                                }
+                            },
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": {\n    \"chat_id\": \"chat_abc123\",\n    \"whatsapp_number\": \"+254712345678\",\n    \"email\": \"user@example.com\",\n    \"name\": \"John Doe\",\n    \"created_at\": \"2026-01-16T08:00:00Z\"\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Search Contact",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/chat/search?search_field=email&search_value=user@example.com&condition=equal to",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "chat",
+                                "search"
+                            ],
+                            "query": [
+                                {
+                                    "key": "search_field",
+                                    "value": "email",
+                                    "description": "Field to search (email, whatsapp_number, name)"
+                                },
+                                {
+                                    "key": "search_value",
+                                    "value": "user@example.com",
+                                    "description": "Value to search for"
+                                },
+                                {
+                                    "key": "condition",
+                                    "value": "equal to",
+                                    "description": "Search condition: contains, equal to, starts with, ends with"
+                                }
+                            ]
+                        },
+                        "description": "Search for contacts using specific criteria."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"chat_id\": \"chat_abc123\",\n      \"whatsapp_number\": \"+254712345678\",\n      \"email\": \"user@example.com\",\n      \"name\": \"John Doe\"\n    }\n  ]\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Contacts",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/chat?page=1&limit=20",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "chat"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1",
+                                    "description": "Page number (default: 1)"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20",
+                                    "description": "Items per page (default: 20)"
+                                }
+                            ]
+                        },
+                        "description": "Retrieve a paginated list of all contacts."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"chat_id\": \"chat_abc123\",\n      \"whatsapp_number\": \"+254712345678\",\n      \"email\": \"user@example.com\",\n      \"name\": \"John Doe\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 150\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Custom Fields for Chat",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/chat/setting/{{chat_id}}/custom-field",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "chat",
+                                "setting",
+                                "{{chat_id}}",
+                                "custom-field"
+                            ]
+                        },
+                        "description": "Retrieve custom fields specific to a chat/contact."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"field_id\": \"field_123\",\n      \"field_name\": \"company\",\n      \"field_type\": \"string\",\n      \"value\": \"Acme Inc\"\n    }\n  ]\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Mark Chat as Done",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"metadata\": {\n    \"resolution_notes\": \"Issue resolved successfully\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/chat/setting/{{chat_id}}/operator/mark_as_done",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "chat",
+                                "setting",
+                                "{{chat_id}}",
+                                "operator",
+                                "mark_as_done"
+                            ]
+                        },
+                        "description": "Mark a conversation as completed."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Chat marked as done\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Assign Chat",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"operator_email\": \"agent@company.com\",\n  \"pause_automation\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/chat/setting/{{chat_id}}/operator/assign_chat",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "chat",
+                                "setting",
+                                "{{chat_id}}",
+                                "operator",
+                                "assign_chat"
+                            ]
+                        },
+                        "description": "Assign a chat to an operator."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Chat assigned successfully\",\n  \"data\": {\n    \"assigned_to\": \"agent@company.com\"\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Delete Contact",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/chat/{{chat_id}}",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "chat",
+                                "{{chat_id}}"
+                            ]
+                        },
+                        "description": "Remove a contact/chat from the system."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Contact deleted successfully\"\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Custom Field API",
+            "description": "Endpoints for managing global custom fields",
+            "item": [
+                {
+                    "name": "List All Custom Fields",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/setting/custom-field",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "setting",
+                                "custom-field"
+                            ]
+                        },
+                        "description": "Retrieve all globally defined custom fields."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"custom_field_id\": \"cf_001\",\n      \"name\": \"company\",\n      \"type\": \"string\",\n      \"required\": false\n    },\n    {\n      \"custom_field_id\": \"cf_002\",\n      \"name\": \"subscription_tier\",\n      \"type\": \"string\",\n      \"required\": true\n    }\n  ]\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Create Custom Field",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"department\",\n  \"type\": \"string\",\n  \"required\": false,\n  \"default_value\": \"\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/setting/custom-field",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "setting",
+                                "custom-field"
+                            ]
+                        },
+                        "description": "Create a new global custom field."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": {\n    \"custom_field_id\": \"cf_003\",\n    \"name\": \"department\",\n    \"type\": \"string\"\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Delete Custom Field",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/setting/custom-field/{{custom_field_id}}",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "setting",
+                                "custom-field",
+                                "{{custom_field_id}}"
+                            ]
+                        },
+                        "description": "Remove a custom field."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Custom field deleted successfully\"\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Campaign API",
+            "description": "Endpoints for managing marketing and messaging campaigns",
+            "item": [
+                {
+                    "name": "List All Campaigns",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/campaign",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "campaign"
+                            ]
+                        },
+                        "description": "Retrieve all campaigns."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"campaign_id\": \"camp_001\",\n      \"name\": \"Welcome Series\",\n      \"status\": \"active\",\n      \"created_at\": \"2026-01-10T09:00:00Z\",\n      \"scheduled_at\": null\n    }\n  ],\n  \"count\": 1,\n  \"page\": 1,\n  \"rows\": 20\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Campaign Report",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/campaign/{{campaign_id}}/report",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "campaign",
+                                "{{campaign_id}}",
+                                "report"
+                            ]
+                        },
+                        "description": "Get detailed metrics for a specific campaign."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"campaign_id\": \"camp_001\",\n  \"name\": \"Welcome Series\",\n  \"metrics\": {\n    \"total_recipients\": 1000,\n    \"delivered\": 980,\n    \"read\": 750,\n    \"replied\": 120,\n    \"failed\": 20\n  },\n  \"delivery_rate\": \"98%\",\n  \"read_rate\": \"76.5%\",\n  \"reply_rate\": \"12.2%\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Create Quick/Bulk Campaign",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Product Launch Announcement\",\n  \"template_name\": \"product_launch_v1\",\n  \"template_language\": \"en\",\n  \"receivers\": [\n    {\n      \"whatsapp_number\": \"+254712345678\",\n      \"variables\": {\n        \"1\": \"John\",\n        \"2\": \"Product X\"\n      }\n    },\n    {\n      \"whatsapp_number\": \"+254798765432\",\n      \"variables\": {\n        \"1\": \"Jane\",\n        \"2\": \"Product X\"\n      }\n    }\n  ],\n  \"scheduled_at\": \"2026-01-20T10:00:00Z\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/campaign",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "campaign"
+                            ]
+                        },
+                        "description": "Create and schedule a campaign to send messages to multiple recipients."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": {\n    \"campaign_id\": \"camp_002\",\n    \"name\": \"Product Launch Announcement\",\n    \"status\": \"scheduled\",\n    \"scheduled_at\": \"2026-01-20T10:00:00Z\",\n    \"total_recipients\": 2\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Create Campaign Clone",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"source_campaign_id\": \"camp_001\",\n  \"new_name\": \"Welcome Series - Batch 2\",\n  \"receivers\": [\n    {\n      \"whatsapp_number\": \"+254711111111\",\n      \"variables\": {\n        \"1\": \"Alice\"\n      }\n    }\n  ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/campaign/clone",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "campaign",
+                                "clone"
+                            ]
+                        },
+                        "description": "Clone an existing campaign to a new set of receivers."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": {\n    \"campaign_id\": \"camp_003\",\n    \"name\": \"Welcome Series - Batch 2\",\n    \"status\": \"draft\"\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Trigger Campaign",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/campaign/{{campaign_id}}/trigger",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "campaign",
+                                "{{campaign_id}}",
+                                "trigger"
+                            ]
+                        },
+                        "description": "Manually trigger a created campaign to start sending."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Campaign triggered successfully\",\n  \"data\": {\n    \"campaign_id\": \"camp_002\",\n    \"status\": \"in_progress\"\n  }\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Messages API",
+            "description": "Endpoints for retrieving message history",
+            "item": [
+                {
+                    "name": "Get Messages",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{crmapi_domain}}/crm/chat/{{chat_id}}/messages?page=1&limit=50&sort=newest",
+                            "host": [
+                                "{{crmapi_domain}}"
+                            ],
+                            "path": [
+                                "crm",
+                                "chat",
+                                "{{chat_id}}",
+                                "messages"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1",
+                                    "description": "Page number (default: 1)"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "50",
+                                    "description": "Messages per page (default: 50)"
+                                },
+                                {
+                                    "key": "sort",
+                                    "value": "newest",
+                                    "description": "Sort order: newest or oldest (default: newest)"
+                                }
+                            ]
+                        },
+                        "description": "Retrieve message history for a specific chat."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"data\": {\n    \"messages\": [\n      {\n        \"message_id\": \"msg_001\",\n        \"type\": \"text\",\n        \"content\": \"Hello, how can I help you?\",\n        \"direction\": \"outbound\",\n        \"status\": \"delivered\",\n        \"timestamp\": \"2026-01-16T08:30:00Z\"\n      },\n      {\n        \"message_id\": \"msg_002\",\n        \"type\": \"text\",\n        \"content\": \"I need help with my order\",\n        \"direction\": \"inbound\",\n        \"status\": \"received\",\n        \"timestamp\": \"2026-01-16T08:31:00Z\"\n      }\n    ],\n    \"pagination\": {\n      \"page\": 1,\n      \"limit\": 50,\n      \"total\": 45\n    }\n  }\n}"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

@@ -247,7 +247,218 @@ it('links anonymous to identified user', async () => {
 
 ---
 
-## 6. Validation Checklist
+## 6. CRM API Integration Tests
+
+The CRM API provides essential data for understanding user interactions through WhatsApp channels. These tests verify API connectivity and data retrieval for analytics integration.
+
+### 6.1 Test Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  CRM API Test Suite                      │
+├─────────────────────────────────────────────────────────┤
+│  Contact API     │ CRUD operations, search, assignment  │
+│  Custom Field    │ Field management, value retrieval    │
+│  Campaign API    │ Campaign lifecycle, reporting        │
+│  Messages API    │ Conversation history retrieval       │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Contact API Tests
+
+| Test Case | Description | Expected Result |
+|-----------|-------------|-----------------|
+| List Contacts | Retrieve paginated contacts | 200 with contacts array |
+| Search by Phone | Find contact by WhatsApp number | Matching contact returned |
+| Search by Email | Find contact by email | Matching contact returned |
+| Create Contact | Add new contact with custom fields | 201 with chat_id |
+| Get Custom Fields | Retrieve contact's custom field values | Array of field values |
+| Assign Chat | Assign chat to operator | Success confirmation |
+| Mark as Done | Close conversation | Success confirmation |
+| Delete Contact | Remove contact | 200 success |
+
+```typescript
+describe('Contact API Integration', () => {
+  it('should list contacts with pagination', async () => {
+    const response = await crmClient.listContacts({ page: 1, limit: 10 });
+    
+    expect(response.success).toBe(true);
+    expect(response.data.contacts).toBeInstanceOf(Array);
+    expect(response.data.pagination).toMatchObject({
+      page: 1,
+      limit: 10,
+      total: expect.any(Number)
+    });
+  });
+
+  it('should search contacts by WhatsApp number', async () => {
+    const response = await crmClient.searchContact({
+      search_field: 'whatsapp_number',
+      search_value: '+254712345678',
+      condition: 'equal to'
+    });
+    
+    expect(response.success).toBe(true);
+    expect(response.data).toBeInstanceOf(Array);
+  });
+
+  it('should create and delete a contact', async () => {
+    // Create
+    const createRes = await crmClient.createContact({
+      whatsapp_number: '+254700000001',
+      name: 'Test User',
+      email: 'test@example.com'
+    });
+    
+    expect(createRes.success).toBe(true);
+    const chatId = createRes.data.chat_id;
+    
+    // Cleanup
+    const deleteRes = await crmClient.deleteContact(chatId);
+    expect(deleteRes.success).toBe(true);
+  });
+});
+```
+
+### 6.3 Custom Field API Tests
+
+| Test Case | Description | Expected Result |
+|-----------|-------------|-----------------|
+| List Custom Fields | Get all defined fields | Array of field definitions |
+| Create Custom Field | Add new field type | Field with ID returned |
+| Delete Custom Field | Remove field definition | Success confirmation |
+
+```typescript
+describe('Custom Field API Integration', () => {
+  it('should list all custom fields', async () => {
+    const response = await crmClient.listCustomFields();
+    
+    expect(response.success).toBe(true);
+    expect(response.data).toBeInstanceOf(Array);
+    response.data.forEach(field => {
+      expect(field).toMatchObject({
+        custom_field_id: expect.any(String),
+        name: expect.any(String),
+        type: expect.any(String)
+      });
+    });
+  });
+});
+```
+
+### 6.4 Campaign API Tests
+
+| Test Case | Description | Expected Result |
+|-----------|-------------|-----------------|
+| List Campaigns | Get all campaigns | Array of campaigns |
+| Get Report | Campaign delivery metrics | Metrics object with rates |
+| Create Campaign | Schedule new campaign | Campaign with ID |
+| Clone Campaign | Duplicate to new receivers | New campaign ID |
+| Trigger Campaign | Start campaign delivery | Status: in_progress |
+
+```typescript
+describe('Campaign API Integration', () => {
+  it('should list all campaigns', async () => {
+    const response = await crmClient.listCampaigns();
+    
+    expect(response.success).toBe(true);
+    expect(response.data).toBeInstanceOf(Array);
+  });
+
+  it('should get campaign report with metrics', async () => {
+    const campaigns = await crmClient.listCampaigns();
+    if (campaigns.data.length === 0) return; // Skip if no campaigns
+    
+    const campaignId = campaigns.data[0].campaign_id;
+    const report = await crmClient.getCampaignReport(campaignId);
+    
+    expect(report.success).toBe(true);
+    expect(report.data.metrics).toMatchObject({
+      total_recipients: expect.any(Number),
+      delivered: expect.any(Number),
+      read: expect.any(Number),
+      replied: expect.any(Number),
+      failed: expect.any(Number)
+    });
+  });
+});
+```
+
+### 6.5 Messages API Tests
+
+| Test Case | Description | Expected Result |
+|-----------|-------------|-----------------|
+| Get Messages | Retrieve chat history | Paginated messages array |
+| Sort Newest | Messages in descending order | Latest message first |
+| Sort Oldest | Messages in ascending order | Earliest message first |
+
+```typescript
+describe('Messages API Integration', () => {
+  it('should retrieve message history', async () => {
+    const contacts = await crmClient.listContacts({ limit: 1 });
+    if (contacts.data.contacts.length === 0) return; // Skip if no contacts
+    
+    const chatId = contacts.data.contacts[0].chat_id;
+    const messages = await crmClient.getMessages(chatId, {
+      page: 1,
+      limit: 20,
+      sort: 'newest'
+    });
+    
+    expect(messages.success).toBe(true);
+    expect(messages.data.messages).toBeInstanceOf(Array);
+    messages.data.messages.forEach(msg => {
+      expect(msg).toMatchObject({
+        message_id: expect.any(String),
+        type: expect.any(String),
+        content: expect.any(String),
+        direction: expect.stringMatching(/^(inbound|outbound)$/),
+        timestamp: expect.any(String)
+      });
+    });
+  });
+});
+```
+
+### 6.6 Running CRM API Tests
+
+```bash
+# Set environment variables
+export CRM_API_URL=https://api.yourdomain.com
+export CRM_API_KEY=your-api-key
+
+# Run all CRM tests
+npm test -- --testPathPattern="crm-api"
+
+# Run specific test suite
+npm test -- --testPathPattern="crm-api" --testNamePattern="Contact"
+```
+
+### 6.7 CRM API Test Data
+
+| Test Resource | Purpose |
+|---------------|---------|
+| Test Contact | `+254700000001` - disposable test contact |
+| Test Campaign | Created/deleted during test run |
+| Test Custom Field | `test_field_*` prefix for cleanup |
+
+**Cleanup Query**:
+```typescript
+// After test suite
+await crmClient.searchContact({
+  search_field: 'whatsapp_number',
+  search_value: '+254700',
+  condition: 'starts with'
+}).then(async (res) => {
+  for (const contact of res.data) {
+    await crmClient.deleteContact(contact.chat_id);
+  }
+});
+```
+
+---
+
+## 7. Validation Checklist
 
 ### Pre-Launch Verification
 
