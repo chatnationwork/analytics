@@ -79,6 +79,10 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - COLLECTOR_PORT=3000
+      - DASHBOARD_API_PORT=3001
+      - RATE_LIMIT_TTL=${RATE_LIMIT_TTL:-60}
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,6 +107,11 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_DATABASE=${DB_DATABASE}
+      - COLLECTOR_PORT=3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RATE_LIMIT_TTL=${RATE_LIMIT_TTL:-60}
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
     depends_on:
       postgres:
         condition: service_healthy
