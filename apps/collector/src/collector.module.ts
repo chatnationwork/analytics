@@ -22,6 +22,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { appConfig, databaseConfig, redisConfig, rateLimitConfig } from '@lib/common';
 import { QueueModule } from '@lib/queue';
+import { DatabaseModule } from '@lib/database';
 import { CaptureModule } from './capture/capture.module';
 import { HealthModule } from './health/health.module';
 
@@ -67,6 +68,9 @@ import { HealthModule } from './health/health.module';
      * The Processor app uses .forConsumer() because it only RECEIVES events.
      */
     QueueModule.forProducer(),
+    
+    // Database connection
+    DatabaseModule.forRoot(),
 
     // Feature modules
     CaptureModule, // POST /v1/capture - Receive events from SDKs

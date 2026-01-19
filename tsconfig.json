@@ -41,6 +41,12 @@
             ],
             "@lib/events/*": [
                 "libs/events/src/*"
+            ],
+            "@lib/crm-api": [
+                "libs/crm-api"
+            ],
+            "@lib/crm-api/*": [
+                "libs/crm-api/*"
             ]
         }
     },

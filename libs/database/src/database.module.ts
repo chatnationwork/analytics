@@ -38,21 +38,53 @@ import { EventEntity } from './entities/event.entity';
 import { SessionEntity } from './entities/session.entity';
 import { IdentityEntity } from './entities/identity.entity';
 import { ProjectEntity } from './entities/project.entity';
+import { UserEntity } from './entities/user.entity';
+import { TenantEntity } from './entities/tenant.entity';
+import { TenantMembershipEntity } from './entities/tenant-membership.entity';
+import { CrmIntegrationEntity } from './entities/crm-integration.entity';
+import { ApiKeyEntity } from './entities/api-key.entity';
+import { InvitationEntity } from './entities/invitation.entity';
 import { EventRepository } from './repositories/event.repository';
 import { SessionRepository } from './repositories/session.repository';
 import { ProjectRepository } from './repositories/project.repository';
+
+import { UserRepository } from './repositories/user.repository';
+import { TenantRepository } from './repositories/tenant.repository';
+import { CrmIntegrationRepository } from './repositories/crm-integration.repository';
+import { ApiKeyRepository } from './repositories/api-key.repository';
 
 /**
  * All entities that map to database tables.
  * TypeORM needs to know about these to create tables and run queries.
  */
-const entities = [EventEntity, SessionEntity, IdentityEntity, ProjectEntity];
+const entities = [
+  EventEntity,
+  SessionEntity,
+  IdentityEntity,
+  ProjectEntity,
+  UserEntity,
+  TenantEntity,
+  TenantMembershipEntity,
+  CrmIntegrationEntity,
+  ApiKeyEntity,
+  InvitationEntity,
+];
+
 
 /**
  * Custom repository classes that wrap TypeORM repositories.
  * These add our custom query methods.
  */
-const repositories = [EventRepository, SessionRepository, ProjectRepository];
+const repositories = [
+  EventRepository,
+  SessionRepository,
+  ProjectRepository,
+  UserRepository,
+  TenantRepository,
+  CrmIntegrationRepository,
+  ApiKeyRepository,
+];
+
 
 /**
  * Database module that provides TypeORM integration.

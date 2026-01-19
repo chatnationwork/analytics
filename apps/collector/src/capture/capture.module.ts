@@ -20,48 +20,21 @@
  */
 
 import { Module } from '@nestjs/common';
+import { DatabaseModule } from '@lib/database';
+import { PROJECT_SERVICE } from '@lib/common';
 import { CaptureController } from './capture.controller';
 import { CaptureService } from './capture.service';
-import { PROJECT_SERVICE } from '@lib/common';
-
-/**
- * Mock Project Service
- * --------------------
- * Temporary implementation for MVP/testing.
- * Validates write keys without hitting the database.
- * 
- * In production, replace this with:
- * - Import DatabaseModule.forFeature()
- * - Use { provide: PROJECT_SERVICE, useClass: ProjectRepository }
- */
-const MockProjectService = {
-  provide: PROJECT_SERVICE, // The "token" that identifies this provider
-  useValue: {
-    /**
-     * Find a project by its write key.
-     * 
-     * MVP Implementation: Accept any key longer than 10 characters
-     * Production: Query database for actual project
-     * 
-     * @param writeKey - The write key from the SDK
-     * @returns Project object if valid, null if not
-     */
-    async findByWriteKey(writeKey: string) {
-      if (writeKey && writeKey.length > 10) {
-        return {
-          projectId: 'default-project',
-          tenantId: 'default-tenant',
-          writeKey,
-          allowedOrigins: ['*'], // Allow all origins for MVP
-        };
-      }
-      return null;
-    },
-  },
-};
+import { ProjectService } from './project.service';
 
 @Module({
+  imports: [DatabaseModule.forFeature()],
   controllers: [CaptureController],
-  providers: [CaptureService, MockProjectService],
+  providers: [
+    CaptureService,
+    {
+      provide: PROJECT_SERVICE,
+      useClass: ProjectService,
+    },
+  ],
 })
 export class CaptureModule {}

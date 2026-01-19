@@ -105,3 +105,18 @@ export const rateLimitConfig = registerAs('rateLimit', () => ({
   /** Maximum requests per time window (default: 100) */
   max: parseInt(validate('RATE_LIMIT_MAX'), 10),
 }));
+
+/**
+ * Authentication configuration
+ * Accessed via: configService.get('auth.xxx')
+ */
+export const authConfig = registerAs('auth', () => ({
+  /** Secret key for JWT signing */
+  jwtSecret: process.env.JWT_SECRET || 'analytics-jwt-secret-dev',
+  
+  /** Token expiry (default: 7 days) */
+  jwtExpiry: process.env.JWT_EXPIRY || '7d',
+  
+  /** Encryption key for CRM API keys (32 bytes = 64 hex chars) */
+  encryptionKey: process.env.ENCRYPTION_KEY || '0'.repeat(64),
+}));

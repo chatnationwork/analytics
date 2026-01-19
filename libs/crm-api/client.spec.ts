@@ -114,7 +114,6 @@ describe('CrmApi', () => {
       it('should list contacts with pagination', async () => {
         const mockResponse = {
           success: true,
-          success: true,
           data: [],
           pagination: { page: 1, limit: 20, total: 0 },
         };

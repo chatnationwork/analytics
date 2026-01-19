@@ -46,6 +46,9 @@ This document outlines the data available from the CRM API and how it can be lev
 ## 2. Key Metrics & KPIs
 
 ### 2.1 Contact & Growth Metrics
+> **API Availability Status:**
+> *   ✅ **Total Contacts:** Available `listContacts().total`
+> *   ⚠️ **Growth Rate:** Not Available (API lacks `created_at` filtering/history)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -53,8 +56,7 @@ This document outlines the data available from the CRM API and how it can be lev
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │ Total       │  │ New This    │  │ Growth Rate         │  │
-│  │ Contacts    │  │ Month       │  │ (MoM %)             │  │
-│  │ 12,450      │  │ 1,234       │  │ +15.2%              │  │
+│  │ Contacts    │  │ N/A         │  │ N/A                 │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
@@ -72,13 +74,14 @@ This document outlines the data available from the CRM API and how it can be lev
 ```
 
 **Metrics:**
-- **Total Contacts**: Overall CRM size
-- **New Contacts (Daily/Weekly/Monthly)**: Growth velocity
-- **Contact Growth Rate**: Period-over-period comparison
-- **Churn Rate**: Contacts marked inactive or deleted
-- **Source Distribution**: Where contacts are coming from (via custom fields)
+- **Total Contacts**: ✅ Overall CRM size
+- **New Contacts**: ⚠️ Requires local database sync to track history
+- **Contact Growth Rate**: ⚠️ Requires period-over-period snapshots
+- **Source Distribution**: ✅ Available via Custom Fields
 
 ### 2.2 Campaign Performance Metrics
+> **API Availability Status:**
+> *   ✅ **All Metrics:** Fully supported via `getCampaignReport()`
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -103,13 +106,15 @@ This document outlines the data available from the CRM API and how it can be lev
 ```
 
 **Metrics:**
-- **Delivery Rate**: (Delivered / Total Sent) × 100
-- **Read Rate**: (Read / Delivered) × 100
-- **Reply Rate**: (Replied / Delivered) × 100
-- **Failure Rate**: (Failed / Total Sent) × 100
-- **Campaign ROI**: Revenue attributed / Campaign cost
+- **Delivery Rate**: ✅ (Delivered / Total Sent) × 100
+- **Read Rate**: ✅ (Read / Delivered) × 100
+- **Reply Rate**: ✅ (Replied / Delivered) × 100
+- **Campaign ROI**: ⚠️ Requires external revenue data mapping
 
 ### 2.3 Engagement & Response Metrics
+> **API Availability Status:**
+> *   ⚠️ **Response Time:** Not Available (Requires full chat crawling)
+> *   ⚠️ **Volume Trends:** Estimated/Proxy only (Based on Campaign activity)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -138,11 +143,11 @@ This document outlines the data available from the CRM API and how it can be lev
 ```
 
 **Metrics:**
-- **Average Response Time**: Time between customer message and agent reply
-- **First Response Time**: Initial response to new conversations
+- **Average Response Time**: ⚠️ Requires analysing message timestamps (Rate Limit risk)
+- **First Response Time**: ⚠️ Requires full conversation history sync
 - **Messages per Conversation**: Conversation length
-- **Inbound/Outbound Ratio**: Customer-initiated vs business-initiated
-- **Peak Hours**: When users are most active
+- **Inbound/Outbound Ratio**: ⚠️ Partial (Campaigns track outbound, but inbound requires sync)
+- **Peak Hours**: ⚠️ Requires message history aggregation
 
 ---
 

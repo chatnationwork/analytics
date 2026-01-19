@@ -45,6 +45,7 @@ export interface Contact {
   whatsapp_number: string;
   email?: string;
   name?: string;
+  status?: string;
   created_at: string;
 }
 
@@ -199,6 +200,11 @@ export type CampaignListResponse = {
   message?: string;
 } | ErrorResponse;
 
+export interface ListCampaignsParams {
+  page?: number;
+  limit?: number;
+}
+
 export type CampaignReportData = {
   campaign_id: string;
   name: string;
@@ -279,7 +285,7 @@ export interface CrmApiClient {
   deleteCustomField(customFieldId: string): Promise<SuccessResponse>;
 
   // Campaign API
-  listCampaigns(): Promise<CampaignListResponse>;
+  listCampaigns(params?: ListCampaignsParams): Promise<CampaignListResponse>;
   getCampaignReport(campaignId: string): Promise<CampaignReportResponse>;
   createCampaign(data: CreateCampaignRequest): Promise<CampaignResponse>;
   cloneCampaign(data: CloneCampaignRequest): Promise<CampaignResponse>;

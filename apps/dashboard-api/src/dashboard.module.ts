@@ -28,12 +28,17 @@
 
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { appConfig, databaseConfig } from '@lib/common';
+import { appConfig, databaseConfig, authConfig } from '@lib/common';
 import { DatabaseModule } from '@lib/database';
 import { OverviewModule } from './overview/overview.module';
 import { FunnelModule } from './funnel/funnel.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { EventsModule } from './events/events.module';
+import { AuthModule } from './auth/auth.module';
+import { CrmIntegrationsModule } from './crm-integrations/crm-integrations.module';
+import { TenantsModule } from './tenants/tenants.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 /**
  * @Module() - Root module decorator
@@ -59,8 +64,9 @@ import { EventsModule } from './events/events.module';
      */
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig],
+      load: [appConfig, databaseConfig, authConfig],
     }),
+
 
     /**
      * DatabaseModule.forRoot()
@@ -76,10 +82,15 @@ import { EventsModule } from './events/events.module';
     DatabaseModule.forRoot(),
 
     // Feature modules - each handles a specific part of the API
-    OverviewModule,  // GET /api/dashboard/overview
-    FunnelModule,    // GET /api/dashboard/funnel
-    SessionsModule,  // GET /api/dashboard/sessions
-    EventsModule,    // GET /api/dashboard/events
+    AuthModule,              // POST /api/dashboard/auth/* (signup, login)
+    TenantsModule,           // GET /api/dashboard/tenants/*
+    ApiKeysModule,           // /api/dashboard/api-keys/*
+    CrmIntegrationsModule,   // /api/dashboard/crm-integrations/*
+    OverviewModule,          // GET /api/dashboard/overview
+    FunnelModule,            // GET /api/dashboard/funnel
+    SessionsModule,          // GET /api/dashboard/sessions
+    EventsModule,            // GET /api/dashboard/events
+    WhatsappModule,
   ],
 })
 export class DashboardModule {}

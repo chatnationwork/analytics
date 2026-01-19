@@ -27,3 +27,7 @@
 export * from './event.repository';
 export * from './session.repository';
 export * from './project.repository';
+export * from './user.repository';
+export * from './tenant.repository';
+export * from './crm-integration.repository';
+export * from './api-key.repository';

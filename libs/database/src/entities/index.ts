@@ -27,3 +27,8 @@ export * from './event.entity';
 export * from './session.entity';
 export * from './identity.entity';
 export * from './project.entity';
+export * from './user.entity';
+export * from './tenant.entity';
+export * from './tenant-membership.entity';
+export * from './crm-integration.entity';
+export * from './api-key.entity';

@@ -29,6 +29,7 @@ import {
   MessagesResponse,
   GetMessagesParams,
   ErrorResponse,
+  ListCampaignsParams,
 } from './types';
 
 export class CrmApiError extends Error {
@@ -215,8 +216,13 @@ export class CrmApi implements CrmApiClient {
   // Campaign API
   // ==========================================
 
-  async listCampaigns(): Promise<CampaignListResponse> {
-    return this.request<CampaignListResponse>('GET', '/crm/campaign');
+  async listCampaigns(params: ListCampaignsParams = {}): Promise<CampaignListResponse> {
+    return this.request<CampaignListResponse>('GET', '/crm/campaign', {
+      params: {
+        page: params.page,
+        limit: params.limit,
+      },
+    });
   }
 
   async getCampaignReport(campaignId: string): Promise<CampaignReportResponse> {
