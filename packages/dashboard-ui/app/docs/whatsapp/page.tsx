@@ -43,6 +43,23 @@ export default function WhatsAppDocsPage() {
         </div>
       </section>
 
+      {/* Authentication */}
+      <section className="mb-10">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Authentication</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <p className="mb-4 text-gray-600 dark:text-gray-400">
+            You must include your <strong>Write Key</strong> in the request header to authenticate your events.
+            This ensures the data is assigned to the correct project.
+          </p>
+          <div className="bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm">
+            X-Write-Key: your_write_key_here
+          </div>
+          <p className="mt-4 text-sm text-gray-500">
+            You can find your Write Key in the <Link href="/settings/api-keys" className="text-blue-500 hover:underline">API Keys</Link> section.
+          </p>
+        </div>
+      </section>
+
       {/* Base Payload */}
       <section className="mb-10">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Base Payload Structure</h2>
