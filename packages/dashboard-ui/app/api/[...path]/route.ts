@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const BACKEND_URL = process.env.SERVER_API_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.SERVER_API_URL;
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;

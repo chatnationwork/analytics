@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Menu, X, LogOut, User } from 'lucide-react';
+import { logoutAction } from '@/app/(auth)/login/actions';
 import { authClient } from '@/lib/auth-client';
 
 const navItems = [
@@ -21,8 +22,11 @@ export function TopNav() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    authClient.logout();
+  const handleLogout = async () => {
+    // Clear localStorage token
+    localStorage.removeItem('accessToken');
+    // Clear HTTP-only cookie via server action (this also redirects)
+    await logoutAction();
   };
 
   return (
