@@ -115,6 +115,7 @@ services:
       - REDIS_PORT=6379
       - RATE_LIMIT_TTL=${RATE_LIMIT_TTL:-60}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
+      - JWT_SECRET=${JWT_SECRET:-analytics-jwt-secret-dev}
     depends_on:
       postgres:
         condition: service_healthy
