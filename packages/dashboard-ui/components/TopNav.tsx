@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Menu, X, LogOut, User } from 'lucide-react';
+import { authClient } from '@/lib/auth-client';
 
 const navItems = [
   { href: '/overview', label: 'Overview' },
@@ -21,8 +22,7 @@ export function TopNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
-    document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    window.location.href = '/login';
+    authClient.logout();
   };
 
   return (
