@@ -47,7 +47,11 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
       ...options.headers,
     },
   });
-  if (!res.ok) throw new Error(`Failed to fetch ${url}`);
+  if (!res.ok) {
+    // Try to get error message from response
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || `Failed to fetch ${url}`);
+  }
   const json = await res.json();
   return json.data;
 }
