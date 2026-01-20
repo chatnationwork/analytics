@@ -4,24 +4,22 @@ import { useState, useEffect } from 'react';
 import { CrmSettings } from '@/components/settings/CrmSettings';
 import { ApiKeySettings } from '@/components/settings/ApiKeySettings';
 import { TeamManagement } from '@/components/settings/team-management';
+import { fetchWithAuth } from '@/lib/api';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'api-keys' | 'crm' | 'team'>('api-keys');
   const [tenantId, setTenantId] = useState<string>('');
   
   useEffect(() => {
-      fetch('/api/dashboard/tenants/current')
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then(response => {
-          const tenantData = response.data || response;
+      fetchWithAuth('/tenants/current')
+        .then(tenantData => {
           if (tenantData?.tenantId) {
             setTenantId(tenantData.tenantId);
+          } else {
+            console.error('Tenant response missing tenantId:', tenantData);
           }
         })
-        .catch(err => console.error('Failed to fetch tenant:', err));
+        .catch(err => console.error('Failed to fetch tenant:', err.message));
   }, []);
 
   const tabs = [

@@ -11,6 +11,7 @@ import { Plus, Mail, Trash2, Check, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { fetchWithAuth } from '@/lib/api';
 
 interface Member {
   userId: string;
@@ -40,8 +41,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
   // Fetch members (doesn't need tenantId)
   const fetchMembers = async () => {
     try {
-      const res = await fetch('/api/dashboard/tenants/current/members');
-      const data = await res.json();
+      const data = await fetchWithAuth('/tenants/current/members');
       setMembers(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('Failed to fetch members', e);
@@ -55,11 +55,8 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
   const fetchInvitations = async () => {
     if (!tenantId) return;
     try {
-      const res = await fetch(`/api/dashboard/tenants/${tenantId}/invitations`);
-      const response = await res.json();
-      console.log('Invitations response:', response);
-      // Handle wrapped or direct response
-      const data = response.data || response;
+      const data = await fetchWithAuth(`/tenants/${tenantId}/invitations`);
+      console.log('Invitations response:', data);
       setInvitations(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('Failed to fetch invitations', e);
@@ -85,21 +82,18 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
     }
 
     try {
-      const res = await fetch(`/api/dashboard/tenants/${tenantId}/invitations`, {
+      await fetchWithAuth(`/tenants/${tenantId}/invitations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
-      
-      if (!res.ok) throw new Error('Failed to send invitation');
 
       toast.success('Invitation created!');
       setInviteEmail('');
       setIsInviteOpen(false);
       fetchMembers();
       fetchInvitations();
-    } catch (e) {
-      toast.error('Could not create invitation');
+    } catch (e: any) {
+      toast.error(e.message || 'Could not create invitation');
     }
   };
 
@@ -114,7 +108,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
       if (!confirm('Are you sure you want to revoke this invitation?')) return;
       
       try {
-          await fetch(`/api/dashboard/tenants/${tenantId}/invitations/${id}`, { method: 'DELETE' });
+          await fetchWithAuth(`/tenants/${tenantId}/invitations/${id}`, { method: 'DELETE' });
           toast.success('Invitation revoked');
           fetchInvitations();
       } catch(e) {
