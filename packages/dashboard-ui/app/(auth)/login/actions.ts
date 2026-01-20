@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 // SERVER_API_URL for server-side calls (e.g., http://dashboard-api:3001 in Docker)
-const API_URL = process.env.SERVER_API_URL || 'http://localhost:3001';
+const API_URL = process.env.SERVER_API_URL ;
 
 export async function loginAction(email: string, password: string) {
   try {
