@@ -3,7 +3,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// SERVER_API_URL for server-side calls (e.g., http://dashboard-api:3001 in Docker)
+const API_URL = process.env.SERVER_API_URL || 'http://localhost:3001';
 
 export async function loginAction(email: string, password: string) {
   try {

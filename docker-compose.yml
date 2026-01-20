@@ -131,7 +131,9 @@ services:
     ports:
       - "${DASHBOARD_UI_PORT}:3000"
     environment:
+      - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - SERVER_API_URL=${SERVER_API_URL}
     depends_on:
       - dashboard-api
 
