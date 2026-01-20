@@ -29,6 +29,9 @@ export default function DocsLayout({
             </Link>
           </div>
           <div className="flex items-center gap-4">
+            <Link href="/showcase" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Preview
+            </Link>
             <Link href="/login" className="text-gray-400 hover:text-white text-sm transition-colors">
               Login
             </Link>
