@@ -157,6 +157,67 @@ export class SessionRepository {
     };
   }
 
+  async getDailySessions(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('session')
+      .select("TO_CHAR(session.startedAt, 'YYYY-MM-DD')", 'date')
+      .addSelect('COUNT(*)', 'count')
+      .where('session.tenantId = :tenantId', { tenantId })
+      .andWhere('session.startedAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .groupBy("TO_CHAR(session.startedAt, 'YYYY-MM-DD')")
+      .orderBy("TO_CHAR(session.startedAt, 'YYYY-MM-DD')", 'ASC')
+      .getRawMany();
+
+    return result.map(r => ({
+      date: r.date,
+      count: parseInt(r.count, 10),
+    }));
+  }
+
+  async getDeviceBreakdown(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('session')
+      .select('session.deviceType', 'device')
+      .addSelect('COUNT(*)', 'count')
+      .where('session.tenantId = :tenantId', { tenantId })
+      .andWhere('session.startedAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .groupBy('session.deviceType')
+      .getRawMany();
+
+    return result.map(r => ({
+      device: r.device || 'Unknown',
+      count: parseInt(r.count, 10),
+    }));
+  }
+
+  async getActivityHeatmap(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('session')
+      .select('EXTRACT(DOW FROM session.startedAt)', 'day')
+      .addSelect('EXTRACT(HOUR FROM session.startedAt)', 'hour')
+      .addSelect('COUNT(*)', 'count')
+      .where('session.tenantId = :tenantId', { tenantId })
+      .andWhere('session.startedAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .groupBy('EXTRACT(DOW FROM session.startedAt)')
+      .addGroupBy('EXTRACT(HOUR FROM session.startedAt)')
+      .getRawMany();
+
+    return result.map(r => ({
+      day: parseInt(r.day, 10),
+      hour: parseInt(r.hour, 10),
+      count: parseInt(r.count, 10),
+    }));
+  }
+
   /**
    * Update specific fields of a session.
    * 

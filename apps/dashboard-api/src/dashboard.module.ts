@@ -39,6 +39,7 @@ import { CrmIntegrationsModule } from './crm-integrations/crm-integrations.modul
 import { TenantsModule } from './tenants/tenants.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { WhatsappAnalyticsModule } from './whatsapp-analytics/whatsapp-analytics.module';
 
 /**
  * @Module() - Root module decorator
@@ -91,6 +92,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     SessionsModule,          // GET /api/dashboard/sessions
     EventsModule,            // GET /api/dashboard/events
     WhatsappModule,
+    WhatsappAnalyticsModule,
   ],
 })
 export class DashboardModule {}

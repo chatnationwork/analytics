@@ -11,7 +11,13 @@ The **Analytics Service** is a standalone, high-performance platform for collect
 - **CRM System** (WhatsApp & Contact analytics via `crm.chatnation.co.ke`)
 
 ### 1.1 Core Vision
-Track the complete lifecycle of user journeys across fragmented interactions—from messaging interfaces (WhatsApp) to embedded web environments—as a single, continuous session. Focus on **state-transition logging** rather than simple message logging.
+### 1.1 Core Vision
+Track the complete lifecycle of user journeys across fragmented interactions—from messaging interfaces (WhatsApp) to embedded web environments—as a single, continuous session. Focus on **state-transition logging** and **cross-channel attribution**.
+
+**New Features (Jan 2026):**
+- **Public Landing & Showcase Pages**: `/`, `/showcase` for product marketing.
+- **User Journey Page**: `/journey` for viewing cross-channel timelines.
+- **Direct Event Analytics**: `/whatsapp-analytics` for real-time WhatsApp insights.
 
 **Key Docs:**
 - [Project Description](file:///home/saruni/chatnation/analytics/docs/project_description.md) - Executive summary & architectural principles
@@ -38,8 +44,8 @@ graph LR
 |-----------|----------|------|---------|
 | **Collector API** | `apps/collector/` | 3000 | Ingest events, validate, queue to Redis |
 | **Processor Worker** | `apps/processor/` | N/A | Consume queue, enrich (GeoIP/UA), write to DB |
-| **Dashboard API** | `apps/dashboard-api/` | 3001 | Query endpoints for analytics data |
-| **Dashboard UI** | `packages/dashboard-ui/` | 3002 | Next.js 14 visualization frontend |
+| **Dashboard API** | `apps/dashboard-api/` | 3001 | Query endpoints for analytics data (inc. WhatsApp) |
+| **Dashboard UI** | `packages/dashboard-ui/` | 3002 | Next.js 14 visualization frontend (Analysis + Public Pages) |
 | **SDK** | `packages/sdk/` | N/A | JavaScript tracker for client apps |
 
 ### 2.2 Shared Libraries (`libs/`)
@@ -166,7 +172,17 @@ analytics.reset();                                   // Clear on logout
 | `/api/dashboard/auth/me` | GET | Current user (protected) |
 | `/api/dashboard/tenants` | GET | List user's organizations |
 | `/api/dashboard/crm-integrations` | CRUD | Manage CRM API credentials |
+| `/api/dashboard/crm-integrations` | CRUD | Manage CRM API credentials |
 | `/api/dashboard/api-keys` | CRUD | Generate/revoke SDK keys |
+
+### 5.4 WhatsApp Analytics API (New)
+
+| Endpoint | Query Params | Returns |
+|----------|--------------|-------|
+| `/api/dashboard/whatsapp-analytics/stats` | `startDate`, `endDate` | Message volumes, read rates |
+| `/api/dashboard/whatsapp-analytics/volume` | `startDate`, `endDate` | Volume by hour |
+| `/api/dashboard/whatsapp-analytics/heatmap` | `startDate`, `endDate` | Activity day/hour heatmap |
+| `/api/dashboard/whatsapp-analytics/agents` | `startDate`, `endDate` | Agent performance stats |
 
 **Key Docs:**
 - [API Documentation](file:///home/saruni/chatnation/analytics/docs/api_documentation.md) - Full endpoint reference
@@ -175,32 +191,48 @@ analytics.reset();                                   // Clear on logout
 
 ---
 
-## 6. CRM Integration
+## 6. CRM Integration & WhatsApp Analytics
 
-The CRM subsystem integrates with `https://crm.chatnation.co.ke` for WhatsApp analytics.
+> **⚠️ STRATEGY PIVOT (Jan 2026):** We have shifted from CRM-based analytics to **event collection via webhooks**. The CRM API is now used only for operational tasks (sending messages, managing contacts). Analytics data is captured directly via our Collector infrastructure. See [Analytics Strategy Pivot](file:///home/saruni/.gemini/antigravity/brain/8bfcd57f-02c2-48e2-97fe-09de6aaf5b46/analytics_strategy_pivot.md) for details.
 
-### 6.1 Core Entities
+The CRM subsystem integrates with `https://crm.chatnation.co.ke` for WhatsApp messaging.
+
+### 6.1 CRM Use (Operational Only)
 
 | Entity | Key Operations |
 |--------|----------------|
 | **Contact** | `listContacts`, `searchContact`, `createContact` |
 | **Campaign** | `listCampaigns`, `getCampaignReport`, `cloneCampaign` |
-| **Message** | `getMessages` (conversation history) |
-| **Custom Field** | `listCustomFields`, `getCustomFieldValue` |
+| **Message** | `sendMessage` (outbound only) |
 
-### 6.2 KPIs Tracked
+### 6.2 Analytics (Event-Based)
 
-| Pillar | Metrics | Source |
-|--------|---------|--------|
-| **Growth** | Total Contacts, Monthly Growth | `listContacts()` |
-| **Engagement** | Read Rate, Reply Rate | `getCampaignReport()` |
-| **Operations** | Response Time, Chats Resolved | `getMessages()` |
+Analytics data now flows through our internal event pipeline:
+
+```
+CRM Webhooks → Collector API → Redis → Processor → Events Table → Dashboard
+```
+
+| Metric | Source | Method |
+|--------|--------|--------|
+| **Response Time** | Events table | SQL: time between `message.received` and `message.sent` |
+| **Growth Rate** | Events table | Count `contact.created` by day |
+| **Engagement** | Events table | Campaign funnel events |
+| **User Journey** | Events table | Full event timeline per `userId` |
+
+### 6.3 Why We Pivoted
+
+The CRM API has significant limitations for analytics:
+- No real-time event stream (polling only)
+- No aggregation endpoints
+- Rate limits prevent bulk data access
+- No session or journey tracking
 
 **Key Docs:**
-- [CRM System Context](file:///home/saruni/chatnation/analytics/docs/CRM_SYSTEM_CONTEXT.md) - Master CRM reference
-- [CRM API Documentation](file:///home/saruni/chatnation/analytics/docs/crm_api_documentation.md) - Endpoint details
-- [CRM Analytics Business Overview](file:///home/saruni/chatnation/analytics/docs/crm_analytics_business_overview.md) - Business use cases
-- [CRM Analytics Dashboard](file:///home/saruni/chatnation/analytics/docs/crm_analytics_dashboard.md) - Dashboard specs
+- [CRM System Context](file:///home/saruni/chatnation/analytics/docs/CRM_SYSTEM_CONTEXT.md) - CRM integration reference
+- [CRM Limitations (Technical)](file:///home/saruni/chatnation/analytics/docs/crm_limitations_technical.md) - Engineering details
+- [CRM Limitations (Business)](file:///home/saruni/chatnation/analytics/docs/crm_limitations_business.md) - Stakeholder summary
+- [WhatsApp Analytics Architecture](file:///home/saruni/chatnation/analytics/docs/whatsapp_analytics_architecture.md) - Event-based approach
 
 ---
 
@@ -212,6 +244,9 @@ The CRM subsystem integrates with `https://crm.chatnation.co.ke` for WhatsApp an
 |------|---------|-------------|
 | **Overview** | Executive KPIs | Sessions, Users, Conversion Rate, Avg Duration |
 | **Funnel** | Journey analysis | Step drop-off for MRI/TOT/NIL |
+| **Journey** | User Journey | Cross-channel timeline (Web + WhatsApp) |
+| **WhatsApp Analytics** | Event-based stats | Response time, heatmaps (from Collector) |
+| **WhatsApp CRM** | CRM Data | Contacts, delivery funnels (from CRM API) |
 | **Sessions** | Session explorer | Timeline, event properties |
 | **Real-time** | Live activity | Streaming event feed |
 

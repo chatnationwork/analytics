@@ -139,10 +139,20 @@ export class EventProcessorService {
     const context = event.context || {};
     const page = (context.page as any) || {};
     const userAgent = context.userAgent as string;
+    
+    // Determine channel type from context (default to 'web' for backwards compatibility)
+    const channelType = (context.channel as string) || 'web';
+    const isWebChannel = channelType === 'web';
 
-    // Run enrichers
-    const geo = this.geoipEnricher.enrich(event.ipAddress);
-    const device = this.useragentEnricher.enrich(userAgent);
+    // Run enrichers only for web channel (UA/GeoIP not applicable for WhatsApp)
+    const geo = isWebChannel ? this.geoipEnricher.enrich(event.ipAddress) : { countryCode: undefined, city: undefined };
+    const device = isWebChannel ? this.useragentEnricher.enrich(userAgent) : {
+      deviceType: undefined,
+      osName: undefined,
+      osVersion: undefined,
+      browserName: undefined,
+      browserVersion: undefined,
+    };
 
     // Build the complete event object for database
     return {
@@ -164,29 +174,29 @@ export class EventProcessorService {
       userId: event.userId,
       sessionId: event.sessionId,
       
-      // Channel
-      channelType: 'web',
+      // Channel (from context or default to 'web')
+      channelType,
       
-      // Page context (extracted)
-      pagePath: page.path,
-      pageUrl: page.url,
-      pageTitle: page.title,
-      pageReferrer: page.referrer,
+      // Page context (only relevant for web)
+      pagePath: isWebChannel ? page.path : undefined,
+      pageUrl: isWebChannel ? page.url : undefined,
+      pageTitle: isWebChannel ? page.title : undefined,
+      pageReferrer: isWebChannel ? page.referrer : undefined,
       
-      // Device info (from User-Agent enricher)
-      userAgent,
+      // Device info (from User-Agent enricher - web only)
+      userAgent: isWebChannel ? userAgent : undefined,
       deviceType: device.deviceType,
       osName: device.osName,
       osVersion: device.osVersion,
       browserName: device.browserName,
       browserVersion: device.browserVersion,
       
-      // Geo info (from GeoIP enricher)
-      ipAddress: event.ipAddress,
+      // Geo info (from GeoIP enricher - web only)
+      ipAddress: isWebChannel ? event.ipAddress : undefined,
       countryCode: geo.countryCode,
       city: geo.city,
       
-      // Custom properties
+      // Custom properties (WhatsApp events store their data here)
       properties: event.properties,
       
       // SDK version

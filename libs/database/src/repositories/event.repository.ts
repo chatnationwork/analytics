@@ -257,4 +257,79 @@ export class EventRepository {
 
     return result.map((r) => r.eventName);
   }
+
+  /**
+   * Get WhatsApp specific performance stats.
+   */
+  async getWhatsappStats(tenantId: string, startDate: Date, endDate: Date) {
+    const qb = this.repo.createQueryBuilder('event')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere("event.properties ->> 'channel' = 'whatsapp' OR event.eventName LIKE 'message.%' OR event.eventName = 'contact.created'")
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    const receivedCount = await qb.clone()
+      .andWhere("event.eventName = 'message.received'")
+      .getCount();
+
+    const sentCount = await qb.clone()
+      .andWhere("event.eventName = 'message.sent'")
+      .getCount();
+      
+    const readCount = await qb.clone()
+      .andWhere("event.eventName = 'message.read'")
+      .getCount();
+      
+    const newContactsCount = await qb.clone()
+      .andWhere("event.eventName = 'contact.created'")
+      .getCount();
+
+    return {
+      messagesReceived: receivedCount,
+      messagesSent: sentCount,
+      messagesRead: readCount,
+      newContacts: newContactsCount,
+      readRate: sentCount > 0 ? (readCount / sentCount) * 100 : 0
+    };
+  }
+
+  async getWhatsappVolumeByHour(tenantId: string, startDate: Date, endDate: Date) {
+    // Postgres specific date extraction
+    return this.repo.createQueryBuilder('event')
+      .select("EXTRACT(HOUR FROM event.timestamp)", "hour")
+      .addSelect("COUNT(*)", "count")
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere("event.eventName = 'message.received'")
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .groupBy("hour")
+      .orderBy("hour", "ASC")
+      .getRawMany();
+  }
+
+  async getWhatsappHeatmap(tenantId: string, startDate: Date, endDate: Date) {
+    // Postgres: 0 = Sunday, 1 = Monday, etc.
+    return this.repo.createQueryBuilder('event')
+      .select("EXTRACT(DOW FROM event.timestamp)", "day")
+      .addSelect("EXTRACT(HOUR FROM event.timestamp)", "hour")
+      .addSelect("COUNT(*)", "count")
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere("event.eventName = 'message.received'")
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .groupBy("day")
+      .addGroupBy("hour")
+      .getRawMany();
+  }
+
+  async getWhatsappAgentPerformance(tenantId: string, startDate: Date, endDate: Date) {
+    return this.repo.createQueryBuilder('event')
+      .select("event.properties ->> 'agentId'", "agent_id")
+      .addSelect("COUNT(*)", "chat_count")
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere("event.eventName = 'chat.resolved'")
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere("event.properties ->> 'agentId' IS NOT NULL")
+      .groupBy("agent_id")
+      .orderBy("chat_count", "DESC")
+      .limit(10)
+      .getRawMany();
+  }
 }

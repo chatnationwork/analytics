@@ -7,6 +7,9 @@ interface OverviewData {
   totalUsers: number;
   conversionRate: number;
   avgSessionDuration: number;
+  dailySessions: { date: string; count: number }[];
+  deviceBreakdown: { device: string; count: number }[];
+  heatmap: { day: number; hour: number; count: number }[];
 }
 
 interface FunnelStep {

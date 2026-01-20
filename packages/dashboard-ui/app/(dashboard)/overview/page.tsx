@@ -83,29 +83,20 @@ export default function OverviewPage() {
             {/* Sessions Trend */}
             <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
               <h3 className="font-medium text-white mb-6">Daily Sessions</h3>
-              <MockLineChart />
-              <div className="flex items-center justify-center gap-6 mt-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-1 bg-blue-400 rounded" />
-                  <span className="text-gray-400">This period</span>
-                </div>
-              </div>
+              <SessionsTrendChart data={data.dailySessions} />
             </div>
 
             {/* Device Breakdown */}
             <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
               <h3 className="font-medium text-white mb-6">Traffic by Device</h3>
-              <MockDonutChart />
+              <DeviceChart data={data.deviceBreakdown} />
             </div>
           </div>
 
           {/* Activity Heatmap */}
           <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
             <h3 className="font-medium text-white mb-6">Activity by Hour</h3>
-            <MockHeatmap />
-            <p className="text-sm text-gray-400 mt-4 text-center">
-              Peak activity: <span className="text-white">6 PM - 8 PM</span> on weekdays
-            </p>
+            <ActivityHeatmap data={data.heatmap} />
           </div>
         </>
       )}
@@ -142,92 +133,135 @@ function StatCard({ label, value, change, positive, icon }: {
   );
 }
 
-function MockLineChart() {
-  const points = [30, 45, 35, 50, 48, 60, 55, 70, 65, 80, 75, 85, 90, 88];
+function SessionsTrendChart({ data }: { data: { date: string; count: number }[] }) {
+  if (!data?.length) return <div className="h-48 flex items-center justify-center text-gray-500">No data available</div>;
+
+  const max = Math.max(...data.map(d => d.count)) || 1;
 
   return (
     <div className="h-48 flex items-end gap-1">
-      {points.map((point, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div
-            className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t"
-            style={{ height: `${point}%` }}
-          />
-        </div>
-      ))}
+      {data.map((point, i) => {
+        const height = (point.count / max) * 100;
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+             <div className="absolute bottom-full mb-2 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-white/10">
+              {point.date}: {point.count} sessions
+            </div>
+            <div
+              className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t hover:from-blue-400 hover:to-blue-300 transition-colors"
+              style={{ height: `${height}%` }}
+            />
+          </div>
+        )
+      })}
     </div>
   );
 }
 
-function MockDonutChart() {
+function DeviceChart({ data }: { data: { device: string; count: number }[] }) {
+  if (!data?.length) return <div className="h-40 flex items-center justify-center text-gray-500">No data available</div>;
+
+  const total = data.reduce((acc, curr) => acc + curr.count, 0);
+  const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444']; // Blue, Purple, Green, Amber, Red
+
+  let currentOffset = 0;
+  const segments = data.map((item, i) => {
+    const percentage = item.count / total;
+    const dashArray = `${percentage * 251.2} 251.2`;
+    const dashOffset = -currentOffset * 251.2;
+    currentOffset += percentage;
+    return { ...item, color: colors[i % colors.length], dashArray, dashOffset, percentage };
+  });
+
   return (
     <div className="flex items-center justify-center gap-8">
       <div className="relative w-40 h-40">
         <svg viewBox="0 0 100 100" className="transform -rotate-90">
           <circle cx="50" cy="50" r="40" fill="none" stroke="#374151" strokeWidth="12" />
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#3B82F6" strokeWidth="12" strokeDasharray="138 252" />
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#8B5CF6" strokeWidth="12" strokeDasharray="88 252" strokeDashoffset="-138" />
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#10B981" strokeWidth="12" strokeDasharray="26 252" strokeDashoffset="-226" />
+          {segments.map((seg, i) => (
+             <circle 
+                key={i}
+                cx="50" cy="50" r="40" 
+                fill="none" 
+                stroke={seg.color} 
+                strokeWidth="12" 
+                strokeDasharray={seg.dashArray} 
+                strokeDashoffset={seg.dashOffset} 
+             />
+          ))}
         </svg>
         <div className="absolute inset-0 flex items-center justify-center flex-col">
-          <div className="text-2xl font-bold text-white">100%</div>
+          <div className="text-2xl font-bold text-white">{total.toLocaleString()}</div>
           <div className="text-xs text-gray-400">Total</div>
         </div>
       </div>
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-blue-500" />
-          <span className="text-sm text-gray-300">Mobile (55%)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-purple-500" />
-          <span className="text-sm text-gray-300">Desktop (35%)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span className="text-sm text-gray-300">Tablet (10%)</span>
-        </div>
+        {segments.map((seg, i) => (
+           <div key={i} className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: seg.color }} />
+            <span className="text-sm text-gray-300">
+                {seg.device} ({Math.round(seg.percentage * 100)}%)
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function MockHeatmap() {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const hours = ['6am', '9am', '12pm', '3pm', '6pm', '9pm'];
-  const data = [
-    [0.2, 0.3, 0.4, 0.5, 0.8, 0.4],
-    [0.3, 0.4, 0.5, 0.6, 0.9, 0.5],
-    [0.3, 0.5, 0.6, 0.7, 0.9, 0.4],
-    [0.2, 0.4, 0.5, 0.6, 0.8, 0.4],
-    [0.3, 0.5, 0.6, 0.5, 0.7, 0.6],
-    [0.1, 0.2, 0.3, 0.4, 0.5, 0.3],
-    [0.1, 0.2, 0.3, 0.3, 0.4, 0.2],
-  ];
+function ActivityHeatmap({ data }: { data: { day: number; hour: number; count: number }[] }) {
+    // 0 = Sunday in SQL extract usually, adjust if needed based on Day of Week standard
+    // Let's assume 0=Sun, 1=Mon...6=Sat. 
+    // We want display Mon(1) - Sun(0/7)
+    // Map DOW to array index 0-6 where 0=Mon
+    const mapDayToRow = (d: number) => d === 0 ? 6 : d - 1; 
+
+    const max = Math.max(...data.map(d => d.count)) || 1;
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const hours = ['12am', '4am', '8am', '12pm', '4pm', '8pm'];
+    
+    // Initialize 7x24 grid
+    const grid = Array(7).fill(0).map(() => Array(24).fill(0));
+    data.forEach(d => {
+        const row = mapDayToRow(d.day);
+        if (row >= 0 && row < 7 && d.hour >= 0 && d.hour < 24) {
+            grid[row][d.hour] = d.count;
+        }
+    });
 
   return (
-    <div className="flex gap-2">
-      <div className="flex flex-col gap-1 pr-2 text-xs text-gray-400">
-        {days.map(d => <div key={d} className="h-8 flex items-center">{d}</div>)}
+    <div className="overflow-x-auto">
+      <div className="flex gap-2 min-w-[600px]">
+      <div className="flex flex-col gap-1 pr-2 text-xs text-gray-400 pt-6">
+        {days.map(d => <div key={d} className="h-6 flex items-center">{d}</div>)}
       </div>
       <div className="flex-1">
         <div className="flex gap-1 mb-2 text-xs text-gray-400">
-          {hours.map(h => <div key={h} className="flex-1 text-center">{h}</div>)}
+          {Array(24).fill(0).map((_, i) => (
+             <div key={i} className="flex-1 text-center">
+                {i % 4 === 0 ? (i === 0 ? '12am' : i === 12 ? '12pm' : i > 12 ? `${i-12}pm` : `${i}am`) : ''}
+             </div>
+          ))}
         </div>
         <div className="space-y-1">
-          {data.map((row, i) => (
+          {grid.map((row, i) => (
             <div key={i} className="flex gap-1">
               {row.map((val, j) => (
                 <div
                   key={j}
-                  className="flex-1 h-8 rounded"
-                  style={{ backgroundColor: `rgba(59, 130, 246, ${val})` }}
-                />
+                  className="flex-1 h-6 rounded hover:ring-1 hover:ring-white/50 transition-all relative group"
+                  style={{ backgroundColor: `rgba(59, 130, 246, ${Math.max(0.1, val / max)})` }}
+                >
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-white/10">
+                        {days[i]} {j}:00 - {val} sessions
+                    </div>
+                </div>
               ))}
             </div>
           ))}
         </div>
       </div>
+    </div>
     </div>
   );
 }
