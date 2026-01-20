@@ -438,7 +438,7 @@ function MockLineChart() {
   return (
     <div className="h-48 flex items-end gap-1">
       {points.map((point, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+        <div key={i} className="flex-1 h-full flex flex-col justify-end items-center gap-1">
           <div 
             className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t"
             style={{ height: `${point}%` }}
@@ -531,7 +531,7 @@ function MockHistogram() {
   return (
     <div className="h-32 flex items-end gap-2">
       {bars.map((val, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+        <div key={i} className="flex-1 h-full flex flex-col justify-end items-center gap-1">
           <div 
             className={`w-full rounded-t ${i < 5 ? 'bg-green-500' : 'bg-yellow-500'}`}
             style={{ height: `${val * 2}%` }}
@@ -552,7 +552,7 @@ function MockBarChart() {
   return (
     <div className="h-32 flex items-end gap-2">
       {values.map((val, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+        <div key={i} className="flex-1 h-full flex flex-col justify-end items-center gap-1">
           <div 
             className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t"
             style={{ height: `${val}%` }}
