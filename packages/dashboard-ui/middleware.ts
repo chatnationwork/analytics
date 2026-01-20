@@ -5,12 +5,16 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Public paths that don't require auth
-  const publicPaths = ['/login', '/signup', '/verify-email', '/forgot-password', '/invite']
+  const publicPaths = ['/login', '/signup', '/verify-email', '/forgot-password', '/invite', '/docs', '/showcase']
+  
+  // Root path is public (landing page)
+  if (pathname === '/') {
+    return NextResponse.next()
+  }
   
   // Check if path is public
   if (publicPaths.some(path => pathname.startsWith(path))) {
-    // If logged in, redirect to dashboard? Optional.
-    // For now, let them access login if they want (or redirect if token exists)
+    // If logged in and on login page, redirect to dashboard
     const token = request.cookies.get('accessToken')?.value
     if (token && pathname === '/login') {
        return NextResponse.redirect(new URL('/overview', request.url))

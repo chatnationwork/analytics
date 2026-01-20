@@ -6,7 +6,7 @@ import { ApiKeySettings } from '@/components/settings/ApiKeySettings';
 import { TeamManagement } from '@/components/settings/team-management';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'crm' | 'api-keys' | 'team'>('crm');
+  const [activeTab, setActiveTab] = useState<'api-keys' | 'crm' | 'team'>('api-keys');
   const [tenantId, setTenantId] = useState<string>('');
   
   useEffect(() => {
@@ -16,69 +16,63 @@ export default function SettingsPage() {
           return res.json();
         })
         .then(response => {
-          // API wraps response in { status, data, timestamp }
           const tenantData = response.data || response;
-          console.log('Tenant data:', tenantData);
           if (tenantData?.tenantId) {
             setTenantId(tenantData.tenantId);
-          } else {
-            console.error('No tenantId in response:', response);
           }
         })
         .catch(err => console.error('Failed to fetch tenant:', err));
   }, []);
 
+  const tabs = [
+    { id: 'api-keys' as const, label: 'API Keys' },
+    { id: 'crm' as const, label: 'CRM Integrations' },
+    { id: 'team' as const, label: 'Team' },
+  ];
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Settings</h1>
-        <p className="text-gray-500 dark:text-gray-400">Manage your workspace configuration</p>
+        <h1 className="text-xl font-semibold text-white">Settings</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Manage your workspace configuration</p>
       </div>
 
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-          <button
-            onClick={() => setActiveTab('crm')}
-            className={`
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'crm'
-                ? 'border-[var(--primary)] text-[var(--primary)]'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}
-            `}
-          >
-            CRM Integrations
-          </button>
-          <button
-            onClick={() => setActiveTab('api-keys')}
-            className={`
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'api-keys'
-                ? 'border-[var(--primary)] text-[var(--primary)]'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}
-            `}
-          >
-            API Keys
-          </button>
-          <button
-            onClick={() => setActiveTab('team')}
-            className={`
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'team'
-                ? 'border-[var(--primary)] text-[var(--primary)]'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}
-            `}
-          >
-            Team Management
-          </button>
+      <div className="border-b border-white/10">
+        <nav className="-mb-px flex gap-6">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`
+                whitespace-nowrap py-3 border-b-2 font-medium text-sm transition-colors
+                ${activeTab === tab.id
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'}
+              `}
+            >
+              {tab.label}
+            </button>
+          ))}
         </nav>
       </div>
 
       <div className="py-4">
-        {activeTab === 'crm' && <CrmSettings />}
-        {activeTab === 'api-keys' && <ApiKeySettings />}
-        {activeTab === 'team' && <TeamManagement tenantId={tenantId} />}
+        {activeTab === 'api-keys' && (
+          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+            <ApiKeySettings />
+          </div>
+        )}
+        {activeTab === 'crm' && (
+          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+            <CrmSettings />
+          </div>
+        )}
+        {activeTab === 'team' && (
+          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+            <TeamManagement tenantId={tenantId} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
-

@@ -36,6 +36,19 @@ const getHeaders = () => {
   return headers;
 };
 
+export async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const res = await fetch(`${API_BASE_URL}/api/dashboard${url}`, {
+    ...options,
+    headers: {
+      ...getHeaders(),
+      ...options.headers,
+    },
+  });
+  if (!res.ok) throw new Error(`Failed to fetch ${url}`);
+  const json = await res.json();
+  return json.data;
+}
+
 export const api = {
   /**
    * Fetch overview KPIs
