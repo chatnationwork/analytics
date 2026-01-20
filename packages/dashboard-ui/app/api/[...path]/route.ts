@@ -32,6 +32,11 @@ async function proxyRequest(request: NextRequest, method: string, pathParams: st
   const cookieStore = await cookies();
   const token = cookieStore.get('accessToken')?.value;
 
+  // Debug logging for production auth issues
+  console.log('[Proxy] Request:', method, pathParams.join('/'));
+  console.log('[Proxy] Cookie token exists:', !!token);
+  console.log('[Proxy] SERVER_API_URL:', BACKEND_URL);
+
   // Construct backend URL
   // Frontend calls /api/[...path]
   // Backend expects /api/[...path] match
