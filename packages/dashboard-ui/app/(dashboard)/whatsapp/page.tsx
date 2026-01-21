@@ -39,7 +39,7 @@ export default async function WhatsappPage() {
           icon={<MessageCircle className="w-4 h-4" />}
         />
         <StatCard
-          label="Conversion Rate"
+          label="Completion Rate"
           value={`${conversionRate.toFixed(1)}%`}
           change="+5%"
           positive

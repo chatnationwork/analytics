@@ -76,4 +76,26 @@ export class OverviewController {
       end,
     );
   }
+
+  /**
+   * GET /api/dashboard/overview/page-paths
+   * Returns top page paths for "Traffic by Journey" chart.
+   */
+  @Get('page-paths')
+  async getTopPagePaths(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('tenantId') tenantId = 'default-tenant',
+  ) {
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate 
+      ? new Date(startDate) 
+      : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    return this.overviewService.getTopPagePaths(
+      tenantId,
+      start,
+      end,
+    );
+  }
 }

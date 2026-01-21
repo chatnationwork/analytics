@@ -28,4 +28,26 @@ export const whatsappAnalyticsApi = {
     if (endDate) params.append('endDate', endDate);
     return fetchWithAuth(`/whatsapp-analytics/agents?${params.toString()}`);
   },
+
+  getCountries: async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return fetchWithAuth(`/whatsapp-analytics/countries?${params.toString()}`);
+  },
+
+  getResponseTime: async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return fetchWithAuth(`/whatsapp-analytics/response-time?${params.toString()}`);
+  },
+
+  getFunnel: async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return fetchWithAuth(`/whatsapp-analytics/funnel?${params.toString()}`);
+  },
 };
+

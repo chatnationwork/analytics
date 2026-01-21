@@ -118,7 +118,7 @@ function OverviewTab() {
           icon={<Users className="w-4 h-4" />}
         />
         <StatCard 
-          label="Conversion Rate" 
+          label="Completion Rate" 
           value="42.3%" 
           change="+5.2%" 
           positive 
@@ -156,6 +156,12 @@ function OverviewTab() {
           <h3 className="font-medium mb-6">Traffic by Device</h3>
           <MockDonutChart />
         </div>
+      </div>
+
+      {/* Traffic by Journey */}
+      <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+        <h3 className="font-medium mb-6">Traffic by Journey</h3>
+        <MockPagePathsChart />
       </div>
 
       {/* Heatmap */}
@@ -322,6 +328,21 @@ function WhatsAppTab() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Message Funnel & Traffic by Country */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Message Funnel */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Message Funnel</h3>
+          <MockMessageFunnel />
+        </div>
+
+        {/* Traffic by Country */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Traffic by Country</h3>
+          <MockCountryTable />
         </div>
       </div>
     </div>
@@ -558,6 +579,97 @@ function MockBarChart() {
             style={{ height: `${val}%` }}
           />
           <span className="text-xs text-gray-500">{hours[i]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MockPagePathsChart() {
+  const paths = [
+    { path: '/', count: 4250, pct: 100 },
+    { path: '/mri/validation', count: 2840, pct: 67 },
+    { path: '/mri/verify', count: 2120, pct: 50 },
+    { path: '/tot/validation', count: 1680, pct: 40 },
+    { path: '/pin-registration', count: 1420, pct: 33 },
+    { path: '/nil/validation', count: 980, pct: 23 },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {paths.map((item, i) => (
+        <div key={item.path} className="flex items-center gap-3">
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm truncate max-w-[180px]" title={item.path}>{item.path}</span>
+              <span className="text-xs text-gray-400">{item.count.toLocaleString()} ({item.pct}%)</span>
+            </div>
+            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded"
+                style={{ width: `${item.pct}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MockMessageFunnel() {
+  const stages = [
+    { stage: 'Sent', count: 3428, color: '#3B82F6' },
+    { stage: 'Delivered', count: 3256, color: '#8B5CF6' },
+    { stage: 'Read', count: 2992, color: '#10B981' },
+    { stage: 'Replied', count: 1847, color: '#F59E0B' },
+  ];
+  const max = stages[0].count;
+
+  return (
+    <div className="space-y-3">
+      {stages.map((item) => (
+        <div key={item.stage} className="flex items-center gap-3">
+          <div className="w-20 text-sm text-gray-400">{item.stage}</div>
+          <div className="flex-1 h-8 bg-gray-700/30 rounded relative overflow-hidden">
+            <div 
+              className="h-full rounded"
+              style={{ width: `${(item.count / max) * 100}%`, backgroundColor: item.color }}
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm font-medium">
+              {item.count.toLocaleString()}
+            </span>
+          </div>
+        </div>
+      ))}
+      <div className="flex justify-between text-xs text-gray-400 pt-2 border-t border-white/5">
+        <span>Delivery: <span className="text-white">95%</span></span>
+        <span>Read: <span className="text-white">87%</span></span>
+        <span>Reply: <span className="text-white">54%</span></span>
+      </div>
+    </div>
+  );
+}
+
+function MockCountryTable() {
+  const countries = [
+    { code: 'KE', name: 'Kenya', count: 2840, pct: 83 },
+    { code: 'UG', name: 'Uganda', count: 290, pct: 8 },
+    { code: 'TZ', name: 'Tanzania', count: 180, pct: 5 },
+    { code: 'RW', name: 'Rwanda', count: 78, pct: 2 },
+    { code: 'Other', name: 'Other', count: 40, pct: 1 },
+  ];
+
+  return (
+    <div className="space-y-2">
+      {countries.map((item, i) => (
+        <div key={item.code} className="flex items-center gap-3 p-2 bg-gray-700/20 rounded">
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="flex-1 font-medium">{item.name}</div>
+          <div className="text-sm text-gray-400">
+            {item.count.toLocaleString()} <span className="text-gray-500">({item.pct}%)</span>
+          </div>
         </div>
       ))}
     </div>

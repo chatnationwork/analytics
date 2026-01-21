@@ -22,7 +22,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { SessionRepository } from '@lib/database';
+import { SessionRepository, EventRepository } from '@lib/database';
 
 /**
  * @Injectable() - Marks this class as a provider that can be injected
@@ -35,8 +35,12 @@ export class OverviewService {
    * SessionRepository is automatically provided by NestJS.
    * 
    * @param sessionRepository - Repository for session-level queries
+   * @param eventRepository - Repository for event-level queries
    */
-  constructor(private readonly sessionRepository: SessionRepository) {}
+  constructor(
+    private readonly sessionRepository: SessionRepository,
+    private readonly eventRepository: EventRepository,
+  ) {}
 
   /**
    * Get overview statistics for the dashboard.
@@ -67,5 +71,17 @@ export class OverviewService {
       deviceBreakdown,
       heatmap,
     };
+  }
+
+  /**
+   * Get top page paths for "Traffic by Journey" chart.
+   */
+  async getTopPagePaths(tenantId: string, startDate: Date, endDate: Date) {
+    const results = await this.eventRepository.getTopPagePaths(tenantId, startDate, endDate);
+    return results.map(r => ({
+      pagePath: r.page_path,
+      count: parseInt(r.count, 10) || 0,
+      uniqueSessions: parseInt(r.unique_sessions, 10) || 0,
+    }));
   }
 }

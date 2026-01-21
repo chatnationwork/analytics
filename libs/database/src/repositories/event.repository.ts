@@ -259,6 +259,26 @@ export class EventRepository {
   }
 
   /**
+   * Get top page paths by visit count.
+   * Used for "Traffic by Journey" visualization.
+   */
+  async getTopPagePaths(tenantId: string, startDate: Date, endDate: Date, limit = 15) {
+    return this.repo.createQueryBuilder('event')
+      .select("event.pagePath", "page_path")
+      .addSelect("COUNT(*)", "count")
+      .addSelect("COUNT(DISTINCT event.sessionId)", "unique_sessions")
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere("event.eventName = 'page_view'")
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere("event.pagePath IS NOT NULL")
+      .andWhere("event.pagePath != ''")
+      .groupBy("event.pagePath")
+      .orderBy("count", "DESC")
+      .limit(limit)
+      .getRawMany();
+  }
+
+  /**
    * Get WhatsApp specific performance stats.
    */
   async getWhatsappStats(tenantId: string, startDate: Date, endDate: Date) {
@@ -332,4 +352,129 @@ export class EventRepository {
       .limit(10)
       .getRawMany();
   }
+
+  /**
+   * Get message volume by country code.
+   * Used for "Traffic per Country" visualization.
+   */
+  async getWhatsappCountryBreakdown(tenantId: string, startDate: Date, endDate: Date) {
+    return this.repo.createQueryBuilder('event')
+      .select("event.countryCode", "country_code")
+      .addSelect("COUNT(*)", "count")
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere("event.eventName = 'message.received'")
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere("event.countryCode IS NOT NULL")
+      .groupBy("event.countryCode")
+      .orderBy("count", "DESC")
+      .limit(20)
+      .getRawMany();
+  }
+
+  /**
+   * Calculate average response time (time between message.received and next message.sent).
+   * Returns distribution buckets for histogram.
+   */
+  async getWhatsappResponseTime(tenantId: string, startDate: Date, endDate: Date) {
+    // This query calculates the time difference between received and sent messages per user
+    // and returns a distribution of response times in minute buckets
+    const result = await this.repo.query(`
+      WITH received AS (
+        SELECT 
+          properties->>'userId' as user_id,
+          timestamp as received_at,
+          ROW_NUMBER() OVER (PARTITION BY properties->>'userId' ORDER BY timestamp) as rn
+        FROM events
+        WHERE tenant_id = $1
+          AND event_name = 'message.received'
+          AND timestamp BETWEEN $2 AND $3
+      ),
+      sent AS (
+        SELECT 
+          properties->>'userId' as user_id,
+          timestamp as sent_at,
+          ROW_NUMBER() OVER (PARTITION BY properties->>'userId' ORDER BY timestamp) as rn
+        FROM events
+        WHERE tenant_id = $1
+          AND event_name = 'message.sent'
+          AND timestamp BETWEEN $2 AND $3
+      ),
+      response_times AS (
+        SELECT 
+          EXTRACT(EPOCH FROM (s.sent_at - r.received_at)) / 60 as response_minutes
+        FROM received r
+        JOIN sent s ON r.user_id = s.user_id AND s.rn = r.rn
+        WHERE s.sent_at > r.received_at
+      )
+      SELECT 
+        CASE 
+          WHEN response_minutes < 1 THEN '0-1'
+          WHEN response_minutes < 2 THEN '1-2'
+          WHEN response_minutes < 3 THEN '2-3'
+          WHEN response_minutes < 4 THEN '3-4'
+          WHEN response_minutes < 5 THEN '4-5'
+          WHEN response_minutes < 6 THEN '5-6'
+          WHEN response_minutes < 7 THEN '6-7'
+          WHEN response_minutes < 8 THEN '7-8'
+          WHEN response_minutes < 9 THEN '8-9'
+          ELSE '9+'
+        END as bucket,
+        COUNT(*) as count,
+        AVG(response_minutes) as avg_minutes
+      FROM response_times
+      GROUP BY bucket
+      ORDER BY bucket
+    `, [tenantId, startDate, endDate]);
+
+    // Also calculate overall median
+    const medianResult = await this.repo.query(`
+      WITH response_times AS (
+        SELECT 
+          EXTRACT(EPOCH FROM (s.timestamp - r.timestamp)) / 60 as response_minutes
+        FROM events r
+        JOIN events s ON r.properties->>'userId' = s.properties->>'userId'
+        WHERE r.tenant_id = $1
+          AND r.event_name = 'message.received'
+          AND s.event_name = 'message.sent'
+          AND s.timestamp > r.timestamp
+          AND r.timestamp BETWEEN $2 AND $3
+      )
+      SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY response_minutes) as median
+      FROM response_times
+    `, [tenantId, startDate, endDate]);
+
+    return {
+      distribution: result,
+      medianMinutes: medianResult[0]?.median ?? null
+    };
+  }
+
+  /**
+   * Get message funnel: Sent -> Delivered -> Read -> Replied.
+   */
+  async getWhatsappFunnel(tenantId: string, startDate: Date, endDate: Date) {
+    const qb = this.repo.createQueryBuilder('event')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    const sent = await qb.clone().andWhere("event.eventName = 'message.sent'").getCount();
+    const delivered = await qb.clone().andWhere("event.eventName = 'message.delivered'").getCount();
+    const read = await qb.clone().andWhere("event.eventName = 'message.read'").getCount();
+    const replied = await qb.clone().andWhere("event.eventName = 'message.received'").getCount();
+
+    return {
+      funnel: [
+        { stage: 'Sent', count: sent },
+        { stage: 'Delivered', count: delivered },
+        { stage: 'Read', count: read },
+        { stage: 'Replied', count: replied },
+      ],
+      rates: {
+        deliveryRate: sent > 0 ? (delivered / sent) * 100 : 0,
+        readRate: delivered > 0 ? (read / delivered) * 100 : 0,
+        replyRate: read > 0 ? (replied / read) * 100 : 0,
+      }
+    };
+  }
 }
+

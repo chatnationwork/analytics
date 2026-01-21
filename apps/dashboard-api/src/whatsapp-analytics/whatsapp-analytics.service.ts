@@ -32,4 +32,27 @@ export class WhatsappAnalyticsService {
       chatCount: parseInt(r.chat_count, 10) || 0,
     }));
   }
+
+  async getCountryBreakdown(tenantId: string, startDate?: Date, endDate?: Date) {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const results = await this.eventRepository.getWhatsappCountryBreakdown(tenantId, start, end);
+    return results.map(r => ({
+      countryCode: r.country_code,
+      count: parseInt(r.count, 10) || 0,
+    }));
+  }
+
+  async getResponseTime(tenantId: string, startDate?: Date, endDate?: Date) {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return this.eventRepository.getWhatsappResponseTime(tenantId, start, end);
+  }
+
+  async getFunnel(tenantId: string, startDate?: Date, endDate?: Date) {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return this.eventRepository.getWhatsappFunnel(tenantId, start, end);
+  }
 }
+

@@ -25,6 +25,21 @@ export default function WhatsAppAnalyticsPage() {
     queryFn: () => whatsappAnalyticsApi.getAgents(),
   });
 
+  const { data: countries } = useQuery({
+    queryKey: ['whatsapp-countries'],
+    queryFn: () => whatsappAnalyticsApi.getCountries(),
+  });
+
+  const { data: responseTime } = useQuery({
+    queryKey: ['whatsapp-response-time'],
+    queryFn: () => whatsappAnalyticsApi.getResponseTime(),
+  });
+
+  const { data: funnel } = useQuery({
+    queryKey: ['whatsapp-funnel'],
+    queryFn: () => whatsappAnalyticsApi.getFunnel(),
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -70,9 +85,9 @@ export default function WhatsAppAnalyticsPage() {
         {/* Response Time Distribution */}
         <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
           <h3 className="font-medium text-white mb-6">Response Time Distribution</h3>
-          <MockHistogram />
+          <ResponseTimeHistogram data={responseTime?.distribution ?? []} />
           <div className="text-sm text-gray-400 mt-4 text-center">
-            Median: <span className="text-white">--</span> • 
+            Median: <span className="text-white">{responseTime?.medianMinutes ? `${responseTime.medianMinutes.toFixed(1)}m` : '--'}</span> • 
             Target: <span className="text-green-400">&lt; 5m</span>
           </div>
         </div>
@@ -94,6 +109,21 @@ export default function WhatsAppAnalyticsPage() {
         <p className="text-sm text-gray-400 mt-4 text-center">
           Heatmap based on message volume
         </p>
+      </div>
+
+      {/* Message Funnel & Country Breakdown Row */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Message Funnel */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium text-white mb-6">Message Funnel</h3>
+          <MessageFunnel data={funnel?.funnel ?? []} rates={funnel?.rates} />
+        </div>
+
+        {/* Country Breakdown */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium text-white mb-6">Traffic by Country</h3>
+          <CountryTable data={countries ?? []} />
+        </div>
       </div>
 
       {/* Agent Performance */}
@@ -157,13 +187,95 @@ function StatCard({ label, value, change, positive, icon }: {
   );
 }
 
-function MockHistogram() {
-  const bars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-  const labels = ['0-1m', '1-2m', '2-3m', '3-4m', '4-5m', '5-6m', '6-7m', '7-8m', '8-9m', '9+m'];
+function ResponseTimeHistogram({ data }: { data: { bucket: string; count: string }[] }) {
+  const buckets = ['0-1', '1-2', '2-3', '3-4', '4-5', '5-6', '6-7', '7-8', '8-9', '9+'];
+  const counts = buckets.map(b => {
+    const found = data.find(d => d.bucket === b);
+    return found ? parseInt(found.count, 10) : 0;
+  });
+  const max = Math.max(...counts, 1);
+
+  if (counts.every(c => c === 0)) {
+    return (
+      <div className="h-32 flex items-center justify-center text-gray-500 text-sm">
+        No response time data available
+      </div>
+    );
+  }
 
   return (
-    <div className="h-32 flex items-end gap-2 items-center justify-center border-b border-white/5">
-      <span className="text-gray-500 text-sm">Requires response time calculation</span>
+    <div className="h-32 flex items-end gap-1">
+      {counts.map((val, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+          <div
+            className={`w-full rounded-t min-h-[2px] ${i < 5 ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-amber-600 to-amber-400'}`}
+            style={{ height: `${(val / max) * 100}%` }}
+          />
+          <span className="text-[9px] text-gray-500">{buckets[i]}m</span>
+          {val > 0 && (
+            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              {val}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MessageFunnel({ data, rates }: { data: { stage: string; count: number }[]; rates?: { deliveryRate: number; readRate: number; replyRate: number } }) {
+  if (!data.length) {
+    return <div className="text-gray-500 text-sm text-center py-8">No funnel data available</div>;
+  }
+
+  const max = Math.max(...data.map(d => d.count), 1);
+  const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B'];
+
+  return (
+    <div className="space-y-3">
+      {data.map((item, i) => (
+        <div key={item.stage} className="flex items-center gap-3">
+          <div className="w-20 text-sm text-gray-400">{item.stage}</div>
+          <div className="flex-1 h-8 bg-gray-700/30 rounded relative overflow-hidden">
+            <div
+              className="h-full rounded transition-all"
+              style={{ width: `${(item.count / max) * 100}%`, backgroundColor: colors[i % colors.length] }}
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-white font-medium">
+              {item.count.toLocaleString()}
+            </span>
+          </div>
+        </div>
+      ))}
+      {rates && (
+        <div className="flex justify-between text-xs text-gray-400 mt-4 pt-3 border-t border-white/5">
+          <span>Delivery: <span className="text-white">{rates.deliveryRate.toFixed(1)}%</span></span>
+          <span>Read: <span className="text-white">{rates.readRate.toFixed(1)}%</span></span>
+          <span>Reply: <span className="text-white">{rates.replyRate.toFixed(1)}%</span></span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CountryTable({ data }: { data: { countryCode: string; count: number }[] }) {
+  if (!data.length) {
+    return <div className="text-gray-500 text-sm text-center py-8">No country data available</div>;
+  }
+
+  const total = data.reduce((acc, d) => acc + d.count, 0);
+
+  return (
+    <div className="space-y-2 max-h-64 overflow-y-auto">
+      {data.slice(0, 10).map((item, i) => (
+        <div key={item.countryCode} className="flex items-center gap-3 p-2 bg-gray-700/20 rounded">
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="flex-1 font-medium text-white">{item.countryCode || 'Unknown'}</div>
+          <div className="text-sm text-gray-400">
+            {item.count.toLocaleString()} <span className="text-gray-500">({((item.count / total) * 100).toFixed(1)}%)</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

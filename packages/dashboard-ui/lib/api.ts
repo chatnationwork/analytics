@@ -154,4 +154,21 @@ export const api = {
     const json = await res.json();
     return json.data;
   },
+
+  /**
+   * Fetch top page paths for "Traffic by Journey" chart
+   */
+  async getTopPagePaths(tenantId?: string, startDate?: string, endDate?: string): Promise<{ pagePath: string; count: number; uniqueSessions: number }[]> {
+    const params = new URLSearchParams();
+    if (tenantId) params.set('tenantId', tenantId);
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+
+    const res = await fetch(`${API_BASE_URL}/api/dashboard/overview/page-paths?${params}`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch top page paths');
+    const json = await res.json();
+    return json.data;
+  },
 };

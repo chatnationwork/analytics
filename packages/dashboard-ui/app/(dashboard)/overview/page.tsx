@@ -10,6 +10,11 @@ export default function OverviewPage() {
     queryFn: () => api.getOverview(),
   });
 
+  const { data: pagePaths } = useQuery({
+    queryKey: ['page-paths'],
+    queryFn: () => api.getTopPagePaths(),
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -63,7 +68,7 @@ export default function OverviewPage() {
               icon={<Users className="w-4 h-4" />}
             />
             <StatCard
-              label="Conversion Rate"
+              label="Completion Rate"
               value={`${((data.conversionRate ?? 0) * 100).toFixed(1)}%`}
               change="+5.2%"
               positive
@@ -91,6 +96,12 @@ export default function OverviewPage() {
               <h3 className="font-medium text-white mb-6">Traffic by Device</h3>
               <DeviceChart data={data.deviceBreakdown} />
             </div>
+          </div>
+
+          {/* Traffic by Journey */}
+          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+            <h3 className="font-medium text-white mb-6">Traffic by Journey</h3>
+            <PagePathsChart data={pagePaths ?? []} />
           </div>
 
           {/* Activity Heatmap */}
@@ -262,6 +273,41 @@ function ActivityHeatmap({ data }: { data: { day: number; hour: number; count: n
         </div>
       </div>
     </div>
+    </div>
+  );
+}
+
+function PagePathsChart({ data }: { data: { pagePath: string; count: number; uniqueSessions: number }[] }) {
+  if (!data?.length) {
+    return <div className="h-32 flex items-center justify-center text-gray-500">No page path data available</div>;
+  }
+
+  const max = Math.max(...data.map(d => d.count), 1);
+  const total = data.reduce((acc, d) => acc + d.count, 0);
+
+  return (
+    <div className="space-y-2 max-h-80 overflow-y-auto">
+      {data.map((item, i) => (
+        <div key={item.pagePath} className="flex items-center gap-3 group">
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-white truncate max-w-[200px]" title={item.pagePath}>
+                {item.pagePath || '/'}
+              </span>
+              <span className="text-xs text-gray-400">
+                {item.count.toLocaleString()} <span className="text-gray-500">({((item.count / total) * 100).toFixed(1)}%)</span>
+              </span>
+            </div>
+            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded transition-all"
+                style={{ width: `${(item.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

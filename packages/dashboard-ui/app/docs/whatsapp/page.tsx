@@ -193,6 +193,49 @@ export default function WhatsAppDocsPage() {
   }
 }`} />
         </div>
+
+        {/* agent.handoff */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-4">
+          <h3 className="font-mono text-lg font-medium mb-2">agent.handoff</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">User is transferred from bot to human agent (Self-serve → Assisted).</p>
+          <CodeBlock code={`{
+  "type": "track",
+  "event": "agent.handoff",
+  "userId": "+254712345678",
+  "timestamp": "2026-01-20T07:00:00.000Z",
+  "context": { "channel": "whatsapp" },
+  "properties": {
+    "chatId": "chat_123",
+    "fromMode": "bot",
+    "toMode": "agent",
+    "agentId": "agent_456",
+    "handoffReason": "user_request",
+    "journeyStep": "payment_issue"
+  }
+}`} />
+          <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              <strong>Tip:</strong> Use <code>serviceMode</code> to segment analytics between <code>"bot"</code> (Self-serve) and <code>"agent"</code> (Assisted).
+            </p>
+          </div>
+        </div>
+
+        {/* message.delivered */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="font-mono text-lg font-medium mb-2">message.delivered</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Message was delivered to user's device.</p>
+          <CodeBlock code={`{
+  "type": "track",
+  "event": "message.delivered",
+  "userId": "+254712345678",
+  "timestamp": "2026-01-20T06:31:30.000Z",
+  "context": { "channel": "whatsapp" },
+  "properties": {
+    "messageId": "wamid.yyy",
+    "deliveredAt": "2026-01-20T06:31:30.000Z"
+  }
+}`} />
+        </div>
       </section>
 
       {/* Metrics */}
@@ -220,12 +263,32 @@ export default function WhatsAppDocsPage() {
                 <td className="p-3">message.read / message.sent</td>
               </tr>
               <tr>
+                <td className="p-3 font-medium">Delivery Rate</td>
+                <td className="p-3">message.delivered / message.sent</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-medium">Reply Rate</td>
+                <td className="p-3">message.received / message.sent</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-medium">Message Funnel</td>
+                <td className="p-3">Sent → Delivered → Read → Replied</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-medium">Traffic by Country</td>
+                <td className="p-3">message.received grouped by countryCode</td>
+              </tr>
+              <tr>
                 <td className="p-3 font-medium">Peak Hours</td>
                 <td className="p-3">message.received grouped by hour</td>
               </tr>
               <tr>
                 <td className="p-3 font-medium">Agent Performance</td>
                 <td className="p-3">Events grouped by agentId</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-medium">Self-serve vs Assisted</td>
+                <td className="p-3">Events grouped by serviceMode (bot/agent)</td>
               </tr>
             </tbody>
           </table>
