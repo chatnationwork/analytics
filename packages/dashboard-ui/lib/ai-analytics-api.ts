@@ -26,23 +26,35 @@ export interface AiError {
 }
 
 export const aiAnalyticsApi = {
-  getStats: async (): Promise<AiStats> => {
-    const res = await fetchWithAuth('/ai-analytics/stats');
-    return res.json();
+  getStats: async (startDate?: string, endDate?: string): Promise<AiStats> => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    
+    return fetchWithAuth(`/ai-analytics/stats?${params}`);
   },
 
-  getIntents: async (): Promise<AiIntent[]> => {
-    const res = await fetchWithAuth('/ai-analytics/intents');
-    return res.json();
+  getIntents: async (startDate?: string, endDate?: string): Promise<AiIntent[]> => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+
+    return fetchWithAuth(`/ai-analytics/intents?${params}`);
   },
 
-  getLatency: async (): Promise<AiLatencyBucket[]> => {
-    const res = await fetchWithAuth('/ai-analytics/latency');
-    return res.json();
+  getLatency: async (startDate?: string, endDate?: string): Promise<AiLatencyBucket[]> => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+
+    return fetchWithAuth(`/ai-analytics/latency?${params}`);
   },
 
-  getErrors: async (): Promise<AiError[]> => {
-    const res = await fetchWithAuth('/ai-analytics/errors');
-    return res.json();
+  getErrors: async (startDate?: string, endDate?: string): Promise<AiError[]> => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+
+    return fetchWithAuth(`/ai-analytics/errors?${params}`);
   },
 };
