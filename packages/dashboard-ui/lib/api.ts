@@ -40,19 +40,26 @@ const getHeaders = () => {
 };
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const res = await fetch(`${API_BASE_URL}/api/dashboard${url}`, {
+  const fullUrl = `${API_BASE_URL}/api/dashboard${url}`;
+  console.log(`[API] Fetching ${fullUrl}`);
+  
+  const res = await fetch(fullUrl, {
     ...options,
     headers: {
       ...getHeaders(),
       ...options.headers,
     },
   });
+  
   if (!res.ok) {
     // Try to get error message from response
     const errorData = await res.json().catch(() => ({}));
+    console.error(`[API] Error ${res.status} for ${url}:`, errorData);
     throw new Error(errorData.message || `Failed to fetch ${url}`);
   }
+  
   const json = await res.json();
+  console.log(`[API] Success ${url}:`, json);
   return json.data;
 }
 
