@@ -8,11 +8,7 @@ export class AiAnalyticsService {
   async getStats(tenantId: string, startDate?: Date, endDate?: Date) {
     const end = endDate || new Date();
     const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-    console.log(`[AiAnalytics] getStats for tenant ${tenantId}, start=${start.toISOString()}, end=${end.toISOString()}`);
-    
-    const stats = await this.eventRepository.getAiStats(tenantId, start, end);
-    console.log(`[AiAnalytics] Stats result:`, stats);
-    return stats;
+    return this.eventRepository.getAiStats(tenantId, start, end);
   }
 
   async getIntentBreakdown(tenantId: string, startDate?: Date, endDate?: Date, limit = 10) {
