@@ -98,4 +98,76 @@ export class OverviewController {
       end,
     );
   }
+
+  /**
+   * GET /api/dashboard/overview/devices
+   * Returns device type breakdown.
+   */
+  @Get('devices')
+  async getDeviceBreakdown(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('tenantId') tenantId = 'default-tenant',
+  ) {
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate 
+      ? new Date(startDate) 
+      : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    return this.overviewService.getDeviceBreakdown(tenantId, start, end);
+  }
+
+  /**
+   * GET /api/dashboard/overview/browsers
+   * Returns browser breakdown.
+   */
+  @Get('browsers')
+  async getBrowserBreakdown(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('tenantId') tenantId = 'default-tenant',
+  ) {
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate 
+      ? new Date(startDate) 
+      : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    return this.overviewService.getBrowserBreakdown(tenantId, start, end);
+  }
+
+  /**
+   * GET /api/dashboard/overview/daily-users
+   * Returns daily active users.
+   */
+  @Get('daily-users')
+  async getDailyActiveUsers(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('tenantId') tenantId = 'default-tenant',
+  ) {
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate 
+      ? new Date(startDate) 
+      : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    return this.overviewService.getDailyActiveUsers(tenantId, start, end);
+  }
+
+  /**
+   * GET /api/dashboard/overview/user-identity
+   * Returns identified vs anonymous user stats.
+   */
+  @Get('user-identity')
+  async getIdentifiedVsAnonymous(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('tenantId') tenantId = 'default-tenant',
+  ) {
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate 
+      ? new Date(startDate) 
+      : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    return this.overviewService.getIdentifiedVsAnonymous(tenantId, start, end);
+  }
 }

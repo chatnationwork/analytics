@@ -476,5 +476,260 @@ export class EventRepository {
       }
     };
   }
+
+  // =============================================================================
+  // AI ANALYTICS METHODS
+  // =============================================================================
+
+  /**
+   * Get AI performance stats: total classifications, avg latency, avg confidence, error rate.
+   */
+  async getAiStats(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('event')
+      .select('COUNT(*)', 'totalClassifications')
+      .addSelect("AVG((event.properties->>'latency_ms')::float)", 'avgLatencyMs')
+      .addSelect("AVG((event.properties->>'confidence')::float)", 'avgConfidence')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere("event.eventName = 'ai.classification'")
+      .getRawOne();
+
+    const errorCount = await this.repo
+      .createQueryBuilder('event')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere("event.eventName = 'ai.error'")
+      .getCount();
+
+    const totalClassifications = parseInt(result.totalClassifications, 10) || 0;
+
+    return {
+      totalClassifications,
+      avgLatencyMs: parseFloat(result.avgLatencyMs) || 0,
+      avgConfidence: parseFloat(result.avgConfidence) || 0,
+      errorCount,
+      errorRate: totalClassifications > 0 ? (errorCount / totalClassifications) * 100 : 0,
+    };
+  }
+
+  /**
+   * Get intent breakdown: top intents by count with average confidence.
+   */
+  async getAiIntentBreakdown(tenantId: string, startDate: Date, endDate: Date, limit = 10) {
+    const result = await this.repo
+      .createQueryBuilder('event')
+      .select("event.properties->>'detected_intent'", 'intent')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect("AVG((event.properties->>'confidence')::float)", 'avgConfidence')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere("event.eventName = 'ai.classification'")
+      .andWhere("event.properties->>'detected_intent' IS NOT NULL")
+      .groupBy("event.properties->>'detected_intent'")
+      .orderBy('COUNT(*)', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    return result.map(r => ({
+      intent: r.intent,
+      count: parseInt(r.count, 10),
+      avgConfidence: parseFloat(r.avgConfidence) || 0,
+    }));
+  }
+
+  /**
+   * Get AI latency distribution in buckets.
+   */
+  async getAiLatencyDistribution(tenantId: string, startDate: Date, endDate: Date) {
+    const buckets = [
+      { min: 0, max: 100, label: '0-100' },
+      { min: 100, max: 200, label: '100-200' },
+      { min: 200, max: 500, label: '200-500' },
+      { min: 500, max: 1000, label: '500-1000' },
+      { min: 1000, max: 999999, label: '1000+' },
+    ];
+
+    const result = await Promise.all(
+      buckets.map(async (bucket) => {
+        const count = await this.repo
+          .createQueryBuilder('event')
+          .where('event.tenantId = :tenantId', { tenantId })
+          .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+          .andWhere("event.eventName = 'ai.classification'")
+          .andWhere("(event.properties->>'latency_ms')::int >= :min", { min: bucket.min })
+          .andWhere("(event.properties->>'latency_ms')::int < :max", { max: bucket.max })
+          .getCount();
+        return { bucket: bucket.label, count };
+      })
+    );
+
+    return result;
+  }
+
+  /**
+   * Get AI error breakdown by error type.
+   */
+  async getAiErrorBreakdown(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('event')
+      .select("event.properties->>'error_type'", 'errorType')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect("SUM(CASE WHEN (event.properties->>'recovered')::boolean = true THEN 1 ELSE 0 END)", 'recoveredCount')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere("event.eventName = 'ai.error'")
+      .groupBy("event.properties->>'error_type'")
+      .orderBy('COUNT(*)', 'DESC')
+      .getRawMany();
+
+    return result.map(r => ({
+      errorType: r.errorType || 'unknown',
+      count: parseInt(r.count, 10),
+      recoveredCount: parseInt(r.recoveredCount, 10) || 0,
+    }));
+  }
+
+  // =============================================================================
+  // DASHBOARD ENHANCEMENT METHODS
+  // =============================================================================
+
+  /**
+   * Get device type breakdown (Desktop, Mobile, Tablet).
+   */
+  async getDeviceBreakdown(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('event')
+      .select('event.deviceType', 'deviceType')
+      .addSelect('COUNT(DISTINCT event.sessionId)', 'count')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere('event.deviceType IS NOT NULL')
+      .groupBy('event.deviceType')
+      .orderBy('COUNT(DISTINCT event.sessionId)', 'DESC')
+      .getRawMany();
+
+    return result.map(r => ({
+      deviceType: r.deviceType || 'unknown',
+      count: parseInt(r.count, 10),
+    }));
+  }
+
+  /**
+   * Get browser breakdown.
+   */
+  async getBrowserBreakdown(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('event')
+      .select('event.browserName', 'browserName')
+      .addSelect('COUNT(DISTINCT event.sessionId)', 'count')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere('event.browserName IS NOT NULL')
+      .groupBy('event.browserName')
+      .orderBy('COUNT(DISTINCT event.sessionId)', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    return result.map(r => ({
+      browserName: r.browserName || 'unknown',
+      count: parseInt(r.count, 10),
+    }));
+  }
+
+  /**
+   * Get daily active users (unique anonymousIds per day).
+   */
+  async getDailyActiveUsers(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('event')
+      .select("DATE_TRUNC('day', event.timestamp)", 'date')
+      .addSelect('COUNT(DISTINCT event.anonymousId)', 'count')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .groupBy("DATE_TRUNC('day', event.timestamp)")
+      .orderBy("DATE_TRUNC('day', event.timestamp)", 'ASC')
+      .getRawMany();
+
+    return result.map(r => ({
+      date: r.date,
+      count: parseInt(r.count, 10),
+    }));
+  }
+
+  /**
+   * Get identified vs anonymous user counts.
+   */
+  async getIdentifiedVsAnonymous(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('event')
+      .select('COUNT(DISTINCT event.anonymousId)', 'totalUsers')
+      .addSelect('COUNT(DISTINCT CASE WHEN event.userId IS NOT NULL THEN event.anonymousId END)', 'identifiedUsers')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .getRawOne();
+
+    const total = parseInt(result.totalUsers, 10) || 0;
+    const identified = parseInt(result.identifiedUsers, 10) || 0;
+
+    return {
+      total,
+      identified,
+      anonymous: total - identified,
+      identifiedPercent: total > 0 ? (identified / total) * 100 : 0,
+    };
+  }
+
+  /**
+   * Get WhatsApp resolution time stats from chat.resolved events.
+   */
+  async getResolutionTimeStats(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo
+      .createQueryBuilder('event')
+      .select("AVG((event.properties->>'durationMinutes')::float)", 'avgDuration')
+      .addSelect("MIN((event.properties->>'durationMinutes')::float)", 'minDuration')
+      .addSelect("MAX((event.properties->>'durationMinutes')::float)", 'maxDuration')
+      .addSelect('COUNT(*)', 'totalResolved')
+      .where('event.tenantId = :tenantId', { tenantId })
+      .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere("event.eventName = 'chat.resolved'")
+      .getRawOne();
+
+    return {
+      avgDurationMinutes: parseFloat(result.avgDuration) || 0,
+      minDurationMinutes: parseFloat(result.minDuration) || 0,
+      maxDurationMinutes: parseFloat(result.maxDuration) || 0,
+      totalResolved: parseInt(result.totalResolved, 10) || 0,
+    };
+  }
+
+  /**
+   * Get conversation length distribution (message count histogram).
+   */
+  async getConversationLengthDistribution(tenantId: string, startDate: Date, endDate: Date) {
+    const buckets = [
+      { min: 1, max: 3, label: '1-3' },
+      { min: 4, max: 6, label: '4-6' },
+      { min: 7, max: 10, label: '7-10' },
+      { min: 11, max: 20, label: '11-20' },
+      { min: 21, max: 999999, label: '20+' },
+    ];
+
+    const result = await Promise.all(
+      buckets.map(async (bucket) => {
+        const count = await this.repo
+          .createQueryBuilder('event')
+          .where('event.tenantId = :tenantId', { tenantId })
+          .andWhere('event.timestamp BETWEEN :startDate AND :endDate', { startDate, endDate })
+          .andWhere("event.eventName = 'chat.resolved'")
+          .andWhere("(event.properties->>'messageCount')::int >= :min", { min: bucket.min })
+          .andWhere("(event.properties->>'messageCount')::int <= :max", { max: bucket.max })
+          .getCount();
+        return { bucket: bucket.label, count };
+      })
+    );
+
+    return result;
+  }
 }
 

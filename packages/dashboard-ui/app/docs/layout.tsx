@@ -55,6 +55,7 @@ export default function DocsLayout({
             <SidebarLink href="/docs/sdk" label="JavaScript SDK" />
             <SidebarLink href="/docs/api" label="REST API" />
             <SidebarLink href="/docs/whatsapp" label="WhatsApp Integration" />
+            <SidebarLink href="/docs/ai" label="AI Integration" />
           </nav>
           <div className="mt-8 pt-6 border-t border-white/10">
             <Link href="/" className="text-sm text-gray-400 hover:text-white transition-colors">

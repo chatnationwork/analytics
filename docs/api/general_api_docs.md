@@ -286,6 +286,92 @@ Get all events for a specific session.
 
 ---
 
+## AI Analytics API
+
+Endpoints for tracking AI/LLM agent performance.
+
+### GET /api/dashboard/ai-analytics/stats
+
+Get AI performance stats.
+
+#### Response
+
+```json
+{
+  "totalClassifications": 2847,
+  "avgLatencyMs": 312,
+  "avgConfidence": 0.94,
+  "errorCount": 34,
+  "errorRate": 1.2
+}
+```
+
+---
+
+### GET /api/dashboard/ai-analytics/intents
+
+Get top intents breakdown.
+
+#### Response
+
+```json
+[
+  {
+    "intent": "nil_filing",
+    "count": 456,
+    "avgConfidence": 0.95
+  },
+  {
+    "intent": "pin_registration",
+    "count": 312,
+    "avgConfidence": 0.92
+  }
+]
+```
+
+---
+
+### GET /api/dashboard/ai-analytics/latency
+
+Get AI latency distribution.
+
+#### Response
+
+```json
+[
+  { "bucket": "0-100", "count": 45 },
+  { "bucket": "100-200", "count": 78 },
+  { "bucket": "200-500", "count": 32 },
+  { "bucket": "500-1000", "count": 12 },
+  { "bucket": "1000+", "count": 5 }
+]
+```
+
+---
+
+### GET /api/dashboard/ai-analytics/errors
+
+Get AI error breakdown.
+
+#### Response
+
+```json
+[
+  {
+    "errorType": "timeout",
+    "count": 15,
+    "recoveredCount": 12
+  },
+  {
+    "errorType": "json_parse_error",
+    "count": 8,
+    "recoveredCount": 5
+  }
+]
+```
+
+---
+
 ## Error Handling
 
 All errors follow this format:

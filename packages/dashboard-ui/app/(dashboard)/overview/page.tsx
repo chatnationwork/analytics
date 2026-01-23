@@ -2,7 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { TrendingUp, TrendingDown, Users, Clock, Target, BarChart3 } from 'lucide-react';
+import { overviewEnhancedApi } from '@/lib/overview-enhanced-api';
+import { TrendingUp, TrendingDown, Users, Clock, Target, BarChart3, Monitor, UserCheck } from 'lucide-react';
 
 export default function OverviewPage() {
   const { data, isLoading, error } = useQuery({
@@ -13,6 +14,21 @@ export default function OverviewPage() {
   const { data: pagePaths } = useQuery({
     queryKey: ['page-paths'],
     queryFn: () => api.getTopPagePaths(),
+  });
+
+  const { data: dailyUsers } = useQuery({
+    queryKey: ['daily-users'],
+    queryFn: () => overviewEnhancedApi.getDailyActiveUsers(),
+  });
+
+  const { data: browsers } = useQuery({
+    queryKey: ['browser-breakdown'],
+    queryFn: () => overviewEnhancedApi.getBrowserBreakdown(),
+  });
+
+  const { data: userIdentity } = useQuery({
+    queryKey: ['user-identity'],
+    queryFn: () => overviewEnhancedApi.getUserIdentityStats(),
   });
 
   return (
@@ -52,7 +68,7 @@ export default function OverviewPage() {
       {data && (
         <>
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard
               label="Total Sessions"
               value={data.totalSessions?.toLocaleString() ?? '0'}
@@ -81,14 +97,21 @@ export default function OverviewPage() {
               positive={false}
               icon={<Clock className="w-4 h-4" />}
             />
+            <StatCard
+              label="Identified Users"
+              value={`${(userIdentity?.identifiedPercent ?? 0).toFixed(0)}%`}
+              change={`${userIdentity?.identified ?? 0} of ${userIdentity?.total ?? 0}`}
+              positive
+              icon={<UserCheck className="w-4 h-4" />}
+            />
           </div>
 
-          {/* Charts Row */}
+          {/* Charts Row 1 */}
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Sessions Trend */}
+            {/* Daily Active Users */}
             <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-              <h3 className="font-medium text-white mb-6">Daily Sessions</h3>
-              <SessionsTrendChart data={data.dailySessions} />
+              <h3 className="font-medium text-white mb-6">Daily Active Users</h3>
+              <DailyActiveUsersChart data={dailyUsers ?? []} />
             </div>
 
             {/* Device Breakdown */}
@@ -98,10 +121,19 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Traffic by Journey */}
-          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-            <h3 className="font-medium text-white mb-6">Traffic by Journey</h3>
-            <PagePathsChart data={pagePaths ?? []} />
+          {/* Charts Row 2 */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Browser Breakdown */}
+            <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+              <h3 className="font-medium text-white mb-6">Top Browsers</h3>
+              <BrowserChart data={browsers ?? []} />
+            </div>
+
+            {/* Traffic by Journey */}
+            <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+              <h3 className="font-medium text-white mb-6">Traffic by Journey</h3>
+              <PagePathsChart data={pagePaths ?? []} />
+            </div>
           </div>
 
           {/* Activity Heatmap */}
@@ -303,6 +335,67 @@ function PagePathsChart({ data }: { data: { pagePath: string; count: number; uni
               <div
                 className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded transition-all"
                 style={{ width: `${(item.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DailyActiveUsersChart({ data }: { data: { date: string; count: number }[] }) {
+  if (!data?.length) return <div className="h-48 flex items-center justify-center text-gray-500">No data available</div>;
+
+  const max = Math.max(...data.map(d => d.count)) || 1;
+
+  return (
+    <div className="h-48 flex items-end gap-1">
+      {data.map((point, i) => {
+        const height = (point.count / max) * 100;
+        const date = new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+            <div className="absolute bottom-full mb-2 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-white/10">
+              {date}: {point.count} users
+            </div>
+            <div
+              className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t hover:from-green-400 hover:to-green-300 transition-colors min-h-[2px]"
+              style={{ height: `${height}%` }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BrowserChart({ data }: { data: { browserName: string; count: number }[] }) {
+  if (!data?.length) return <div className="h-40 flex items-center justify-center text-gray-500">No browser data</div>;
+
+  const max = Math.max(...data.map(d => d.count), 1);
+  const total = data.reduce((acc, d) => acc + d.count, 0);
+  const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#14B8A6'];
+
+  return (
+    <div className="space-y-2">
+      {data.slice(0, 6).map((item, i) => (
+        <div key={item.browserName} className="flex items-center gap-3">
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-white">{item.browserName}</span>
+              <span className="text-xs text-gray-400">
+                {item.count.toLocaleString()} <span className="text-gray-500">({((item.count / total) * 100).toFixed(1)}%)</span>
+              </span>
+            </div>
+            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+              <div
+                className="h-full rounded transition-all"
+                style={{ 
+                  width: `${(item.count / max) * 100}%`,
+                  backgroundColor: colors[i % colors.length]
+                }}
               />
             </div>
           </div>

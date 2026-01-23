@@ -9,11 +9,12 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build:sdk && npm run build:collector && npm run build:processor && npm run build:dashboard-api",
+    "build": "npm run build:sdk && npm run build:collector && npm run build:processor && npm run build:dashboard-api && npm run build:dashboard-ui",
     "build:sdk": "npm run build --workspace=packages/sdk",
     "build:collector": "nest build collector",
     "build:processor": "nest build processor",
     "build:dashboard-api": "nest build dashboard-api",
+    "build:dashboard-ui": "npm run build --workspace=packages/dashboard-ui",
     "start": "nest start",
     "start:dev": "npm run start:collector:dev & npm run start:processor:dev & npm run start:dashboard-api:dev",
     "start:collector:dev": "nest start collector --watch",

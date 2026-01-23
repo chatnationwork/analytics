@@ -40,6 +40,7 @@ import { TenantsModule } from './tenants/tenants.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { WhatsappAnalyticsModule } from './whatsapp-analytics/whatsapp-analytics.module';
+import { AiAnalyticsModule } from './ai-analytics/ai-analytics.module';
 
 /**
  * @Module() - Root module decorator
@@ -93,6 +94,7 @@ import { WhatsappAnalyticsModule } from './whatsapp-analytics/whatsapp-analytics
     EventsModule,            // GET /api/dashboard/events
     WhatsappModule,
     WhatsappAnalyticsModule,
+    AiAnalyticsModule,       // GET /api/dashboard/ai/*
   ],
 })
 export class DashboardModule {}

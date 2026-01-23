@@ -49,5 +49,19 @@ export const whatsappAnalyticsApi = {
     if (endDate) params.append('endDate', endDate);
     return fetchWithAuth(`/whatsapp-analytics/funnel?${params.toString()}`);
   },
+
+  getResolutionStats: async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return fetchWithAuth(`/whatsapp-analytics/resolution-stats?${params.toString()}`);
+  },
+
+  getConversationLength: async (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return fetchWithAuth(`/whatsapp-analytics/conversation-length?${params.toString()}`);
+  },
 };
 

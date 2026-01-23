@@ -101,14 +101,14 @@ function OverviewTab() {
         <div className="text-sm text-gray-400">Last 30 days</div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Stats Grid - Now 5 columns */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard 
           label="Total Sessions" 
           value="12,847" 
           change="+18%" 
           positive 
-          icon={<Users className="w-4 h-4" />}
+          icon={<BarChart3 className="w-4 h-4" />}
         />
         <StatCard 
           label="Unique Users" 
@@ -131,37 +131,43 @@ function OverviewTab() {
           positive={false} 
           icon={<Clock className="w-4 h-4" />}
         />
+        <StatCard 
+          label="Identified Users" 
+          value="67%" 
+          change="5,517 of 8,234" 
+          positive 
+          icon={<Users className="w-4 h-4" />}
+        />
       </div>
 
-      {/* Charts Row */}
+      {/* Charts Row 1 */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Line Chart */}
+        {/* Daily Active Users Chart */}
         <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
           <h3 className="font-medium mb-6">Daily Active Users</h3>
-          <MockLineChart />
-          <div className="flex items-center justify-center gap-6 mt-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-1 bg-blue-400 rounded" />
-              <span className="text-gray-400">This period</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-1 bg-gray-600 rounded" />
-              <span className="text-gray-400">Previous</span>
-            </div>
-          </div>
+          <MockDailyActiveUsersChart />
         </div>
 
-        {/* Donut Chart */}
+        {/* Device Breakdown Donut */}
         <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
           <h3 className="font-medium mb-6">Traffic by Device</h3>
           <MockDonutChart />
         </div>
       </div>
 
-      {/* Traffic by Journey */}
-      <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-        <h3 className="font-medium mb-6">Traffic by Journey</h3>
-        <MockPagePathsChart />
+      {/* Charts Row 2 */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Browser Breakdown */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Top Browsers</h3>
+          <MockBrowserChart />
+        </div>
+
+        {/* Traffic by Journey */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Traffic by Journey</h3>
+          <MockPagePathsChart />
+        </div>
       </div>
 
       {/* Heatmap */}
@@ -175,6 +181,7 @@ function OverviewTab() {
     </div>
   );
 }
+
 
 // ==================== FUNNEL TAB ====================
 function FunnelTab() {
@@ -345,6 +352,61 @@ function WhatsAppTab() {
           <MockCountryTable />
         </div>
       </div>
+
+      {/* AI Performance Section */}
+      <div className="border-t border-white/10 pt-6">
+        <div className="flex items-center gap-2 mb-6">
+          <span className="text-purple-400">🧠</span>
+          <h3 className="text-lg font-semibold">AI Performance</h3>
+        </div>
+
+        {/* AI Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <StatCard 
+            label="AI Classifications" 
+            value="2,847" 
+            change="Last 30 days" 
+            positive 
+            icon={<Target className="w-4 h-4" />}
+          />
+          <StatCard 
+            label="AI Accuracy" 
+            value="94%" 
+            change="Avg confidence" 
+            positive 
+            icon={<Target className="w-4 h-4" />}
+          />
+          <StatCard 
+            label="Avg Latency" 
+            value="312ms" 
+            change="Fast" 
+            positive 
+            icon={<Clock className="w-4 h-4" />}
+          />
+          <StatCard 
+            label="Error Rate" 
+            value="1.2%" 
+            change="34 errors" 
+            positive 
+            icon={<Target className="w-4 h-4" />}
+          />
+        </div>
+
+        {/* AI Charts Row */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Intent Breakdown */}
+          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+            <h3 className="font-medium mb-6">Top User Intents</h3>
+            <MockIntentBreakdown />
+          </div>
+
+          {/* AI Latency Distribution */}
+          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+            <h3 className="font-medium mb-6">AI Latency Distribution</h3>
+            <MockAiLatencyChart />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -502,6 +564,64 @@ function MockDonutChart() {
     </div>
   );
 }
+
+function MockDailyActiveUsersChart() {
+  const data = [320, 380, 420, 350, 510, 480, 590, 620, 550, 480, 520, 610, 580, 650, 620, 710, 680, 590, 520, 580, 640, 720, 680, 750, 710, 680, 640, 590, 620, 580];
+  const max = Math.max(...data);
+  
+  return (
+    <div className="h-48 flex items-end gap-0.5">
+      {data.map((value, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center group relative">
+          <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
+            Day {i + 1}: {value} users
+          </div>
+          <div 
+            className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t hover:from-green-400 hover:to-green-300 transition-colors min-h-[2px]"
+            style={{ height: `${(value / max) * 100}%` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MockBrowserChart() {
+  const browsers = [
+    { name: 'Chrome', count: 4520, pct: 55 },
+    { name: 'Safari', count: 1890, pct: 23 },
+    { name: 'Firefox', count: 820, pct: 10 },
+    { name: 'Edge', count: 580, pct: 7 },
+    { name: 'Opera', count: 410, pct: 5 },
+  ];
+  const max = browsers[0].count;
+  const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444'];
+
+  return (
+    <div className="space-y-2">
+      {browsers.map((browser, i) => (
+        <div key={browser.name} className="flex items-center gap-3">
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-white">{browser.name}</span>
+              <span className="text-xs text-gray-400">
+                {browser.count.toLocaleString()} <span className="text-gray-500">({browser.pct}%)</span>
+              </span>
+            </div>
+            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+              <div 
+                className="h-full rounded transition-all"
+                style={{ width: `${(browser.count / max) * 100}%`, backgroundColor: colors[i] }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function MockHeatmap() {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -670,6 +790,66 @@ function MockCountryTable() {
           <div className="text-sm text-gray-400">
             {item.count.toLocaleString()} <span className="text-gray-500">({item.pct}%)</span>
           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MockIntentBreakdown() {
+  const intents = [
+    { intent: 'nil_filing', count: 456, confidence: 95 },
+    { intent: 'pin_registration', count: 312, confidence: 92 },
+    { intent: 'etims_query', count: 245, confidence: 88 },
+    { intent: 'tcc_application', count: 198, confidence: 91 },
+    { intent: 'payment_status', count: 156, confidence: 94 },
+  ];
+  const max = intents[0].count;
+
+  return (
+    <div className="space-y-2">
+      {intents.map((item, i) => (
+        <div key={item.intent} className="flex items-center gap-3">
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm">{item.intent.replace(/_/g, ' ')}</span>
+              <span className="text-xs text-gray-400">
+                {item.count} <span className="text-purple-400">({item.confidence}%)</span>
+              </span>
+            </div>
+            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded"
+                style={{ width: `${(item.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MockAiLatencyChart() {
+  const buckets = [
+    { label: '0-100', count: 45, fast: true },
+    { label: '100-200', count: 78, fast: true },
+    { label: '200-500', count: 32, fast: true },
+    { label: '500-1000', count: 12, fast: false },
+    { label: '1000+', count: 5, fast: false },
+  ];
+  const max = Math.max(...buckets.map(b => b.count));
+
+  return (
+    <div className="h-32 flex items-end gap-2">
+      {buckets.map((item) => (
+        <div key={item.label} className="flex-1 flex flex-col items-center gap-1">
+          <div 
+            className={`w-full rounded-t ${item.fast ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-amber-600 to-amber-400'}`}
+            style={{ height: `${(item.count / max) * 100}%` }}
+          />
+          <span className="text-[9px] text-gray-500">{item.label}ms</span>
         </div>
       ))}
     </div>

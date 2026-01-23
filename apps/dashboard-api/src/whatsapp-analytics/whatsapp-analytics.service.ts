@@ -54,5 +54,17 @@ export class WhatsappAnalyticsService {
     const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     return this.eventRepository.getWhatsappFunnel(tenantId, start, end);
   }
+
+  async getResolutionTimeStats(tenantId: string, startDate?: Date, endDate?: Date) {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return this.eventRepository.getResolutionTimeStats(tenantId, start, end);
+  }
+
+  async getConversationLength(tenantId: string, startDate?: Date, endDate?: Date) {
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return this.eventRepository.getConversationLengthDistribution(tenantId, start, end);
+  }
 }
 

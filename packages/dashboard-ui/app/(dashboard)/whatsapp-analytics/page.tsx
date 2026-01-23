@@ -2,7 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { whatsappAnalyticsApi } from '@/lib/whatsapp-analytics-api';
-import { TrendingUp, TrendingDown, MessageCircle, Clock, Target, Users } from 'lucide-react';
+import { aiAnalyticsApi } from '@/lib/ai-analytics-api';
+import { TrendingUp, TrendingDown, MessageCircle, Clock, Target, Users, Brain, Zap, AlertTriangle } from 'lucide-react';
 
 export default function WhatsAppAnalyticsPage() {
   const { data: stats } = useQuery({
@@ -38,6 +39,22 @@ export default function WhatsAppAnalyticsPage() {
   const { data: funnel } = useQuery({
     queryKey: ['whatsapp-funnel'],
     queryFn: () => whatsappAnalyticsApi.getFunnel(),
+  });
+
+  // AI Analytics queries
+  const { data: aiStats } = useQuery({
+    queryKey: ['ai-stats'],
+    queryFn: () => aiAnalyticsApi.getStats(),
+  });
+
+  const { data: aiIntents } = useQuery({
+    queryKey: ['ai-intents'],
+    queryFn: () => aiAnalyticsApi.getIntents(),
+  });
+
+  const { data: aiLatency } = useQuery({
+    queryKey: ['ai-latency'],
+    queryFn: () => aiAnalyticsApi.getLatency(),
   });
 
   return (
@@ -126,6 +143,61 @@ export default function WhatsAppAnalyticsPage() {
         </div>
       </div>
 
+      {/* AI Analytics Section */}
+      <div className="border-t border-white/10 pt-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Brain className="w-5 h-5 text-purple-400" />
+          <h2 className="text-lg font-semibold text-white">AI Performance</h2>
+        </div>
+
+        {/* AI Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            label="AI Classifications"
+            value={aiStats?.totalClassifications?.toLocaleString() ?? '0'}
+            change="Last 30 days"
+            positive
+            icon={<Brain className="w-4 h-4" />}
+          />
+          <StatCard
+            label="AI Accuracy"
+            value={`${((aiStats?.avgConfidence ?? 0) * 100).toFixed(0)}%`}
+            change="Avg confidence"
+            positive={(aiStats?.avgConfidence ?? 0) > 0.8}
+            icon={<Target className="w-4 h-4" />}
+          />
+          <StatCard
+            label="Avg Latency"
+            value={`${Math.round(aiStats?.avgLatencyMs ?? 0)}ms`}
+            change={(aiStats?.avgLatencyMs ?? 0) < 500 ? 'Fast' : 'Check'}
+            positive={(aiStats?.avgLatencyMs ?? 0) < 500}
+            icon={<Zap className="w-4 h-4" />}
+          />
+          <StatCard
+            label="Error Rate"
+            value={`${(aiStats?.errorRate ?? 0).toFixed(1)}%`}
+            change={`${aiStats?.errorCount ?? 0} errors`}
+            positive={(aiStats?.errorRate ?? 0) < 5}
+            icon={<AlertTriangle className="w-4 h-4" />}
+          />
+        </div>
+
+        {/* AI Intents & Latency Row */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Intent Breakdown */}
+          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+            <h3 className="font-medium text-white mb-6">Top User Intents</h3>
+            <IntentBreakdown data={aiIntents ?? []} />
+          </div>
+
+          {/* AI Latency Distribution */}
+          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+            <h3 className="font-medium text-white mb-6">AI Latency Distribution</h3>
+            <AiLatencyChart data={aiLatency ?? []} />
+          </div>
+        </div>
+      </div>
+
       {/* Agent Performance */}
       <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
         <h3 className="font-medium text-white mb-6">Agent Performance</h3>
@@ -161,6 +233,65 @@ export default function WhatsAppAnalyticsPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function IntentBreakdown({ data }: { data: { intent: string; count: number; avgConfidence: number }[] }) {
+  if (!data.length) {
+    return <div className="text-gray-500 text-sm text-center py-8">No AI classification data yet</div>;
+  }
+
+  const max = Math.max(...data.map(d => d.count), 1);
+
+  return (
+    <div className="space-y-2 max-h-64 overflow-y-auto">
+      {data.map((item, i) => (
+        <div key={item.intent} className="flex items-center gap-3">
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-white">{item.intent.replace(/_/g, ' ')}</span>
+              <span className="text-xs text-gray-400">
+                {item.count} <span className="text-purple-400">({(item.avgConfidence * 100).toFixed(0)}%)</span>
+              </span>
+            </div>
+            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded"
+                style={{ width: `${(item.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AiLatencyChart({ data }: { data: { bucket: string; count: number }[] }) {
+  if (!data.length || data.every(d => d.count === 0)) {
+    return <div className="text-gray-500 text-sm text-center py-8">No AI latency data yet</div>;
+  }
+
+  const max = Math.max(...data.map(d => d.count), 1);
+
+  return (
+    <div className="h-32 flex items-end gap-2">
+      {data.map((item, i) => (
+        <div key={item.bucket} className="flex-1 flex flex-col items-center gap-1 group relative">
+          <div
+            className={`w-full rounded-t min-h-[2px] ${i < 3 ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-amber-600 to-amber-400'}`}
+            style={{ height: `${(item.count / max) * 100}%` }}
+          />
+          <span className="text-[9px] text-gray-500">{item.bucket}ms</span>
+          {item.count > 0 && (
+            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              {item.count}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

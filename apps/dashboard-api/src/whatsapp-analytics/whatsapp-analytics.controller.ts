@@ -97,5 +97,31 @@ export class WhatsappAnalyticsController {
       endDate ? new Date(endDate) : undefined,
     );
   }
+
+  @Get('resolution-stats')
+  getResolutionTimeStats(
+    @Request() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.getResolutionTimeStats(
+      req.user.tenantId,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+    );
+  }
+
+  @Get('conversation-length')
+  getConversationLength(
+    @Request() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.getConversationLength(
+      req.user.tenantId,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+    );
+  }
 }
 

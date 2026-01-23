@@ -84,4 +84,32 @@ export class OverviewService {
       uniqueSessions: parseInt(r.unique_sessions, 10) || 0,
     }));
   }
+
+  /**
+   * Get device type breakdown.
+   */
+  async getDeviceBreakdown(tenantId: string, startDate: Date, endDate: Date) {
+    return this.eventRepository.getDeviceBreakdown(tenantId, startDate, endDate);
+  }
+
+  /**
+   * Get browser breakdown.
+   */
+  async getBrowserBreakdown(tenantId: string, startDate: Date, endDate: Date) {
+    return this.eventRepository.getBrowserBreakdown(tenantId, startDate, endDate);
+  }
+
+  /**
+   * Get daily active users.
+   */
+  async getDailyActiveUsers(tenantId: string, startDate: Date, endDate: Date) {
+    return this.eventRepository.getDailyActiveUsers(tenantId, startDate, endDate);
+  }
+
+  /**
+   * Get identified vs anonymous user stats.
+   */
+  async getIdentifiedVsAnonymous(tenantId: string, startDate: Date, endDate: Date) {
+    return this.eventRepository.getIdentifiedVsAnonymous(tenantId, startDate, endDate);
+  }
 }

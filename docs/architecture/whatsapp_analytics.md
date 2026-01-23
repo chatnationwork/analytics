@@ -81,3 +81,37 @@ We reuse the existing `events` table. No new migrations required unless specific
 3.  ✅ Deploy and verify events appearing in DB.
 4.  ✅ Dashboard Analytics API implemented (`WhatsappAnalyticsModule`).
 5.  ✅ Frontend Visualization implemented (`/whatsapp-analytics`).
+
+## 7. AI Analytics Integration (Jan 2026)
+
+AI-powered intent classification is now part of the WhatsApp journey. When messages flow through the AI agent, the following events are tracked:
+
+### Event Types
+
+| Event | Description |
+|-------|-------------|
+| `ai.classification` | Intent detection with confidence score |
+| `ai.generation` | LLM text generation (responses, clarifications) |
+| `ai.error` | AI failures (timeouts, parse errors) |
+
+### Key Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `detected_intent` | string | Classified intent (e.g., `nil_filing`, `pin_registration`) |
+| `confidence` | float | Confidence score 0-1 |
+| `latency_ms` | int | Inference time in milliseconds |
+| `model` | string | Model identifier (e.g., `llama3.2:3b`) |
+| `error_type` | string | Error category (timeout, json_parse_error, network) |
+
+### Dashboard Metrics
+
+The WhatsApp Analytics page now includes an **AI Performance** section showing:
+- Total Classifications
+- AI Accuracy (average confidence)
+- Average Latency
+- Error Rate
+- Top User Intents chart
+- Latency Distribution histogram
+
+**See also:** [AI Analytics Technical](file:///home/saruni/chatnation/analytics/docs/architecture/ai_analytics_technical.md)

@@ -184,10 +184,22 @@ analytics.reset();                                   // Clear on logout
 | `/api/dashboard/whatsapp-analytics/heatmap` | `startDate`, `endDate` | Activity day/hour heatmap |
 | `/api/dashboard/whatsapp-analytics/agents` | `startDate`, `endDate` | Agent performance stats |
 
+### 5.5 AI Analytics API (New)
+
+Tracks LLM/AI agent performance metrics.
+
+| Endpoint | Query Params | Returns |
+|----------|--------------|-------|
+| `/api/dashboard/ai-analytics/stats` | `startDate`, `endDate` | Total classifications, avg latency, avg confidence, error rate |
+| `/api/dashboard/ai-analytics/intents` | `startDate`, `endDate` | Top intents by count with avg confidence |
+| `/api/dashboard/ai-analytics/latency` | `startDate`, `endDate` | Latency distribution (ms buckets) |
+| `/api/dashboard/ai-analytics/errors` | `startDate`, `endDate` | Error breakdown by type |
+
 **Key Docs:**
 - [API Documentation](file:///home/saruni/chatnation/analytics/docs/api_documentation.md) - Full endpoint reference
 - [API Spec](file:///home/saruni/chatnation/analytics/docs/api_spec.md) - Request/response formats
 - [Multi-Tenancy](file:///home/saruni/chatnation/analytics/docs/multi_tenancy.md) - Auth, tenants, CRM integrations, API keys
+- [AI Analytics Technical](file:///home/saruni/chatnation/analytics/docs/architecture/ai_analytics_technical.md) - AI event schemas & queries
 
 ---
 
