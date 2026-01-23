@@ -385,8 +385,8 @@ export class EventRepository {
           timestamp as received_at,
           ROW_NUMBER() OVER (PARTITION BY properties->>'userId' ORDER BY timestamp) as rn
         FROM events
-        WHERE tenant_id = $1
-          AND event_name = 'message.received'
+        WHERE "tenantId" = $1
+          AND "eventName" = 'message.received'
           AND timestamp BETWEEN $2 AND $3
       ),
       sent AS (
@@ -395,8 +395,8 @@ export class EventRepository {
           timestamp as sent_at,
           ROW_NUMBER() OVER (PARTITION BY properties->>'userId' ORDER BY timestamp) as rn
         FROM events
-        WHERE tenant_id = $1
-          AND event_name = 'message.sent'
+        WHERE "tenantId" = $1
+          AND "eventName" = 'message.sent'
           AND timestamp BETWEEN $2 AND $3
       ),
       response_times AS (
@@ -433,9 +433,9 @@ export class EventRepository {
           EXTRACT(EPOCH FROM (s.timestamp - r.timestamp)) / 60 as response_minutes
         FROM events r
         JOIN events s ON r.properties->>'userId' = s.properties->>'userId'
-        WHERE r.tenant_id = $1
-          AND r.event_name = 'message.received'
-          AND s.event_name = 'message.sent'
+        WHERE r."tenantId" = $1
+          AND r."eventName" = 'message.received'
+          AND s."eventName" = 'message.sent'
           AND s.timestamp > r.timestamp
           AND r.timestamp BETWEEN $2 AND $3
       )
