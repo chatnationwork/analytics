@@ -37,7 +37,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { EventConsumer, StreamMessage, QueuedEvent } from '@lib/queue';
-import { EventRepository, CreateEventDto } from '@lib/database';
+import { EventRepository, SessionRepository, CreateEventDto, SessionEntity } from '@lib/database';
 import { GeoipEnricher } from '../enrichers/geoip.enricher';
 import { UseragentEnricher } from '../enrichers/useragent.enricher';
 
@@ -45,95 +45,143 @@ import { UseragentEnricher } from '../enrichers/useragent.enricher';
 export class EventProcessorService {
   private readonly logger = new Logger(EventProcessorService.name);
 
-  /**
-   * Constructor with all dependencies injected.
-   * 
-   * @param eventConsumer - For consuming events from Redis queue
-   * @param eventRepository - For saving events to PostgreSQL
-   * @param geoipEnricher - For IP → location conversion
-   * @param useragentEnricher - For User-Agent → device/browser info
-   */
   constructor(
     private readonly eventConsumer: EventConsumer,
     private readonly eventRepository: EventRepository,
+    private readonly sessionRepository: SessionRepository,
     private readonly geoipEnricher: GeoipEnricher,
     private readonly useragentEnricher: UseragentEnricher,
   ) {}
 
-  /**
-   * Start the processor worker.
-   * 
-   * This sets up the message handler and starts consuming from Redis.
-   * The method returns immediately, but processing continues in background.
-   */
   async start(): Promise<void> {
-    // Set our handler function for incoming messages
     this.eventConsumer.setHandler(this.handleMessages.bind(this));
-    
-    // Start consuming from Redis (blocks until stop() is called)
     await this.eventConsumer.start(10, 5000);
   }
 
-  /**
-   * Stop the processor worker gracefully.
-   * 
-   * Finishes processing current batch before stopping.
-   */
   async stop(): Promise<void> {
     await this.eventConsumer.stop();
   }
 
-  /**
-   * Handle a batch of messages from the queue.
-   * 
-   * This is the main processing function. For each batch:
-   * 1. Check for duplicates (skip if already processed)
-   * 2. Enrich events with additional data
-   * 3. Save all events to database in one batch insert
-   * 
-   * @param messages - Array of messages from Redis
-   */
   private async handleMessages(messages: StreamMessage[]): Promise<void> {
     const startTime = Date.now();
 
     const eventsToInsert: CreateEventDto[] = [];
 
     for (const { event } of messages) {
-      // DEDUPLICATION: Check if we've already processed this event
-      const exists = await this.eventRepository.messageIdExists(event.messageId);
-      if (exists) {
-        this.logger.debug(`Skipping duplicate: ${event.messageId}`);
+      if (await this.eventRepository.messageIdExists(event.messageId)) {
         continue;
       }
 
-      // ENRICHMENT: Add extra data to the event
       const enriched = this.enrichEvent(event);
       eventsToInsert.push(enriched);
     }
 
-    // BATCH INSERT: Save all events at once (more efficient)
     if (eventsToInsert.length > 0) {
+      // Save events
       await this.eventRepository.saveBatch(eventsToInsert);
+      
+      // Update sessions
+      await this.processSessions(eventsToInsert);
     }
 
-    // LOG: Processing stats
     const duration = Date.now() - startTime;
     this.logger.log(
       `Processed ${messages.length} messages, inserted ${eventsToInsert.length} events in ${duration}ms`,
     );
   }
 
-  /**
-   * Enrich a raw event with additional data.
-   * 
-   * Extracts context data and runs it through enrichers to add:
-   * - Geographic data from IP address
-   * - Device/browser data from User-Agent
-   * - Page information from context
-   * 
-   * @param event - Raw event from the queue
-   * @returns Enriched event ready for database insertion
-   */
+  private async processSessions(events: CreateEventDto[]): Promise<void> {
+    // Group events by session ID to minimize DB calls
+    const sessionsMap = new Map<string, CreateEventDto[]>();
+    
+    for (const event of events) {
+      if (event.sessionId) {
+        if (!sessionsMap.has(event.sessionId)) {
+          sessionsMap.set(event.sessionId, []);
+        }
+        sessionsMap.get(event.sessionId)!.push(event);
+      }
+    }
+
+    // Process each session
+    for (const [sessionId, sessionEvents] of sessionsMap.entries()) {
+      try {
+        await this.updateSession(sessionId, sessionEvents);
+      } catch (err) {
+        this.logger.error(`Failed to update session ${sessionId}: ${err.message}`);
+      }
+    }
+  }
+
+  private async updateSession(sessionId: string, events: CreateEventDto[]): Promise<void> {
+    // Fetch existing session or create new
+    let session = await this.sessionRepository.findById(sessionId);
+    const sortedEvents = events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const firstEvent = sortedEvents[0];
+    const lastEvent = sortedEvents[sortedEvents.length - 1];
+
+    if (!session) {
+      // Create new session
+      session = new SessionEntity();
+      session.sessionId = sessionId;
+      session.tenantId = firstEvent.tenantId;
+      session.anonymousId = firstEvent.anonymousId;
+      session.userId = firstEvent.userId || null;
+      session.startedAt = firstEvent.timestamp;
+      session.endedAt = lastEvent.timestamp;
+      session.eventCount = 0;
+      session.pageCount = 0;
+      session.durationSeconds = 0;
+      
+      // Attribution (First Touch)
+      session.entryPage = firstEvent.pagePath || null;
+      session.referrer = firstEvent.pageReferrer || null;
+      
+      // Device / Geo (from first event)
+      session.deviceType = firstEvent.deviceType || null;
+      session.countryCode = firstEvent.countryCode || null;
+      
+      // UTM params (if present in first event properties)
+      const props = firstEvent.properties || {};
+      session.utmSource = (props.utm_source as string) || null;
+      session.utmMedium = (props.utm_medium as string) || null;
+      session.utmCampaign = (props.utm_campaign as string) || null;
+    } else {
+      // Update existing
+      if (firstEvent.timestamp < session.startedAt) {
+        session.startedAt = firstEvent.timestamp;
+      }
+      if (lastEvent.timestamp > (session.endedAt || session.startedAt)) {
+        session.endedAt = lastEvent.timestamp;
+      }
+      
+      // Update userId if identified later in session
+      if (!session.userId && firstEvent.userId) {
+        session.userId = firstEvent.userId;
+      }
+    }
+
+    // Update stats
+    session.eventCount += events.length;
+    session.pageCount += events.filter(e => e.eventType === 'page' || e.eventName === 'page_view').length;
+    
+    // Recalculate duration
+    if (session.endedAt) {
+      session.durationSeconds = Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 1000);
+    }
+    
+    // Check for conversion
+    if (!session.converted) {
+      const conversion = events.find(e => e.eventName === 'conversion' || e.eventName === 'purchase' || e.eventName === 'form_submit'); // Example conversion events
+      if (conversion) {
+        session.converted = true;
+        session.conversionEvent = conversion.eventName;
+      }
+    }
+
+    await this.sessionRepository.save(session);
+  }
+
   private enrichEvent(event: QueuedEvent): CreateEventDto {
     // Extract nested context objects safely
     const context = event.context || {};
