@@ -65,6 +65,8 @@ export class OverviewService {
       this.sessionRepository.getActivityHeatmap(tenantId, startDate, endDate),
     ]);
 
+    console.log(`[Overview] Stats result:`, stats);
+
     return {
       ...stats,
       dailySessions,
