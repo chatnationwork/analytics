@@ -6,9 +6,15 @@ import { overviewEnhancedApi } from '@/lib/overview-enhanced-api';
 import { TrendingUp, TrendingDown, Users, Clock, Target, BarChart3, Monitor, UserCheck } from 'lucide-react';
 
 export default function OverviewPage() {
+  const { data: tenant } = useQuery({
+    queryKey: ['tenant'],
+    queryFn: () => api.getCurrentTenant(),
+  });
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['overview'],
-    queryFn: () => api.getOverview(),
+    queryKey: ['overview', tenant?.tenantId],
+    queryFn: () => api.getOverview(tenant?.tenantId),
+    enabled: !!tenant?.tenantId,
   });
 
   const { data: pagePaths } = useQuery({

@@ -1,0 +1,8 @@
+# General Principles
+- Write concise, readable, and maintainable code.
+- Follow the DRY (Don't Repeat Yourself) principle.
+- Favor functional programming patterns; maximize immutability and pure functions.
+- Keep components small, focused, and reusable.
+- Never use default values for required props.Add a checker and throw an error if the prop is not provided.
+- Never use defalu values for environment variables. Use process.env.Throw an error if the environment variable is not set.
+

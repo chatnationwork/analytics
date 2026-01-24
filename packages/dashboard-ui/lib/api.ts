@@ -167,4 +167,11 @@ export const api = {
     const json = await res.json();
     return json.data;
   },
+
+  /**
+   * Get current tenant context
+   */
+  async getCurrentTenant(): Promise<{ tenantId: string; name: string; slug: string }> {
+    return fetchWithAuth('/tenants/current');
+  },
 };
