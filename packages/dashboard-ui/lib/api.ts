@@ -66,12 +66,8 @@ export const api = {
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
 
-    const res = await fetch(`${API_BASE_URL}/api/dashboard/overview?${params}`, {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch overview');
-    const json = await res.json();
-    return json.data; // Wrapper unwrapping handled here
+    // Use fetchWithAuth for consistency (already parses JSON and returns data)
+    return fetchWithAuth(`/overview?${params}`);
   },
 
   /**
