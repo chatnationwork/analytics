@@ -117,6 +117,9 @@ services:
       - RATE_LIMIT_TTL=${RATE_LIMIT_TTL:-60}
       - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
       - JWT_SECRET=${JWT_SECRET:-analytics-jwt-secret-dev}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+
     depends_on:
       postgres:
         condition: service_healthy
