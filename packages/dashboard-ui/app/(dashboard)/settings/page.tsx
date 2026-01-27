@@ -79,7 +79,7 @@ export default function SettingsPage() {
       <div className="py-4">
         {activeTab === 'api-keys' && (
           <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <ApiKeySettings />
+            <ApiKeySettings tenantId={tenantId} />
           </div>
         )}
         {activeTab === 'crm' && (

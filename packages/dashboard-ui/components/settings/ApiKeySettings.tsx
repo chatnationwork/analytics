@@ -16,7 +16,11 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function ApiKeySettings() {
+interface ApiKeySettingsProps {
+  tenantId?: string;
+}
+
+export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -90,6 +94,27 @@ export function ApiKeySettings() {
           </button>
         )}
       </div>
+
+      {tenantId && (
+        <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
+          <h4 className="text-sm font-medium text-foreground mb-2">Organization ID</h4>
+          <p className="text-sm text-muted-foreground mb-3">
+            Use this ID when configuring the Handover Webhook or identifying your workspace.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="bg-secondary px-3 py-2 rounded text-sm font-mono text-foreground border border-border">
+              {tenantId}
+            </code>
+            <button
+              onClick={() => copyToClipboard(tenantId)}
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors"
+              title="Copy Organization ID"
+            >
+              <Copy size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {newKey && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 mb-6">
