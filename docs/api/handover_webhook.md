@@ -1,7 +1,9 @@
 # Agent Handover Webhook
 
 **Endpoint**: `POST /api/dashboard/agent/integration/handover`  
-**Auth**: Bearer Token (JWT from Login) OR API Key (Future)
+**Auth**: 
+1. **Bearer Token** (JWT from Login) 
+2. **API Key** (Header: `x-api-key: <your-key>`)
 
 ## Overview
 This webhook allows external systems (like a Chatbot or Flow Builder) to pass control of a conversation to the Agent System. It creates a session (if none exists), queues it for assignment, and optionally sends a confirmation message to the user.

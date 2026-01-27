@@ -32,10 +32,12 @@ import { AgentInboxController } from './agent-inbox.controller';
 import { TeamController } from './team.controller';
 import { IntegrationController } from './integration.controller';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { ApiKeysModule } from '../api-keys/api-keys.module';
 
 @Module({
   imports: [
     RbacModule,
+    ApiKeysModule,
     WhatsappModule,
     TypeOrmModule.forFeature([
       InboxSessionEntity,

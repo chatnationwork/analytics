@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { HandoverAuthGuard } from '../auth/handover-auth.guard';
 import { InboxService } from './inbox.service';
 
 import { AssignmentService } from './assignment.service';
@@ -18,7 +19,7 @@ interface HandoverDto {
 }
 
 @Controller('agent/integration')
-@UseGuards(JwtAuthGuard)
+@UseGuards(HandoverAuthGuard)
 export class IntegrationController {
   constructor(
     private readonly inboxService: InboxService,
