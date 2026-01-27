@@ -19,14 +19,18 @@ const AppDataSource = new DataSource({
 const PERMISSIONS = {
     // Global Roles
     SUPER_ADMIN: [
-        '*', // Special flag or just all below
         'analytics.view',
         'analytics.export',
         'settings.manage',
         'users.manage',
         'teams.manage',
         'audit.view',
-        'system.config'
+        // Include team/agent permissions that might be needed globally or for consistency
+        'team.settings',
+        'team.analytics',
+        'session.view',
+        'session.manage',
+        'agent.assign'
     ],
     ADMIN: [
         'analytics.view',
