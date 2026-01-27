@@ -41,6 +41,7 @@ export default function LoginPage() {
         throw new Error(result.error || 'Login failed');
       }
 
+      // Token is set via Server Action Cookie
       
       toast.success('Welcome back!');
       router.push('/overview');

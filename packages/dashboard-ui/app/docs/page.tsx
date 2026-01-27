@@ -17,10 +17,10 @@ export default function DocsPage() {
     <div className="max-w-6xl mx-auto px-4 py-12">
       {/* Header */}
       <div className="mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+        <h1 className="text-4xl font-bold text-foreground mb-4">
           Analytics Documentation
         </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400">
+        <p className="text-lg text-muted-foreground">
           Everything you need to integrate analytics into your applications.
         </p>
       </div>
@@ -61,41 +61,41 @@ export default function DocsPage() {
 
       {/* Getting Started */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
+        <h2 className="text-2xl font-semibold text-foreground mb-6">
           Getting Started
         </h2>
         
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-medium mb-4">1. Get Your API Key</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Go to <Link href="/settings" className="text-blue-600 hover:underline">Settings → API Keys</Link> and 
+        <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
+          <h3 className="text-lg font-medium text-foreground mb-4">1. Get Your API Key</h3>
+          <p className="text-muted-foreground mb-4">
+            Go to <Link href="/settings" className="text-primary hover:underline">Settings → API Keys</Link> and 
             generate a new Write Key. You'll need this to authenticate your requests.
           </p>
 
           <h3 className="text-lg font-medium mb-4 mt-8">2. Choose Your Integration Method</h3>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <h4 className="font-medium mb-2">JavaScript SDK</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            <div className="border border-border rounded-lg p-4 bg-background">
+              <h4 className="font-medium text-foreground mb-2">JavaScript SDK</h4>
+              <p className="text-sm text-muted-foreground mb-3">
                 Best for web applications. Automatic page views, sessions, and identity.
               </p>
-              <Link href="/docs/sdk" className="text-blue-600 text-sm hover:underline">
+              <Link href="/docs/sdk" className="text-primary text-sm hover:underline">
                 View SDK Docs →
               </Link>
             </div>
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <h4 className="font-medium mb-2">REST API</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            <div className="border border-border rounded-lg p-4 bg-background">
+              <h4 className="font-medium text-foreground mb-2">REST API</h4>
+              <p className="text-sm text-muted-foreground mb-3">
                 Best for backends, mobile apps, or any custom integration.
               </p>
-              <Link href="/docs/api" className="text-blue-600 text-sm hover:underline">
+              <Link href="/docs/api" className="text-primary text-sm hover:underline">
                 View API Docs →
               </Link>
             </div>
           </div>
 
-          <h3 className="text-lg font-medium mb-4 mt-8">3. Start Sending Events</h3>
-          <p className="text-gray-600 dark:text-gray-400">
+          <h3 className="text-lg font-medium text-foreground mb-4 mt-8">3. Start Sending Events</h3>
+          <p className="text-muted-foreground">
             Once integrated, events will appear in your dashboard within seconds.
           </p>
         </div>
@@ -103,18 +103,18 @@ export default function DocsPage() {
 
       {/* Endpoint Info */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
+        <h2 className="text-2xl font-semibold text-foreground mb-6">
           API Endpoints
         </h2>
         
-        <div className="bg-gray-900 text-gray-100 rounded-lg p-6 font-mono text-sm overflow-x-auto">
+        <div className="bg-muted text-muted-foreground rounded-lg p-6 font-mono text-sm overflow-x-auto border border-border">
           <div className="mb-4">
-            <span className="text-green-400">Collector API:</span>{' '}
-            <span className="text-yellow-400">https://analytics.chatnationbot.com/v1/capture</span>
+            <span className="text-green-500">Collector API:</span>{' '}
+            <span className="text-yellow-500">https://analytics.chatnationbot.com/v1/capture</span>
           </div>
           <div>
-            <span className="text-green-400">Dashboard API:</span>{' '}
-            <span className="text-yellow-400">https://analytics.chatnationbot.com/api/dashboard</span>
+            <span className="text-green-500">Dashboard API:</span>{' '}
+            <span className="text-yellow-500">https://analytics.chatnationbot.com/api/dashboard</span>
           </div>
         </div>
       </section>
@@ -131,17 +131,17 @@ function QuickLink({ href, title, description, icon }: {
   return (
     <Link 
       href={href}
-      className="block bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:border-blue-500 dark:hover:border-blue-500 transition-colors group"
+      className="block bg-card rounded-lg border border-border p-6 hover:border-primary transition-colors group shadow-sm"
     >
       <div className="flex items-start gap-4">
-        <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+        <div className="p-2 bg-primary/10 rounded-lg text-primary">
           {icon}
         </div>
         <div>
-          <h3 className="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
             {title}
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {description}
           </p>
         </div>

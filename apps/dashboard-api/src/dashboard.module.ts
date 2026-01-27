@@ -41,6 +41,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { WhatsappAnalyticsModule } from './whatsapp-analytics/whatsapp-analytics.module';
 import { AiAnalyticsModule } from './ai-analytics/ai-analytics.module';
+import { AgentSystemModule } from './agent-system/agent-system.module';
 
 /**
  * @Module() - Root module decorator
@@ -95,6 +96,7 @@ import { AiAnalyticsModule } from './ai-analytics/ai-analytics.module';
     WhatsappModule,
     WhatsappAnalyticsModule,
     AiAnalyticsModule,       // GET /api/dashboard/ai/*
+    AgentSystemModule,       // Agent inbox and team management
   ],
 })
 export class DashboardModule {}

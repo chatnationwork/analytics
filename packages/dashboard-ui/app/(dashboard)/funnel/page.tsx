@@ -89,13 +89,13 @@ export default function FunnelPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Funnels</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Last 30 days</p>
+          <h1 className="text-xl font-semibold text-foreground">Funnels</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Last 30 days</p>
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-            showFilters ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
+            showFilters ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
           }`}
         >
           <Settings2 className="w-4 h-4" />
@@ -105,9 +105,9 @@ export default function FunnelPage() {
 
       {/* Step Builder */}
       {showFilters && (
-        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-5">
+        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-white">Funnel Steps</h2>
+            <h2 className="text-sm font-medium text-foreground">Funnel Steps</h2>
             <button
               onClick={addStep}
               disabled={steps.length >= availableEvents.length}
@@ -126,7 +126,7 @@ export default function FunnelPage() {
                 <select
                   value={step.eventName}
                   onChange={(e) => updateStep(index, e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-gray-800 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {availableEvents.map((eventName) => (
                     <option key={eventName} value={eventName}>
@@ -137,7 +137,7 @@ export default function FunnelPage() {
                 {steps.length > 2 && (
                   <button
                     onClick={() => removeStep(index)}
-                    className="text-gray-500 hover:text-red-400"
+                    className="text-muted-foreground hover:text-destructive"
                   >
                     ✕
                   </button>
@@ -149,16 +149,16 @@ export default function FunnelPage() {
       )}
 
       {/* Funnel Visualization */}
-      <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+      <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
         {isLoading && (
           <div className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="animate-pulse">
                 <div className="flex justify-between mb-2">
-                  <div className="h-4 w-24 bg-gray-700 rounded" />
-                  <div className="h-4 w-16 bg-gray-700 rounded" />
+                  <div className="h-4 w-24 bg-muted rounded" />
+                  <div className="h-4 w-16 bg-muted rounded" />
                 </div>
-                <div className="h-8 bg-gray-700 rounded-lg" />
+                <div className="h-8 bg-muted rounded-lg" />
               </div>
             ))}
           </div>
@@ -176,13 +176,13 @@ export default function FunnelPage() {
               return (
                 <div key={index}>
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-white font-medium">{step.name}</span>
+                    <span className="text-foreground font-medium">{step.name}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-gray-400">{step.count.toLocaleString()}</span>
-                      <span className="text-white font-semibold">{step.percent}%</span>
+                      <span className="text-muted-foreground">{step.count.toLocaleString()}</span>
+                      <span className="text-foreground font-semibold">{step.percent}%</span>
                     </div>
                   </div>
-                  <div className="h-8 bg-gray-700/50 rounded-lg overflow-hidden relative">
+                  <div className="h-8 bg-muted rounded-lg overflow-hidden relative">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg transition-all duration-700"
                       style={{ width: `${Math.max(widthPercent, 2)}%` }}
@@ -200,7 +200,7 @@ export default function FunnelPage() {
         )}
 
         {!isLoading && (!funnelData || !funnelData.steps || funnelData.steps.length === 0) && (
-          <p className="text-sm text-gray-400 text-center py-8">
+          <p className="text-sm text-muted-foreground text-center py-8">
             No events tracked yet. Start sending events to see your funnel.
           </p>
         )}
@@ -212,8 +212,8 @@ export default function FunnelPage() {
           <div className="flex items-start gap-3">
             <div className="text-yellow-400 mt-0.5">💡</div>
             <div>
-              <div className="font-medium text-yellow-400">Biggest Drop-off</div>
-              <div className="text-sm text-gray-300 mt-1">
+              <div className="font-medium text-yellow-500">Biggest Drop-off</div>
+              <div className="text-sm text-muted-foreground mt-1">
                 {Math.round(biggestDropoff.dropoff)}% of users drop off between <strong>{biggestDropoff.fromStep}</strong> and <strong>{biggestDropoff.toStep}</strong>.
                 Consider optimizing this step.
               </div>

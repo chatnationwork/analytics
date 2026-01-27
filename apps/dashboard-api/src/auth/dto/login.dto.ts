@@ -37,5 +37,9 @@ export class LoginResponseDto {
     id: string;
     email: string;
     name: string;
+    permissions: {
+      global: string[];
+      team: Record<string, string[]>;
+    };
   };
 }

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { overviewEnhancedApi } from '@/lib/overview-enhanced-api';
 import { TrendingUp, TrendingDown, Users, Clock, Target, BarChart3, Monitor, UserCheck } from 'lucide-react';
+import { RouteGuard } from '@/components/auth/RouteGuard';
 
 export default function OverviewPage() {
   const { data: tenant } = useQuery({
@@ -38,118 +39,120 @@ export default function OverviewPage() {
   });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-white">Overview</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Last 30 days</p>
+    <RouteGuard permission="analytics.view">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Overview</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Last 30 days</p>
+          </div>
         </div>
-      </div>
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-gray-800/50 rounded-xl border border-white/10 p-5 animate-pulse">
-              <div className="flex items-center justify-between mb-3">
-                <div className="h-4 w-20 bg-gray-700 rounded" />
-                <div className="h-4 w-4 bg-gray-700 rounded" />
+        {/* Loading */}
+        {isLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-card rounded-xl border border-border p-5 animate-pulse">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-4 w-20 bg-muted rounded" />
+                  <div className="h-4 w-4 bg-muted rounded" />
+                </div>
+                <div className="h-8 w-24 bg-muted rounded mb-2" />
+                <div className="h-3 w-16 bg-muted rounded" />
               </div>
-              <div className="h-8 w-24 bg-gray-700 rounded mb-2" />
-              <div className="h-3 w-16 bg-gray-700 rounded" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
-          Failed to load data. Ensure the API is running.
-        </div>
-      )}
-
-      {/* Data */}
-      {data && (
-        <>
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <StatCard
-              label="Total Sessions"
-              value={data.totalSessions?.toLocaleString() ?? '0'}
-              change="+12%"
-              positive
-              icon={<BarChart3 className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Unique Users"
-              value={data.totalUsers?.toLocaleString() ?? '0'}
-              change="+8%"
-              positive
-              icon={<Users className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Completion Rate"
-              value={`${((data.conversionRate ?? 0) * 100).toFixed(1)}%`}
-              change="+5.2%"
-              positive
-              icon={<Target className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Avg Duration"
-              value={formatDuration(data.avgSessionDuration ?? 0)}
-              change="-3%"
-              positive={false}
-              icon={<Clock className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Identified Users"
-              value={`${(userIdentity?.identifiedPercent ?? 0).toFixed(0)}%`}
-              change={`${userIdentity?.identified ?? 0} of ${userIdentity?.total ?? 0}`}
-              positive
-              icon={<UserCheck className="w-4 h-4" />}
-            />
+            ))}
           </div>
+        )}
 
-          {/* Charts Row 1 */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Daily Active Users */}
-            <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-              <h3 className="font-medium text-white mb-6">Daily Active Users</h3>
-              <DailyActiveUsersChart data={dailyUsers ?? []} />
-            </div>
-
-            {/* Device Breakdown */}
-            <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-              <h3 className="font-medium text-white mb-6">Traffic by Device</h3>
-              <DeviceChart data={data.deviceBreakdown} />
-            </div>
+        {/* Error */}
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
+            Failed to load data. Ensure the API is running.
           </div>
+        )}
 
-          {/* Charts Row 2 */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Browser Breakdown */}
-            <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-              <h3 className="font-medium text-white mb-6">Top Browsers</h3>
-              <BrowserChart data={browsers ?? []} />
+        {/* Data */}
+        {data && (
+          <>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <StatCard
+                label="Total Sessions"
+                value={data.totalSessions?.toLocaleString() ?? '0'}
+                change="+12%"
+                positive
+                icon={<BarChart3 className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Unique Users"
+                value={data.totalUsers?.toLocaleString() ?? '0'}
+                change="+8%"
+                positive
+                icon={<Users className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Completion Rate"
+                value={`${((data.conversionRate ?? 0) * 100).toFixed(1)}%`}
+                change="+5.2%"
+                positive
+                icon={<Target className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Avg Duration"
+                value={formatDuration(data.avgSessionDuration ?? 0)}
+                change="-3%"
+                positive={false}
+                icon={<Clock className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Identified Users"
+                value={`${(userIdentity?.identifiedPercent ?? 0).toFixed(0)}%`}
+                change={`${userIdentity?.identified ?? 0} of ${userIdentity?.total ?? 0}`}
+                positive
+                icon={<UserCheck className="w-4 h-4" />}
+              />
             </div>
 
-            {/* Traffic by Journey */}
-            <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-              <h3 className="font-medium text-white mb-6">Traffic by Journey</h3>
-              <PagePathsChart data={pagePaths ?? []} />
-            </div>
-          </div>
+            {/* Charts Row 1 */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Daily Active Users */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                <h3 className="font-medium text-foreground mb-6">Daily Active Users</h3>
+                <DailyActiveUsersChart data={dailyUsers ?? []} />
+              </div>
 
-          {/* Activity Heatmap */}
-          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-            <h3 className="font-medium text-white mb-6">Activity by Hour</h3>
-            <ActivityHeatmap data={data.heatmap} />
-          </div>
-        </>
-      )}
-    </div>
+              {/* Device Breakdown */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                <h3 className="font-medium text-foreground mb-6">Traffic by Device</h3>
+                <DeviceChart data={data?.deviceBreakdown} />
+              </div>
+            </div>
+
+            {/* Charts Row 2 */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Browser Breakdown */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                <h3 className="font-medium text-foreground mb-6">Top Browsers</h3>
+                <BrowserChart data={browsers ?? []} />
+              </div>
+
+              {/* Traffic by Journey */}
+              <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                <h3 className="font-medium text-foreground mb-6">Traffic by Journey</h3>
+                <PagePathsChart data={pagePaths ?? []} />
+              </div>
+            </div>
+
+            {/* Activity Heatmap */}
+            <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+              <h3 className="font-medium text-foreground mb-6">Activity by Hour</h3>
+              <ActivityHeatmap data={data?.heatmap} />
+            </div>
+          </>
+        )}
+      </div>
+    </RouteGuard>
   );
 }
 
@@ -168,12 +171,12 @@ function StatCard({ label, value, change, positive, icon }: {
   icon: React.ReactNode;
 }) {
   return (
-    <div className="bg-gray-800/50 rounded-xl border border-white/10 p-5">
+    <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-gray-400 text-sm">{label}</span>
-        <div className="text-gray-500">{icon}</div>
+        <span className="text-muted-foreground text-sm">{label}</span>
+        <div className="text-muted-foreground">{icon}</div>
       </div>
-      <div className="text-2xl font-bold text-white mb-1">{value}</div>
+      <div className="text-2xl font-bold text-foreground mb-1">{value}</div>
       <div className={`text-sm flex items-center gap-1 ${positive ? 'text-green-400' : 'text-red-400'}`}>
         {positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
         {change}
@@ -193,7 +196,7 @@ function SessionsTrendChart({ data }: { data: { date: string; count: number }[] 
         const height = (point.count / max) * 100;
         return (
           <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-             <div className="absolute bottom-full mb-2 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-white/10">
+             <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
               {point.date}: {point.count} sessions
             </div>
             <div
@@ -226,7 +229,7 @@ function DeviceChart({ data }: { data: { device: string; count: number }[] }) {
     <div className="flex items-center justify-center gap-8">
       <div className="relative w-40 h-40">
         <svg viewBox="0 0 100 100" className="transform -rotate-90">
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#374151" strokeWidth="12" />
+          <circle cx="50" cy="50" r="40" fill="none" className="stroke-muted" strokeWidth="12" />
           {segments.map((seg, i) => (
              <circle 
                 key={i}
@@ -240,15 +243,15 @@ function DeviceChart({ data }: { data: { device: string; count: number }[] }) {
           ))}
         </svg>
         <div className="absolute inset-0 flex items-center justify-center flex-col">
-          <div className="text-2xl font-bold text-white">{total.toLocaleString()}</div>
-          <div className="text-xs text-gray-400">Total</div>
+          <div className="text-2xl font-bold text-foreground">{total.toLocaleString()}</div>
+          <div className="text-xs text-muted-foreground">Total</div>
         </div>
       </div>
       <div className="space-y-3">
         {segments.map((seg, i) => (
            <div key={i} className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: seg.color }} />
-            <span className="text-sm text-gray-300">
+            <span className="text-sm text-muted-foreground">
                 {seg.device} ({Math.round(seg.percentage * 100)}%)
             </span>
           </div>
@@ -281,11 +284,11 @@ function ActivityHeatmap({ data }: { data: { day: number; hour: number; count: n
   return (
     <div className="overflow-x-auto">
       <div className="flex gap-2 min-w-[600px]">
-      <div className="flex flex-col gap-1 pr-2 text-xs text-gray-400 pt-6">
+      <div className="flex flex-col gap-1 pr-2 text-xs text-muted-foreground pt-6">
         {days.map(d => <div key={d} className="h-6 flex items-center">{d}</div>)}
       </div>
       <div className="flex-1">
-        <div className="flex gap-1 mb-2 text-xs text-gray-400">
+        <div className="flex gap-1 mb-2 text-xs text-muted-foreground">
           {Array(24).fill(0).map((_, i) => (
              <div key={i} className="flex-1 text-center">
                 {i % 4 === 0 ? (i === 0 ? '12am' : i === 12 ? '12pm' : i > 12 ? `${i-12}pm` : `${i}am`) : ''}
@@ -330,14 +333,14 @@ function PagePathsChart({ data }: { data: { pagePath: string; count: number; uni
           <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-white truncate max-w-[200px]" title={item.pagePath}>
+              <span className="text-sm text-foreground truncate max-w-[200px]" title={item.pagePath}>
                 {item.pagePath || '/'}
               </span>
-              <span className="text-xs text-gray-400">
-                {item.count.toLocaleString()} <span className="text-gray-500">({((item.count / total) * 100).toFixed(1)}%)</span>
+              <span className="text-xs text-muted-foreground">
+                {item.count.toLocaleString()} <span className="text-muted-foreground/70">({((item.count / total) * 100).toFixed(1)}%)</span>
               </span>
             </div>
-            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+            <div className="h-2 bg-muted rounded overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded transition-all"
                 style={{ width: `${(item.count / max) * 100}%` }}
@@ -362,7 +365,7 @@ function DailyActiveUsersChart({ data }: { data: { date: string; count: number }
         const date = new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         return (
           <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-            <div className="absolute bottom-full mb-2 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-white/10">
+            <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
               {date}: {point.count} users
             </div>
             <div
@@ -390,12 +393,12 @@ function BrowserChart({ data }: { data: { browserName: string; count: number }[]
           <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-white">{item.browserName}</span>
-              <span className="text-xs text-gray-400">
-                {item.count.toLocaleString()} <span className="text-gray-500">({((item.count / total) * 100).toFixed(1)}%)</span>
+              <span className="text-sm text-foreground">{item.browserName}</span>
+              <span className="text-xs text-muted-foreground">
+                {item.count.toLocaleString()} <span className="text-muted-foreground/70">({((item.count / total) * 100).toFixed(1)}%)</span>
               </span>
             </div>
-            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+            <div className="h-2 bg-muted rounded overflow-hidden">
               <div
                 className="h-full rounded transition-all"
                 style={{ 

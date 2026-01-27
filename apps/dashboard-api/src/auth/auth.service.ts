@@ -17,7 +17,10 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { UserRepository, TenantRepository } from '@lib/database';
+import { UserRepository, TenantRepository, TeamMemberEntity } from '@lib/database';
+import { RbacService } from '../agent-system/rbac.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { SignupDto, LoginDto, LoginResponseDto } from './dto';
 
 /** JWT payload structure */
@@ -34,6 +37,10 @@ export interface AuthUser {
   email: string;
   name: string;
   tenantId: string;
+  permissions: {
+      global: string[];
+      team: Record<string, string[]>;
+  };
 }
 
 @Injectable()
@@ -44,6 +51,9 @@ export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly tenantRepository: TenantRepository,
+    @InjectRepository(TeamMemberEntity)
+    private readonly teamMemberRepo: Repository<TeamMemberEntity>,
+    private readonly rbacService: RbacService,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -89,7 +99,7 @@ export class AuthService {
     this.logger.log(`New user registered: ${user.email}`);
 
     // Return login response
-    return this.generateLoginResponse(user);
+    return await this.generateLoginResponse(user);
   }
 
   /**
@@ -113,7 +123,7 @@ export class AuthService {
 
     this.logger.log(`User logged in: ${user.email}`);
 
-    return this.generateLoginResponse(user);
+    return await this.generateLoginResponse(user);
   }
 
   /**
@@ -134,18 +144,24 @@ export class AuthService {
         return null;
     }
 
+    const permissions = await this.getUserPermissions(user.id);
+
     return {
       id: user.id,
       email: user.email,
       name: user.name ?? '',
       tenantId: activeTenant.id,
+      permissions,
     };
   }
 
   /**
    * Generate JWT and login response.
    */
-  private generateLoginResponse(user: { id: string; email: string; name?: string | null }): LoginResponseDto {
+  /**
+   * Generate JWT and login response.
+   */
+  private async generateLoginResponse(user: { id: string; email: string; name?: string | null }): Promise<LoginResponseDto> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -155,6 +171,8 @@ export class AuthService {
     const decoded = this.jwtService.decode(accessToken) as { exp: number; iat: number };
     const expiresIn = decoded.exp - decoded.iat;
 
+    const permissions = await this.getUserPermissions(user.id);
+
     return {
       accessToken,
       tokenType: 'Bearer',
@@ -163,8 +181,37 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name ?? '',
+        permissions,
       },
     };
+  }
+
+  /**
+   * Fetch permissions for a user.
+   */
+  async getUserPermissions(userId: string): Promise<{ global: string[]; team: Record<string, string[]> }> {
+    // 1. Get Global Permissions
+    const tenants = await this.tenantRepository.findByUserId(userId);
+    const activeTenant = tenants[0];
+    let globalPermissions: string[] = [];
+    
+    if (activeTenant) {
+        const globalRole = await this.tenantRepository.getUserRole(userId, activeTenant.id);
+        if (globalRole) {
+            globalPermissions = await this.rbacService.getPermissionsForRole(globalRole);
+        }
+    }
+
+    // 2. Get Team Permissions
+    const teamMemberships = await this.teamMemberRepo.find({ where: { userId } });
+    const teamPermissions: Record<string, string[]> = {};
+    
+    for (const membership of teamMemberships) {
+        const perms = await this.rbacService.getPermissionsForRole(membership.role);
+        teamPermissions[membership.teamId] = perms;
+    }
+
+    return { global: globalPermissions, team: teamPermissions };
   }
 
   /**

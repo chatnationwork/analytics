@@ -29,7 +29,8 @@ import { UserEntity } from './user.entity';
 import { TenantEntity } from './tenant.entity';
 
 /** Available membership roles */
-export type MembershipRole = 'owner' | 'admin' | 'member';
+/** Available membership roles */
+export type MembershipRole = 'super_admin' | 'admin' | 'auditor' | 'member';
 
 @Entity('tenant_memberships')
 @Index(['tenantId', 'userId'], { unique: true })

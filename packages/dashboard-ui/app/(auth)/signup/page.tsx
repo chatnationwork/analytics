@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { signupAction } from './actions';
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -35,7 +36,13 @@ export default function SignupPage() {
     setIsLoading(true);
     setError(null);
     try {
-      await authClient.signup(data);
+      // Use Server Action to handle Signup + Cookie Logic
+      const result = await signupAction(data);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
       toast.success('Account created successfully!');
       router.push('/overview');
     } catch (err: any) {

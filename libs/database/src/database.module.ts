@@ -44,6 +44,15 @@ import { TenantMembershipEntity } from './entities/tenant-membership.entity';
 import { CrmIntegrationEntity } from './entities/crm-integration.entity';
 import { ApiKeyEntity } from './entities/api-key.entity';
 import { InvitationEntity } from './entities/invitation.entity';
+import { AgentProfileEntity } from './entities/agent-profile.entity';
+import { TeamEntity } from './entities/team.entity';
+import { TeamMemberEntity } from './entities/team-member.entity';
+import { InboxSessionEntity } from './entities/inbox-session.entity';
+import { MessageEntity } from './entities/message.entity';
+import { ResolutionEntity } from './entities/resolution.entity';
+import { ShiftEntity } from './entities/shift.entity';
+import { AssignmentConfigEntity } from './entities/assignment-config.entity';
+import { RolePermissionEntity } from './entities/role-permission.entity';
 import { EventRepository } from './repositories/event.repository';
 import { SessionRepository } from './repositories/session.repository';
 import { ProjectRepository } from './repositories/project.repository';
@@ -68,6 +77,15 @@ const entities = [
   CrmIntegrationEntity,
   ApiKeyEntity,
   InvitationEntity,
+  AgentProfileEntity,
+  TeamEntity,
+  TeamMemberEntity,
+  InboxSessionEntity,
+  MessageEntity,
+  ResolutionEntity,
+  ShiftEntity,
+  AssignmentConfigEntity,
+  RolePermissionEntity,
 ];
 
 

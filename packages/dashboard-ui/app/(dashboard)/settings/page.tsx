@@ -5,6 +5,7 @@ import { CrmSettings } from '@/components/settings/CrmSettings';
 import { ApiKeySettings } from '@/components/settings/ApiKeySettings';
 import { TeamManagement } from '@/components/settings/team-management';
 import { fetchWithAuth } from '@/lib/api';
+import { usePermission } from '@/components/auth/PermissionContext';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'api-keys' | 'crm' | 'team'>('api-keys');
@@ -22,20 +23,41 @@ export default function SettingsPage() {
         .catch(err => console.error('Failed to fetch tenant:', err.message));
   }, []);
 
-  const tabs = [
-    { id: 'api-keys' as const, label: 'API Keys' },
-    { id: 'crm' as const, label: 'CRM Integrations' },
-    { id: 'team' as const, label: 'Team' },
+  const { can, isLoading } = usePermission();
+
+  const allTabs = [
+    { id: 'api-keys' as const, label: 'API Keys', permission: 'settings.manage' },
+    { id: 'crm' as const, label: 'CRM Integrations', permission: 'settings.manage' },
+    { id: 'team' as const, label: 'Team', permission: 'teams.manage' },
   ];
+
+  const tabs = allTabs.filter(tab => !tab.permission || can(tab.permission));
+
+  // Reset active tab if current one is hidden
+  useEffect(() => {
+    if (!isLoading && tabs.length > 0 && !tabs.find(t => t.id === activeTab)) {
+        setActiveTab(tabs[0].id);
+    }
+  }, [isLoading, tabs, activeTab]);
+
+  if (isLoading) return null;
+
+  if (tabs.length === 0) {
+      return (
+          <div className="text-center py-12 text-muted-foreground">
+              You do not have access to any settings.
+          </div>
+      );
+  }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-white">Settings</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Manage your workspace configuration</p>
+        <h1 className="text-xl font-semibold text-foreground">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Manage your workspace configuration</p>
       </div>
 
-      <div className="border-b border-white/10">
+      <div className="border-b border-border">
         <nav className="-mb-px flex gap-6">
           {tabs.map(tab => (
             <button
@@ -44,8 +66,8 @@ export default function SettingsPage() {
               className={`
                 whitespace-nowrap py-3 border-b-2 font-medium text-sm transition-colors
                 ${activeTab === tab.id
-                  ? 'border-blue-500 text-white'
-                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'}
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}
               `}
             >
               {tab.label}
@@ -56,17 +78,17 @@ export default function SettingsPage() {
 
       <div className="py-4">
         {activeTab === 'api-keys' && (
-          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
             <ApiKeySettings />
           </div>
         )}
         {activeTab === 'crm' && (
-          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
             <CrmSettings />
           </div>
         )}
         {activeTab === 'team' && (
-          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
             <TeamManagement tenantId={tenantId} />
           </div>
         )}

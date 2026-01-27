@@ -68,7 +68,7 @@ export default function ShowcasePage() {
             href="/signup" 
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl transition-all font-medium"
           >
-            Get Started Free
+            Get Started
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

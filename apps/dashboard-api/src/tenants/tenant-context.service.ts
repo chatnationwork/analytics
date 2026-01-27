@@ -18,7 +18,7 @@ import { TenantRepository, TenantEntity } from '@lib/database';
 export interface TenantContext {
   tenantId: string;
   tenant: TenantEntity;
-  role: 'owner' | 'admin' | 'member';
+  role: 'super_admin' | 'admin' | 'auditor' | 'member';
 }
 
 @Injectable()

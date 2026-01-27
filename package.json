@@ -28,8 +28,9 @@
     "test:e2e:dashboard": "jest --config ./apps/dashboard-api/test/jest-e2e.json",
     "lint": "eslint \"{apps,libs}/**/*.ts\" --fix",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
-    "db:migrate": "npm run typeorm migration:run",
-    "db:generate": "npm run typeorm migration:generate",
+    "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
+    "db:migrate": "npm run typeorm -- -d libs/database/src/datasource.ts migration:run",
+    "db:generate": "npm run typeorm -- -d libs/database/src/datasource.ts migration:generate",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down"
   },

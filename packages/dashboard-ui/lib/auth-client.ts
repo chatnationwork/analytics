@@ -1,8 +1,14 @@
+import { logoutAction } from '@/app/(auth)/login/actions';
+
 export interface User {
   id: string;
   email: string;
   name: string | null;
   avatarUrl: string | null;
+  permissions: {
+    global: string[];
+    team: Record<string, string[]>;
+  };
 }
 
 export interface AuthResponse {
@@ -26,8 +32,8 @@ export const authClient = {
     }
 
     const data = await res.json();
-    this.setToken(data.data.accessToken);
-    return data.data; // Wrapper { status: 'success', data: { ... } }
+    // Token is now handled via HttpOnly Cookie by Server Action
+    return data.data; 
   },
 
   async signup(data: { email: string; password: string; name: string; organizationName: string }): Promise<AuthResponse> {
@@ -43,16 +49,15 @@ export const authClient = {
     }
 
     const responseData = await res.json();
-    this.setToken(responseData.data.accessToken);
     return responseData.data;
   },
 
   async getProfile(): Promise<User> {
-    const token = this.getToken();
-    if (!token) throw new Error('No token found');
-
+    // No manual token check. Rely on Proxy + Cookie.
     const res = await fetch(`${API_URL}/api/dashboard/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+          // 'Authorization': Bearer token is injected by the Next.js Proxy
+       },
     });
 
     if (!res.ok) throw new Error('Failed to fetch profile');
@@ -60,23 +65,8 @@ export const authClient = {
     return data.data;
   },
 
-  setToken(token: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('accessToken', token);
-    }
-  },
-
-  getToken(): string | null {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('accessToken');
-    }
-    return null;
-  },
-
-  logout() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('accessToken');
-      window.location.href = '/login';
-    }
+  // Helper to remove any stale local state if needed
+  async logout() {
+    await logoutAction();
   },
 };

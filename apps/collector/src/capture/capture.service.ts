@@ -26,6 +26,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Project } from '@lib/common';
 import { EventProducer, QueuedEvent } from '@lib/queue';
 import { CaptureBatchDto, CaptureEventDto } from '@lib/events';
+import { MessageStorageService } from './message-storage.service';
 
 @Injectable()
 export class CaptureService {
@@ -36,7 +37,10 @@ export class CaptureService {
    * 
    * @param eventProducer - Service for publishing events to Redis queue
    */
-  constructor(private readonly eventProducer: EventProducer) {}
+  constructor(
+    private readonly eventProducer: EventProducer,
+    private readonly messageStorage: MessageStorageService,
+  ) {}
 
   /**
    * Process a batch of events from the SDK.
@@ -60,9 +64,17 @@ export class CaptureService {
     const receivedAt = new Date().toISOString();
 
     // Transform all events to queue format
-    const queuedEvents: QueuedEvent[] = dto.batch.map((event) =>
-      this.toQueuedEvent(event, project, receivedAt, ipAddress),
-    );
+    // 2. Transform events and store messages
+    const queuedEvents: QueuedEvent[] = [];
+    
+    for (const event of dto.batch) {
+      // Async storage of message (fire and forget to not block queueing)
+      this.messageStorage.storeEvent(event, project).catch(err => 
+        this.logger.error(`Error storing message: ${err.message}`)
+      );
+
+      queuedEvents.push(this.toQueuedEvent(event, project, receivedAt, ipAddress));
+    }
 
     try {
       // Publish all events to Redis queue in batch (atomic operation)

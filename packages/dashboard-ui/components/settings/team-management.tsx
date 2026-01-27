@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/api';
+import { useCan } from '@/components/auth/PermissionContext';
 
 interface Member {
   userId: string;
@@ -37,6 +38,8 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  
+  const canManage = useCan('teams.manage');
 
   // Fetch members (doesn't need tenantId)
   const fetchMembers = async () => {
@@ -125,6 +128,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
           <h2 className="text-lg font-medium">Team Members</h2>
           <p className="text-sm text-gray-500">Manage who has access to this workspace.</p>
         </div>
+        {canManage && (
         <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -154,8 +158,9 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="member">Member (Read/Write)</SelectItem>
-                        <SelectItem value="admin">Admin (Full Access)</SelectItem>
+                        <SelectItem value="admin">Admin (Manage Workspace)</SelectItem>
+                        <SelectItem value="auditor">Auditor (View Only)</SelectItem>
+                        <SelectItem value="member">Member (Standard Access)</SelectItem>
                     </SelectContent>
                 </Select>
               </div>
@@ -165,6 +170,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card>
@@ -200,7 +206,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
                   </TableCell>
                   <TableCell className="text-right">
                       {/* Only show remove for others */}
-                      <Button variant="ghost" size="sm" disabled>Remove</Button>
+                      {canManage && <Button variant="ghost" size="sm" disabled>Remove</Button>}
                   </TableCell>
                 </TableRow>
               ))}

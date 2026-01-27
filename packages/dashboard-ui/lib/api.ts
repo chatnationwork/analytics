@@ -1,4 +1,3 @@
-import { authClient } from './auth-client';
 
 const API_BASE_URL = ''; // Relative path for proxy
 
@@ -29,17 +28,12 @@ interface EventCount {
 }
 
 const getHeaders = () => {
-  const headers: HeadersInit = {
+  return {
     'Content-Type': 'application/json',
   };
-  const token = authClient.getToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
 };
 
-export async function fetchWithAuth(url: string, options: RequestInit = {}) {
+export async function fetchWithAuth<T = any>(url: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE_URL}/api/dashboard${url}`, {
     ...options,
     headers: {
@@ -66,8 +60,7 @@ export const api = {
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
 
-    // Use fetchWithAuth for consistency (already parses JSON and returns data)
-    return fetchWithAuth(`/overview?${params}`);
+    return fetchWithAuth<OverviewData>(`/overview?${params}`);
   },
 
   /**

@@ -15,6 +15,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { DatabaseModule } from '@lib/database';
+import { RbacModule } from '../agent-system/rbac.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { DatabaseModule } from '@lib/database';
       }),
       inject: [ConfigService],
     }),
+    RbacModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

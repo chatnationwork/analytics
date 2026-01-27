@@ -7,5 +7,6 @@ import { CrmIntegrationsModule } from '../crm-integrations/crm-integrations.modu
   imports: [CrmIntegrationsModule],
   controllers: [WhatsappController],
   providers: [WhatsappService],
+  exports: [WhatsappService],
 })
 export class WhatsappModule {}

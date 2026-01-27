@@ -59,7 +59,7 @@ export class TenantsController {
   ) {
     const context = await this.tenantContextService.getTenantForUser(user.id);
     
-    if (context.role !== 'owner' && context.role !== 'admin') {
+    if (context.role !== 'super_admin' && context.role !== 'admin') {
       throw new Error('Insufficient permissions');
     }
 

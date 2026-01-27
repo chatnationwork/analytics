@@ -43,7 +43,7 @@ export class TenantRepository {
     const membership = this.membershipRepo.create({
       userId: ownerId,
       tenantId: savedTenant.id,
-      role: 'owner',
+      role: 'super_admin',
     });
     await this.membershipRepo.save(membership);
 

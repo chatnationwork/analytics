@@ -24,22 +24,18 @@ export interface UserIdentityStats {
 
 export const overviewEnhancedApi = {
   getDeviceBreakdown: async (): Promise<DeviceData[]> => {
-    const res = await fetchWithAuth('/overview/devices');
-    return res.json();
+    return fetchWithAuth('/overview/devices');
   },
 
   getBrowserBreakdown: async (): Promise<BrowserData[]> => {
-    const res = await fetchWithAuth('/overview/browsers');
-    return res.json();
+    return fetchWithAuth('/overview/browsers');
   },
 
   getDailyActiveUsers: async (): Promise<DailyActiveUsers[]> => {
-    const res = await fetchWithAuth('/overview/daily-users');
-    return res.json();
+    return fetchWithAuth('/overview/daily-users');
   },
 
   getUserIdentityStats: async (): Promise<UserIdentityStats> => {
-    const res = await fetchWithAuth('/overview/user-identity');
-    return res.json();
+    return fetchWithAuth('/overview/user-identity');
   },
 };

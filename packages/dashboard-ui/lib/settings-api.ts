@@ -1,16 +1,10 @@
-import { authClient } from './auth-client';
 
 const API_BASE_URL = ''; // Relative path for proxy
 
 const getHeaders = () => {
-  const headers: HeadersInit = {
+  return {
     'Content-Type': 'application/json',
   };
-  const token = authClient.getToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
 };
 
 export interface CrmIntegration {

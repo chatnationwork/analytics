@@ -152,4 +152,61 @@ export class WhatsappService {
     
     return { data, total, page, limit };
   }
+
+
+  /**
+   * Send a WhatsApp message via Meta Cloud API (or Proxy)
+   */
+  async sendMessage(to: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const token = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+    if (!token || !phoneNumberId) {
+      console.error('WhatsApp API credentials not configured (WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID)');
+      return { success: false, error: 'WhatsApp sending not configured' };
+    }
+
+    // Using the URL provided by the user
+    const url = `https://crm.chatnation.co.ke/api/meta/v21.0/${phoneNumberId}/messages`;
+    
+    // Clean phone number (remove + or spaces if needed, user snippet had 'cleanPhoneNumber' helper which I don't have, so I'll just trim)
+    const finalNumber = to.replace(/[^\d]/g, ''); 
+
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: finalNumber,
+      type: "text",
+      text: {
+        preview_url: false,
+        body: message
+      }
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Error sending WhatsApp message:', data);
+        return { success: false, error: data.error?.message || 'Failed to send message via WhatsApp' };
+      }
+
+      return {
+        success: true,
+        messageId: data.messages?.[0]?.id
+      };
+    } catch (error: any) {
+       console.error('Network Error sending WhatsApp message:', error);
+       return { success: false, error: error.message };
+    }
+  }
 }

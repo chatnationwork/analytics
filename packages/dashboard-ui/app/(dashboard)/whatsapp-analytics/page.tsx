@@ -61,8 +61,8 @@ export default function WhatsAppAnalyticsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-white">WhatsApp Analytics</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Insights from WhatsApp events we collect</p>
+        <h1 className="text-xl font-semibold text-foreground">WhatsApp Analytics</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Insights from WhatsApp events we collect</p>
       </div>
 
       {/* Stats Grid */}
@@ -100,30 +100,30 @@ export default function WhatsAppAnalyticsPage() {
       {/* Charts Row */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* Response Time Distribution */}
-        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-          <h3 className="font-medium text-white mb-6">Response Time Distribution</h3>
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+          <h3 className="font-medium text-foreground mb-6">Response Time Distribution</h3>
           <ResponseTimeHistogram data={responseTime?.distribution ?? []} />
-          <div className="text-sm text-gray-400 mt-4 text-center">
-            Median: <span className="text-white">{responseTime?.medianMinutes ? `${responseTime.medianMinutes.toFixed(1)}m` : '--'}</span> • 
-            Target: <span className="text-green-400">&lt; 5m</span>
+          <div className="text-sm text-muted-foreground mt-4 text-center">
+            Median: <span className="text-foreground">{responseTime?.medianMinutes ? `${responseTime.medianMinutes.toFixed(1)}m` : '--'}</span> • 
+            Target: <span className="text-green-500">&lt; 5m</span>
           </div>
         </div>
 
         {/* Volume by Hour */}
-        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-          <h3 className="font-medium text-white mb-6">Message Volume by Hour</h3>
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+          <h3 className="font-medium text-foreground mb-6">Message Volume by Hour</h3>
           <VolumeChart data={volume ?? []} />
-          <div className="text-sm text-gray-400 mt-4 text-center">
+          <div className="text-sm text-muted-foreground mt-4 text-center">
              (UTC time)
           </div>
         </div>
       </div>
 
       {/* Heatmap */}
-      <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-        <h3 className="font-medium text-white mb-6">Activity by Day & Hour</h3>
+      <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+        <h3 className="font-medium text-foreground mb-6">Activity by Day & Hour</h3>
         <HeatmapChart data={heatmap ?? []} />
-        <p className="text-sm text-gray-400 mt-4 text-center">
+        <p className="text-sm text-muted-foreground mt-4 text-center">
           Heatmap based on message volume
         </p>
       </div>
@@ -131,23 +131,23 @@ export default function WhatsAppAnalyticsPage() {
       {/* Message Funnel & Country Breakdown Row */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* Message Funnel */}
-        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-          <h3 className="font-medium text-white mb-6">Message Funnel</h3>
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+          <h3 className="font-medium text-foreground mb-6">Message Funnel</h3>
           <MessageFunnel data={funnel?.funnel ?? []} rates={funnel?.rates} />
         </div>
 
         {/* Country Breakdown */}
-        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-          <h3 className="font-medium text-white mb-6">Traffic by Country</h3>
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+          <h3 className="font-medium text-foreground mb-6">Traffic by Country</h3>
           <CountryTable data={countries ?? []} />
         </div>
       </div>
 
       {/* AI Analytics Section */}
-      <div className="border-t border-white/10 pt-6">
+      <div className="border-t border-border pt-6">
         <div className="flex items-center gap-2 mb-6">
-          <Brain className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">AI Performance</h2>
+          <Brain className="w-5 h-5 text-purple-500" />
+          <h2 className="text-lg font-semibold text-foreground">AI Performance</h2>
         </div>
 
         {/* AI Stats Grid */}
@@ -185,31 +185,31 @@ export default function WhatsAppAnalyticsPage() {
         {/* AI Intents & Latency Row */}
         <div className="grid md:grid-cols-2 gap-6">
           {/* Intent Breakdown */}
-          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-            <h3 className="font-medium text-white mb-6">Top User Intents</h3>
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+            <h3 className="font-medium text-foreground mb-6">Top User Intents</h3>
             <IntentBreakdown data={aiIntents ?? []} />
           </div>
 
           {/* AI Latency Distribution */}
-          <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-            <h3 className="font-medium text-white mb-6">AI Latency Distribution</h3>
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+            <h3 className="font-medium text-foreground mb-6">AI Latency Distribution</h3>
             <AiLatencyChart data={aiLatency ?? []} />
           </div>
         </div>
       </div>
 
       {/* Agent Performance */}
-      <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
-        <h3 className="font-medium text-white mb-6">Agent Performance</h3>
+      <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+        <h3 className="font-medium text-foreground mb-6">Agent Performance</h3>
         <div className="space-y-3">
           {agents?.map((agent: any, i: number) => (
-            <div key={i} className="flex items-center gap-4 p-3 bg-gray-700/30 rounded-lg">
+            <div key={i} className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-medium text-sm text-white">
                 {i + 1}
               </div>
               <div className="flex-1">
-                <div className="font-medium text-white">{agent.agentId}</div>
-                <div className="text-sm text-gray-400">{agent.chatCount} chats resolved</div>
+                <div className="font-medium text-foreground">{agent.agentId}</div>
+                <div className="text-sm text-muted-foreground">{agent.chatCount} chats resolved</div>
               </div>
             </div>
           ))}
@@ -239,7 +239,7 @@ export default function WhatsAppAnalyticsPage() {
 
 function IntentBreakdown({ data }: { data: { intent: string; count: number; avgConfidence: number }[] }) {
   if (!data.length) {
-    return <div className="text-gray-500 text-sm text-center py-8">No AI classification data yet</div>;
+    return <div className="text-muted-foreground text-sm text-center py-8">No AI classification data yet</div>;
   }
 
   const max = Math.max(...data.map(d => d.count), 1);
@@ -251,12 +251,12 @@ function IntentBreakdown({ data }: { data: { intent: string; count: number; avgC
           <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-white">{item.intent.replace(/_/g, ' ')}</span>
-              <span className="text-xs text-gray-400">
-                {item.count} <span className="text-purple-400">({(item.avgConfidence * 100).toFixed(0)}%)</span>
+              <span className="text-sm text-foreground">{item.intent.replace(/_/g, ' ')}</span>
+              <span className="text-xs text-muted-foreground">
+                {item.count} <span className="text-purple-500">({(item.avgConfidence * 100).toFixed(0)}%)</span>
               </span>
             </div>
-            <div className="h-2 bg-gray-700/30 rounded overflow-hidden">
+            <div className="h-2 bg-muted rounded overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded"
                 style={{ width: `${(item.count / max) * 100}%` }}
@@ -271,7 +271,7 @@ function IntentBreakdown({ data }: { data: { intent: string; count: number; avgC
 
 function AiLatencyChart({ data }: { data: { bucket: string; count: number }[] }) {
   if (!data.length || data.every(d => d.count === 0)) {
-    return <div className="text-gray-500 text-sm text-center py-8">No AI latency data yet</div>;
+    return <div className="text-muted-foreground text-sm text-center py-8">No AI latency data yet</div>;
   }
 
   const max = Math.max(...data.map(d => d.count), 1);
@@ -284,9 +284,9 @@ function AiLatencyChart({ data }: { data: { bucket: string; count: number }[] })
             className={`w-full rounded-t min-h-[2px] ${i < 3 ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-amber-600 to-amber-400'}`}
             style={{ height: `${(item.count / max) * 100}%` }}
           />
-          <span className="text-[9px] text-gray-500">{item.bucket}ms</span>
+          <span className="text-[9px] text-muted-foreground">{item.bucket}ms</span>
           {item.count > 0 && (
-            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md">
               {item.count}
             </div>
           )}
@@ -304,13 +304,13 @@ function StatCard({ label, value, change, positive, icon }: {
   icon: React.ReactNode;
 }) {
   return (
-    <div className="bg-gray-800/50 rounded-xl border border-white/10 p-5">
+    <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-gray-400 text-sm">{label}</span>
-        <div className="text-gray-500">{icon}</div>
+        <span className="text-muted-foreground text-sm">{label}</span>
+        <div className="text-muted-foreground">{icon}</div>
       </div>
-      <div className="text-2xl font-bold text-white mb-1">{value}</div>
-      <div className={`text-sm flex items-center gap-1 ${positive ? 'text-green-400' : 'text-gray-400'}`}>
+      <div className="text-2xl font-bold text-foreground mb-1">{value}</div>
+      <div className={`text-sm flex items-center gap-1 ${positive ? 'text-green-500' : 'text-muted-foreground'}`}>
         {positive ? <TrendingUp className="w-3 h-3" /> : null}
         {change}
       </div>
@@ -328,7 +328,7 @@ function ResponseTimeHistogram({ data }: { data: { bucket: string; count: string
 
   if (counts.every(c => c === 0)) {
     return (
-      <div className="h-32 flex items-center justify-center text-gray-500 text-sm">
+      <div className="h-32 flex items-center justify-center text-muted-foreground text-sm">
         No response time data available
       </div>
     );
@@ -342,9 +342,9 @@ function ResponseTimeHistogram({ data }: { data: { bucket: string; count: string
             className={`w-full rounded-t min-h-[2px] ${i < 5 ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-amber-600 to-amber-400'}`}
             style={{ height: `${(val / max) * 100}%` }}
           />
-          <span className="text-[9px] text-gray-500">{buckets[i]}m</span>
+          <span className="text-[9px] text-muted-foreground">{buckets[i]}m</span>
           {val > 0 && (
-            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md">
               {val}
             </div>
           )}
@@ -366,23 +366,23 @@ function MessageFunnel({ data, rates }: { data: { stage: string; count: number }
     <div className="space-y-3">
       {data.map((item, i) => (
         <div key={item.stage} className="flex items-center gap-3">
-          <div className="w-20 text-sm text-gray-400">{item.stage}</div>
-          <div className="flex-1 h-8 bg-gray-700/30 rounded relative overflow-hidden">
+          <div className="w-20 text-sm text-muted-foreground">{item.stage}</div>
+          <div className="flex-1 h-8 bg-muted rounded relative overflow-hidden">
             <div
               className="h-full rounded transition-all"
               style={{ width: `${(item.count / max) * 100}%`, backgroundColor: colors[i % colors.length] }}
             />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-white font-medium">
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-foreground font-medium">
               {item.count.toLocaleString()}
             </span>
           </div>
         </div>
       ))}
       {rates && (
-        <div className="flex justify-between text-xs text-gray-400 mt-4 pt-3 border-t border-white/5">
-          <span>Delivery: <span className="text-white">{rates.deliveryRate.toFixed(1)}%</span></span>
-          <span>Read: <span className="text-white">{rates.readRate.toFixed(1)}%</span></span>
-          <span>Reply: <span className="text-white">{rates.replyRate.toFixed(1)}%</span></span>
+        <div className="flex justify-between text-xs text-muted-foreground mt-4 pt-3 border-t border-border">
+          <span>Delivery: <span className="text-foreground">{rates.deliveryRate.toFixed(1)}%</span></span>
+          <span>Read: <span className="text-foreground">{rates.readRate.toFixed(1)}%</span></span>
+          <span>Reply: <span className="text-foreground">{rates.replyRate.toFixed(1)}%</span></span>
         </div>
       )}
     </div>
@@ -399,11 +399,11 @@ function CountryTable({ data }: { data: { countryCode: string; count: number }[]
   return (
     <div className="space-y-2 max-h-64 overflow-y-auto">
       {data.slice(0, 10).map((item, i) => (
-        <div key={item.countryCode} className="flex items-center gap-3 p-2 bg-gray-700/20 rounded">
-          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
-          <div className="flex-1 font-medium text-white">{item.countryCode || 'Unknown'}</div>
-          <div className="text-sm text-gray-400">
-            {item.count.toLocaleString()} <span className="text-gray-500">({((item.count / total) * 100).toFixed(1)}%)</span>
+        <div key={item.countryCode} className="flex items-center gap-3 p-2 bg-muted/30 rounded">
+          <div className="w-6 text-center font-medium text-muted-foreground text-sm">{i + 1}</div>
+          <div className="flex-1 font-medium text-foreground">{item.countryCode || 'Unknown'}</div>
+          <div className="text-sm text-muted-foreground">
+            {item.count.toLocaleString()} <span className="text-muted-foreground/70">({((item.count / total) * 100).toFixed(1)}%)</span>
           </div>
         </div>
       ))}
@@ -429,9 +429,9 @@ function VolumeChart({ data }: { data: any[] }) {
             className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t min-h-[1px]"
             style={{ height: `${(val / max) * 100}%` }}
           />
-          {i % 3 === 0 && <span className="text-[10px] text-gray-500">{i}h</span>}
+          {i % 3 === 0 && <span className="text-[10px] text-muted-foreground">{i}h</span>}
           {val > 0 && (
-             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
                {val}
              </div>
           )}
@@ -461,11 +461,11 @@ function HeatmapChart({ data }: { data: any[] }) {
 
   return (
     <div className="flex gap-2">
-      <div className="flex flex-col gap-1 pr-2 text-xs text-gray-400">
+      <div className="flex flex-col gap-1 pr-2 text-xs text-muted-foreground">
         {days.map(d => <div key={d} className="h-6 flex items-center">{d}</div>)}
       </div>
       <div className="flex-1 overflow-x-auto">
-        <div className="flex gap-1 mb-2 text-xs text-gray-400 min-w-[600px]">
+        <div className="flex gap-1 mb-2 text-xs text-muted-foreground min-w-[600px]">
           {Array.from({ length: 24 }, (_, i) => i).map(h => (
             <div key={h} className="flex-1 text-center">{h}</div>
           ))}

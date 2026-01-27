@@ -25,12 +25,15 @@ import { PROJECT_SERVICE } from '@lib/common';
 import { CaptureController } from './capture.controller';
 import { CaptureService } from './capture.service';
 import { ProjectService } from './project.service';
+import { MessageStorageService } from './message-storage.service';
+import { MessageEntity, InboxSessionEntity } from '@lib/database';
 
 @Module({
   imports: [DatabaseModule.forFeature()],
   controllers: [CaptureController],
   providers: [
     CaptureService,
+    MessageStorageService,
     {
       provide: PROJECT_SERVICE,
       useClass: ProjectService,

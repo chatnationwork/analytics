@@ -1,0 +1,162 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { MessageSquare, RefreshCw } from "lucide-react";
+import { ChatList } from "@/components/agent-inbox/ChatList";
+import { ChatWindow } from "@/components/agent-inbox/ChatWindow";
+import { MessageInput } from "@/components/agent-inbox/MessageInput";
+import { agentApi, InboxSession, Message } from "@/lib/api/agent";
+import { authClient } from "@/lib/auth-client";
+
+export default function AgentInboxPage() {
+  const [sessions, setSessions] = useState<InboxSession[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+
+  // Fetch current user ID on mount
+  useEffect(() => {
+    const user = authClient.getProfile().then(u => setCurrentUserId(u.id)).catch(console.error);
+  }, []);
+
+  const fetchInbox = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await agentApi.getInbox();
+      setSessions(data);
+    } catch (error) {
+      console.error("Failed to fetch inbox:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchInbox();
+    // Poll every 10 seconds
+    const interval = setInterval(fetchInbox, 10000);
+    return () => clearInterval(interval);
+  }, [fetchInbox]);
+
+  const handleSelectSession = async (session: InboxSession) => {
+    setSelectedSessionId(session.id);
+    try {
+      const data = await agentApi.getSession(session.id);
+      setMessages(data.messages);
+      
+      // Mark as read locally or refresh session data if needed
+      if (session.status === 'unassigned') {
+          // Auto-accept? Or just show "Accept" button?
+          // For now just show.
+      }
+    } catch (error) {
+      console.error("Failed to fetch session details:", error);
+    }
+  };
+
+  const handleSendMessage = async (content: string) => {
+    if (!selectedSessionId) return;
+    
+    // Optimistic update
+    const tempId = `temp-${Date.now()}`;
+    const optimisiticMsg: Message = {
+        id: tempId,
+        sessionId: selectedSessionId,
+        direction: 'outbound',
+        type: 'text',
+        content,
+        createdAt: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, optimisiticMsg]);
+
+    try {
+      const newMsg = await agentApi.sendMessage(selectedSessionId, content);
+      // Replace optimistic message
+      setMessages(prev => prev.map(m => m.id === tempId ? newMsg : m));
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      // Remove optimistic message on error?
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      alert("Failed to send message");
+    }
+  };
+  
+  const handleAcceptSession = async (sessionId: string) => {
+      try {
+          await agentApi.acceptSession(sessionId);
+          // Refresh inbox to update status
+          fetchInbox();
+          // Update local selected session status?
+          setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: 'assigned' as const } : s));
+      } catch (error) {
+          console.error("Failed to accept session", error);
+      }
+  };
+
+  const selectedSession = sessions.find(s => s.id === selectedSessionId);
+
+  return (
+    <div className="h-[calc(100vh-4rem)] flex gap-4 p-4">
+      {/* Sidebar: Chat List */}
+      <Card className="w-1/3 flex flex-col min-w-[300px]">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
+          <CardTitle className="text-xl font-bold flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Inbox
+          </CardTitle>
+          <Button variant="ghost" size="icon" onClick={fetchInbox}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </CardHeader>
+        <CardContent className="flex-1 overflow-y-auto p-0">
+          {loading && sessions.length === 0 ? (
+             <div className="p-4 text-center text-muted-foreground">Loading...</div>
+          ) : (
+            <ChatList 
+                sessions={sessions} 
+                selectedSessionId={selectedSessionId || undefined} 
+                onSelectSession={handleSelectSession} 
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Main: Chat Window */}
+      <Card className="flex-1 flex flex-col overflow-hidden">
+        {selectedSessionId ? (
+            <>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 border-b bg-muted/20">
+                    <div>
+                        <div className="font-semibold">{selectedSession?.contactName || selectedSession?.contactId}</div>
+                        <div className="text-xs text-muted-foreground">
+                            {selectedSession?.status} • {selectedSession?.channel}
+                        </div>
+                    </div>
+                    {selectedSession?.status === 'unassigned' && (
+                        <Button size="sm" onClick={() => handleAcceptSession(selectedSessionId)}>
+                            Accept Chat
+                        </Button>
+                    )}
+                </CardHeader>
+                
+                <ChatWindow messages={messages} currentUserId={currentUserId} />
+                
+                <MessageInput 
+                    onSendMessage={handleSendMessage} 
+                    disabled={selectedSession?.status === 'resolved' || selectedSession?.status === 'unassigned'} 
+                />
+            </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            Select a conversation to start chatting
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
