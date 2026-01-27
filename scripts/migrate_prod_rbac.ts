@@ -35,7 +35,7 @@ async function main() {
     console.log('🔄 Starting RBAC Migration...');
 
     // 1. Fetch all memberships
-    const memberships = await AppDataSource.query(`SELECT id, role, "userId" FROM tenant_memberships`);
+    const memberships = await AppDataSource.query(`SELECT "userId", "tenantId", role FROM tenant_memberships`);
     
     let updatedCount = 0;
 
@@ -44,14 +44,14 @@ async function main() {
         const newRole = roleMapping[oldRole];
 
         if (newRole && m.role !== newRole) {
-            console.log(`   - Updating Membership ${m.id} (User ${m.userId}): ${m.role} -> ${newRole}`);
+            console.log(`   - Updating Membership for User ${m.userId} (Tenant ${m.tenantId}): ${m.role} -> ${newRole}`);
             await AppDataSource.query(
-                `UPDATE tenant_memberships SET role = $1 WHERE id = $2`,
-                [newRole, m.id]
+                `UPDATE tenant_memberships SET role = $1 WHERE "userId" = $2 AND "tenantId" = $3`,
+                [newRole, m.userId, m.tenantId]
             );
             updatedCount++;
         } else if (!newRole) {
-            console.warn(`   ⚠️ Unmapped role found: "${m.role}" for ID ${m.id}`);
+            console.warn(`   ⚠️ Unmapped role found: "${m.role}" for User ${m.userId}`);
         }
     }
 
