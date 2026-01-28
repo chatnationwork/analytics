@@ -35,27 +35,22 @@ export function ChatList({ sessions, selectedSessionId, onSelectSession }: ChatL
           
           <div className="flex-1 overflow-hidden">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-semibold truncate">
-                {session.contactName || session.contactId}
+              <span className="font-semibold truncate text-sm">
+                {session.contactName || 'Unknown User'}
               </span>
               {session.lastMessageAt && (
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {new Date(session.lastMessageAt).toLocaleDateString()}
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {new Date(session.lastMessageAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
             </div>
             
-            <div className="flex items-center gap-2 mt-1">
-               <span className={cn(
-                   "text-xs px-1.5 py-0.5 rounded-full capitalize",
-                   session.status === 'assigned' ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" :
-                   session.status === 'unassigned' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" :
-                   "bg-gray-100 text-gray-800"
-               )}>
-                   {session.status}
+            <div className="flex flex-col gap-0.5 mt-0.5">
+               <span className="text-xs text-muted-foreground font-mono">
+                   {session.contactId}
                </span>
-               <span className="text-xs text-muted-foreground truncate">
-                   {session.channel}
+               <span className="text-xs text-foreground/80 truncate font-medium">
+                   {(session.context as any)?.issue || (session.context as any)?.subject || 'General Inquiry'}
                </span>
             </div>
           </div>
