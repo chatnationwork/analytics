@@ -43,6 +43,7 @@ export interface CreateEventDto {
   anonymousId: string;
   userId?: string;
   sessionId: string;
+  externalId?: string;
   channelType?: string;
   pagePath?: string;
   pageUrl?: string;

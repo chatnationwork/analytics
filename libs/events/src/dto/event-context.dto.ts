@@ -76,4 +76,12 @@ export class EventContextDto {
   @IsOptional()
   @IsString()
   handshakeToken?: string;
+
+  @IsOptional()
+  @IsString()
+  externalId?: string;
+
+  @IsOptional()
+  @IsString()
+  channel?: string;
 }

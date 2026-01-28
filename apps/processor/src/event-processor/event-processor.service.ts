@@ -191,6 +191,18 @@ export class EventProcessorService {
     // Determine channel type from context (default to 'web' for backwards compatibility)
     const channelType = (context.channel as string) || 'web';
     const isWebChannel = channelType === 'web';
+    
+    // Auto-fill externalId for WhatsApp if missing
+    let externalId = (context as any).externalId;
+    
+    if (!externalId && channelType === 'whatsapp') {
+        const props = event.properties || {};
+        if (event.eventName === 'messages received') {
+            externalId = props.from;
+        } else if (event.eventName === 'messages sent') {
+            externalId = props.to;
+        }
+    }
 
     // Run enrichers only for web channel (UA/GeoIP not applicable for WhatsApp)
     const geo = isWebChannel ? this.geoipEnricher.enrich(event.ipAddress) : { countryCode: undefined, city: undefined };
@@ -224,6 +236,7 @@ export class EventProcessorService {
       
       // Channel (from context or default to 'web')
       channelType,
+      externalId,
       
       // Page context (only relevant for web)
       pagePath: isWebChannel ? page.path : undefined,
