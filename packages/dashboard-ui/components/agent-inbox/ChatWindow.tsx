@@ -34,7 +34,16 @@ export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
             <div className="flex items-start gap-2">
                 {!isOutbound && <User className="h-4 w-4 mt-0.5 opacity-70" />}
                 <div className="flex-1 whitespace-pre-wrap break-words">
-                  {msg.content}
+                  {(() => {
+                    try {
+                        // Attempt to parse dirty JSON content from legacy messages
+                        if (msg.content && msg.content.startsWith('{') && msg.content.includes('"body"')) {
+                            const parsed = JSON.parse(msg.content);
+                            return parsed.body || msg.content;
+                        }
+                    } catch {}
+                    return msg.content;
+                  })()}
                 </div>
                 {isOutbound && <Bot className="h-4 w-4 mt-0.5 opacity-70" />}
             </div>

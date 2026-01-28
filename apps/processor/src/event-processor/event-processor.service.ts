@@ -225,10 +225,22 @@ export class EventProcessorService {
     let content = '';
     let messageType = MessageType.TEXT;
     
-    if (props.text && typeof props.text === 'object') {
-        content = (props.text as any).body || '';
-    } else if (typeof props.text === 'string') {
-        content = props.text;
+    if (props.text) {
+        if (typeof props.text === 'object') {
+           content = (props.text as any).body || JSON.stringify(props.text);
+        } else if (typeof props.text === 'string') {
+           // Try to parse if it looks like JSON
+           if (props.text.trim().startsWith('{')) {
+               try {
+                   const parsed = JSON.parse(props.text);
+                   content = parsed.body || props.text;
+               } catch {
+                   content = props.text;
+               }
+           } else {
+               content = props.text;
+           }
+        }
     } else if (props.type === 'template') {
         messageType = MessageType.TEXT; // Metadata contains template info
         content = `Template: ${(props.template as any)?.name}`;
