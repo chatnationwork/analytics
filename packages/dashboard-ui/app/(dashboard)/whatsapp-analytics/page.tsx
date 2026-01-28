@@ -66,7 +66,7 @@ export default function WhatsAppAnalyticsPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           label="Messages Received"
           value={stats?.messagesReceived?.toLocaleString() ?? '0'}
@@ -89,9 +89,16 @@ export default function WhatsAppAnalyticsPage() {
           icon={<Target className="w-4 h-4" />}
         />
         <StatCard
+          label="Unique Contacts"
+          value={stats?.uniqueContacts?.toLocaleString() ?? '0'}
+          change="Active in period"
+          positive
+          icon={<Users className="w-4 h-4" />}
+        />
+        <StatCard
           label="New Contacts"
           value={stats?.newContacts?.toLocaleString() ?? '0'}
-          change="Last 30 days"
+          change="First-time users"
           positive
           icon={<Users className="w-4 h-4" />}
         />

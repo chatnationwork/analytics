@@ -290,44 +290,81 @@ export class EventRepository {
 
   /**
    * Get WhatsApp specific performance stats.
+   * 
+   * Note: "New Contacts" counts unique users who sent their FIRST message
+   * within the date range (i.e., they had no messages before startDate).
    */
   async getWhatsappStats(tenantId: string, startDate: Date, endDate: Date) {
+    // Base query for WhatsApp events in date range
     const qb = this.repo
       .createQueryBuilder("event")
       .where("event.tenantId = :tenantId", { tenantId })
-      .andWhere(
-        "event.properties ->> 'channel' = 'whatsapp' OR event.eventName LIKE 'message.%' OR event.eventName = 'contact.created'",
-      )
+      .andWhere("event.channelType = 'whatsapp' OR event.eventName LIKE 'message.%'")
       .andWhere("event.timestamp BETWEEN :startDate AND :endDate", {
         startDate,
         endDate,
       });
 
+    // Count total messages received
     const receivedCount = await qb
       .clone()
       .andWhere("event.eventName = 'message.received'")
       .getCount();
 
+    // Count total messages sent
     const sentCount = await qb
       .clone()
       .andWhere("event.eventName = 'message.sent'")
       .getCount();
 
+    // Count messages that were read
     const readCount = await qb
       .clone()
       .andWhere("event.eventName = 'message.read'")
       .getCount();
 
-    const newContactsCount = await qb
+    // Count unique contacts who sent messages in this period
+    const uniqueContactsResult = await qb
       .clone()
-      .andWhere("event.eventName = 'contact.created'")
-      .getCount();
+      .select("COUNT(DISTINCT COALESCE(event.userId, event.externalId))", "count")
+      .andWhere("event.eventName = 'message.received'")
+      .getRawOne();
+    const uniqueContacts = parseInt(uniqueContactsResult?.count, 10) || 0;
+
+    // Count NEW contacts: users whose first message.received was within this date range
+    // A user is "new" if they have no message.received events before startDate
+    const newContactsResult = await this.repo.query(
+      `
+      WITH contacts_in_period AS (
+        SELECT DISTINCT COALESCE("userId", "externalId") as contact_id
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'message.received'
+          AND timestamp BETWEEN $2 AND $3
+          AND (COALESCE("userId", "externalId")) IS NOT NULL
+      ),
+      contacts_with_history AS (
+        SELECT DISTINCT COALESCE("userId", "externalId") as contact_id
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'message.received'
+          AND timestamp < $2
+          AND (COALESCE("userId", "externalId")) IS NOT NULL
+      )
+      SELECT COUNT(*) as new_contacts
+      FROM contacts_in_period
+      WHERE contact_id NOT IN (SELECT contact_id FROM contacts_with_history)
+      `,
+      [tenantId, startDate, endDate],
+    );
+    const newContactsCount = parseInt(newContactsResult[0]?.new_contacts, 10) || 0;
 
     return {
       messagesReceived: receivedCount,
       messagesSent: sentCount,
       messagesRead: readCount,
       newContacts: newContactsCount,
+      uniqueContacts, // Also return unique contacts for reference
       readRate: sentCount > 0 ? (readCount / sentCount) * 100 : 0,
     };
   }

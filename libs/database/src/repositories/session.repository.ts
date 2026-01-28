@@ -330,4 +330,161 @@ export class SessionRepository {
       take: limit,
     });
   }
+
+  // =============================================================================
+  // TREND ANALYTICS METHODS
+  // =============================================================================
+
+  /**
+   * Get session count trend by time period.
+   * @param granularity - 'day', 'week', or 'month'
+   */
+  async getSessionTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo
+      .createQueryBuilder("session")
+      .select(`DATE_TRUNC('${granularity}', session.startedAt)`, "period")
+      .addSelect("COUNT(*)", "count")
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.startedAt BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      })
+      .groupBy(`DATE_TRUNC('${granularity}', session.startedAt)`)
+      .orderBy(`DATE_TRUNC('${granularity}', session.startedAt)`, "ASC")
+      .getRawMany();
+
+    return result.map((r) => ({
+      period: r.period,
+      count: parseInt(r.count, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get conversion rate trend by time period.
+   */
+  async getConversionTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo
+      .createQueryBuilder("session")
+      .select(`DATE_TRUNC('${granularity}', session.startedAt)`, "period")
+      .addSelect("COUNT(*)", "totalSessions")
+      .addSelect(
+        "SUM(CASE WHEN session.converted THEN 1 ELSE 0 END)",
+        "conversions",
+      )
+      .addSelect(
+        "CAST(SUM(CASE WHEN session.converted THEN 1 ELSE 0 END) AS FLOAT) / NULLIF(COUNT(*), 0)",
+        "conversionRate",
+      )
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.startedAt BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      })
+      .groupBy(`DATE_TRUNC('${granularity}', session.startedAt)`)
+      .orderBy(`DATE_TRUNC('${granularity}', session.startedAt)`, "ASC")
+      .getRawMany();
+
+    return result.map((r) => ({
+      period: r.period,
+      totalSessions: parseInt(r.totalSessions, 10) || 0,
+      conversions: parseInt(r.conversions, 10) || 0,
+      conversionRate: parseFloat(r.conversionRate) || 0,
+    }));
+  }
+
+  /**
+   * Get average session duration trend by time period.
+   */
+  async getSessionDurationTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo
+      .createQueryBuilder("session")
+      .select(`DATE_TRUNC('${granularity}', session.startedAt)`, "period")
+      .addSelect("AVG(session.durationSeconds)", "avgDuration")
+      .addSelect("COUNT(*)", "sessionCount")
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.startedAt BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      })
+      .andWhere("session.durationSeconds > 0")
+      .groupBy(`DATE_TRUNC('${granularity}', session.startedAt)`)
+      .orderBy(`DATE_TRUNC('${granularity}', session.startedAt)`, "ASC")
+      .getRawMany();
+
+    return result.map((r) => ({
+      period: r.period,
+      avgDurationSeconds: parseFloat(r.avgDuration) || 0,
+      sessionCount: parseInt(r.sessionCount, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get user growth trend (new vs returning users by period).
+   * New = first session for that anonymousId falls within the period.
+   */
+  async getUserGrowthTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    // This query identifies the first session date for each user
+    // and counts how many users had their first session in each period
+    const result = await this.repo.query(
+      `
+      WITH user_first_session AS (
+        SELECT 
+          "anonymousId",
+          MIN("startedAt") as first_session_date
+        FROM sessions
+        WHERE "tenantId" = $1
+        GROUP BY "anonymousId"
+      ),
+      period_users AS (
+        SELECT 
+          DATE_TRUNC($4, s."startedAt") as period,
+          COUNT(DISTINCT s."anonymousId") as total_users,
+          COUNT(DISTINCT CASE 
+            WHEN DATE_TRUNC($4, ufs.first_session_date) = DATE_TRUNC($4, s."startedAt") 
+            THEN s."anonymousId" 
+          END) as new_users
+        FROM sessions s
+        LEFT JOIN user_first_session ufs ON s."anonymousId" = ufs."anonymousId"
+        WHERE s."tenantId" = $1
+          AND s."startedAt" BETWEEN $2 AND $3
+        GROUP BY DATE_TRUNC($4, s."startedAt")
+        ORDER BY period ASC
+      )
+      SELECT 
+        period,
+        total_users,
+        new_users,
+        total_users - new_users as returning_users
+      FROM period_users
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      totalUsers: parseInt(r.total_users, 10) || 0,
+      newUsers: parseInt(r.new_users, 10) || 0,
+      returningUsers: parseInt(r.returning_users, 10) || 0,
+    }));
+  }
 }

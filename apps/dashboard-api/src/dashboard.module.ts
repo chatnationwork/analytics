@@ -42,6 +42,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { WhatsappAnalyticsModule } from './whatsapp-analytics/whatsapp-analytics.module';
 import { AiAnalyticsModule } from './ai-analytics/ai-analytics.module';
 import { AgentSystemModule } from './agent-system/agent-system.module';
+import { TrendsModule } from './trends/trends.module';
 
 /**
  * @Module() - Root module decorator
@@ -97,6 +98,7 @@ import { AgentSystemModule } from './agent-system/agent-system.module';
     WhatsappAnalyticsModule,
     AiAnalyticsModule,       // GET /api/dashboard/ai/*
     AgentSystemModule,       // Agent inbox and team management
+    TrendsModule,            // GET /api/dashboard/trends/* (analytics trends)
   ],
 })
 export class DashboardModule {}

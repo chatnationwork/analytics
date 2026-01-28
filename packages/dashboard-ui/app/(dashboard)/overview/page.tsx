@@ -1,12 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { overviewEnhancedApi } from '@/lib/overview-enhanced-api';
+import { trendsApi, Granularity } from '@/lib/trends-api';
 import { TrendingUp, TrendingDown, Users, Clock, Target, BarChart3, Monitor, UserCheck } from 'lucide-react';
 import { RouteGuard } from '@/components/auth/RouteGuard';
+import { TrendChart, StackedTrendChart, RateTrendChart } from '@/components/charts/TrendChart';
 
 export default function OverviewPage() {
+  const [granularity, setGranularity] = useState<Granularity>('day');
+  const periods = granularity === 'day' ? 30 : granularity === 'week' ? 12 : 12;
+
   const { data: tenant } = useQuery({
     queryKey: ['tenant'],
     queryFn: () => api.getCurrentTenant(),
@@ -36,6 +42,22 @@ export default function OverviewPage() {
   const { data: userIdentity } = useQuery({
     queryKey: ['user-identity'],
     queryFn: () => overviewEnhancedApi.getUserIdentityStats(),
+  });
+
+  // Trends queries
+  const { data: sessionTrend } = useQuery({
+    queryKey: ['session-trend', granularity, periods],
+    queryFn: () => trendsApi.getSessionTrend(granularity, periods),
+  });
+
+  const { data: conversionTrend } = useQuery({
+    queryKey: ['conversion-trend', granularity, periods],
+    queryFn: () => trendsApi.getConversionTrend(granularity, periods),
+  });
+
+  const { data: userGrowthTrend } = useQuery({
+    queryKey: ['user-growth-trend', granularity, periods],
+    queryFn: () => trendsApi.getUserGrowthTrend(granularity, periods),
   });
 
   return (
@@ -114,34 +136,91 @@ export default function OverviewPage() {
               />
             </div>
 
-            {/* Charts Row 1 */}
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Daily Active Users */}
-              <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-                <h3 className="font-medium text-foreground mb-6">Daily Active Users</h3>
-                <DailyActiveUsersChart data={dailyUsers ?? []} />
+            {/* Trends Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-foreground">Trends</h2>
+                <select
+                  value={granularity}
+                  onChange={(e) => setGranularity(e.target.value as Granularity)}
+                  className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-label="Select time granularity"
+                >
+                  <option value="day">Daily</option>
+                  <option value="week">Weekly</option>
+                  <option value="month">Monthly</option>
+                </select>
               </div>
 
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Session Trend */}
+                <TrendChart
+                  title="Sessions Over Time"
+                  data={sessionTrend?.data?.map(d => ({ period: d.period, value: d.count })) ?? []}
+                  summary={{
+                    total: sessionTrend?.summary?.total,
+                    percentChange: sessionTrend?.summary?.percentChange,
+                    label: 'vs previous period',
+                  }}
+                  valueLabel="sessions"
+                  color="blue"
+                />
+
+                {/* Conversion Trend */}
+                <RateTrendChart
+                  title="Conversion Rate Trend"
+                  data={conversionTrend?.data?.map(d => ({ 
+                    period: d.period, 
+                    rate: d.conversionRate * 100,
+                    total: d.totalSessions 
+                  })) ?? []}
+                  summary={{
+                    overallRate: conversionTrend?.summary?.overallConversionRate,
+                    total: conversionTrend?.summary?.totalConversions,
+                    label: `${conversionTrend?.summary?.totalConversions ?? 0} conversions`,
+                  }}
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* User Growth Trend */}
+                <StackedTrendChart
+                  title="User Growth"
+                  data={userGrowthTrend?.data ?? []}
+                  summary={{
+                    newUsers: userGrowthTrend?.summary?.totalNewUsers,
+                    returningUsers: userGrowthTrend?.summary?.totalReturningUsers,
+                    newPercent: userGrowthTrend?.summary?.newUserPercent,
+                  }}
+                />
+
+                {/* Daily Active Users (existing) */}
+                <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                  <h3 className="font-medium text-foreground mb-6">Daily Active Users</h3>
+                  <DailyActiveUsersChart data={dailyUsers ?? []} />
+                </div>
+              </div>
+            </div>
+
+            {/* Charts Row: Device & Browser */}
+            <div className="grid md:grid-cols-2 gap-6">
               {/* Device Breakdown */}
               <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
                 <h3 className="font-medium text-foreground mb-6">Traffic by Device</h3>
                 <DeviceChart data={data?.deviceBreakdown} />
               </div>
-            </div>
 
-            {/* Charts Row 2 */}
-            <div className="grid md:grid-cols-2 gap-6">
               {/* Browser Breakdown */}
               <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
                 <h3 className="font-medium text-foreground mb-6">Top Browsers</h3>
                 <BrowserChart data={browsers ?? []} />
               </div>
+            </div>
 
-              {/* Traffic by Journey */}
-              <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-                <h3 className="font-medium text-foreground mb-6">Traffic by Journey</h3>
-                <PagePathsChart data={pagePaths ?? []} />
-              </div>
+            {/* Traffic by Journey */}
+            <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+              <h3 className="font-medium text-foreground mb-6">Traffic by Journey</h3>
+              <PagePathsChart data={pagePaths ?? []} />
             </div>
 
             {/* Activity Heatmap */}
