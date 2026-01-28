@@ -7,16 +7,19 @@
  * Provides methods to create sessions, add messages, and manage session state.
  */
 
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 import {
   InboxSessionEntity,
   SessionStatus,
   MessageEntity,
   MessageDirection,
   MessageType,
-} from '@lib/database';
+  EventRepository,
+  CreateEventDto,
+} from "@lib/database";
+import { randomUUID } from "crypto";
 
 /**
  * DTO for creating a new message
@@ -42,11 +45,14 @@ export interface CreateMessageDto {
  */
 @Injectable()
 export class InboxService {
+  private readonly logger = new Logger(InboxService.name);
+
   constructor(
     @InjectRepository(InboxSessionEntity)
     private readonly sessionRepo: Repository<InboxSessionEntity>,
     @InjectRepository(MessageEntity)
     private readonly messageRepo: Repository<MessageEntity>,
+    private readonly eventRepository: EventRepository,
   ) {}
 
   /**
@@ -58,7 +64,7 @@ export class InboxService {
     tenantId: string,
     contactId: string,
     contactName?: string,
-    channel = 'whatsapp',
+    channel = "whatsapp",
     context?: Record<string, unknown>,
   ): Promise<InboxSessionEntity> {
     // Look for existing active session
@@ -107,7 +113,7 @@ export class InboxService {
       dto.tenantId,
       dto.contactId,
       dto.contactName,
-      dto.channel || 'whatsapp',
+      dto.channel || "whatsapp",
       dto.context,
     );
 
@@ -143,20 +149,20 @@ export class InboxService {
     status?: SessionStatus,
   ): Promise<InboxSessionEntity[]> {
     const query = this.sessionRepo
-      .createQueryBuilder('session')
-      .where('session.tenantId = :tenantId', { tenantId })
-      .andWhere('session.assignedAgentId = :agentId', { agentId });
+      .createQueryBuilder("session")
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.assignedAgentId = :agentId", { agentId });
 
     if (status) {
-      query.andWhere('session.status = :status', { status });
+      query.andWhere("session.status = :status", { status });
     } else {
       // Default: only show active sessions (not resolved)
-      query.andWhere('session.status != :resolved', {
+      query.andWhere("session.status != :resolved", {
         resolved: SessionStatus.RESOLVED,
       });
     }
 
-    query.orderBy('session.lastMessageAt', 'DESC');
+    query.orderBy("session.lastMessageAt", "DESC");
 
     return query.getMany();
   }
@@ -169,17 +175,17 @@ export class InboxService {
     teamId?: string,
   ): Promise<InboxSessionEntity[]> {
     const query = this.sessionRepo
-      .createQueryBuilder('session')
-      .where('session.tenantId = :tenantId', { tenantId })
-      .andWhere('session.status = :status', {
+      .createQueryBuilder("session")
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.status = :status", {
         status: SessionStatus.UNASSIGNED,
       });
 
     if (teamId) {
-      query.andWhere('session.assignedTeamId = :teamId', { teamId });
+      query.andWhere("session.assignedTeamId = :teamId", { teamId });
     }
 
-    query.orderBy('session.createdAt', 'ASC');
+    query.orderBy("session.createdAt", "ASC");
 
     return query.getMany();
   }
@@ -190,7 +196,7 @@ export class InboxService {
   async getSessionMessages(sessionId: string): Promise<MessageEntity[]> {
     return this.messageRepo.find({
       where: { sessionId },
-      order: { createdAt: 'ASC' },
+      order: { createdAt: "ASC" },
     });
   }
 
@@ -211,17 +217,74 @@ export class InboxService {
 
   /**
    * Assign a session to an agent.
+   * Fires an `agent.handoff` analytics event to track self-serve vs assisted journeys.
    */
   async assignSession(
     sessionId: string,
     agentId: string,
   ): Promise<InboxSessionEntity> {
     const session = await this.getSession(sessionId);
+    const wasUnassigned = session.status === SessionStatus.UNASSIGNED;
 
     session.assignedAgentId = agentId;
     session.status = SessionStatus.ASSIGNED;
 
-    return this.sessionRepo.save(session);
+    const savedSession = await this.sessionRepo.save(session);
+
+    // Fire agent.handoff event for analytics tracking
+    if (wasUnassigned) {
+      try {
+        await this.fireHandoffEvent(savedSession, agentId);
+      } catch (error) {
+        // Log but don't fail the assignment
+        this.logger.error(`Failed to fire handoff event: ${error.message}`);
+      }
+    }
+
+    return savedSession;
+  }
+
+  /**
+   * Fire an analytics event when a session is handed off to an agent.
+   * This enables tracking of self-serve vs assisted journeys.
+   */
+  private async fireHandoffEvent(
+    session: InboxSessionEntity,
+    agentId: string,
+  ): Promise<void> {
+    const eventId = randomUUID();
+    const context = (session.context as Record<string, unknown>) || {};
+
+    const event: CreateEventDto = {
+      eventId,
+      messageId: eventId,
+      tenantId: session.tenantId,
+      projectId: "default", // Could be enhanced to track project
+      eventName: "agent.handoff",
+      eventType: "track",
+      timestamp: new Date(),
+      anonymousId: session.contactId, // Use contactId as identifier
+      userId: session.contactId,
+      sessionId: session.id, // InboxSession ID
+      channelType: session.channel || "whatsapp",
+      externalId: session.contactId,
+      properties: {
+        inboxSessionId: session.id,
+        agentId,
+        contactId: session.contactId,
+        contactName: session.contactName,
+        channel: session.channel,
+        previousMode: "bot",
+        newMode: "agent",
+        handoffReason: context.issue ? "user_request" : "escalation",
+        journeyStep: context.journeyStep || context.issue || "unknown",
+        teamId: session.assignedTeamId,
+        context,
+      },
+    };
+
+    await this.eventRepository.save(event);
+    this.logger.log(`Fired agent.handoff event for session ${session.id}`);
   }
 
   /**

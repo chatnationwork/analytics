@@ -290,7 +290,7 @@ export class EventRepository {
 
   /**
    * Get WhatsApp specific performance stats.
-   * 
+   *
    * Note: "New Contacts" counts unique users who sent their FIRST message
    * within the date range (i.e., they had no messages before startDate).
    */
@@ -299,7 +299,9 @@ export class EventRepository {
     const qb = this.repo
       .createQueryBuilder("event")
       .where("event.tenantId = :tenantId", { tenantId })
-      .andWhere("event.channelType = 'whatsapp' OR event.eventName LIKE 'message.%'")
+      .andWhere(
+        "event.channelType = 'whatsapp' OR event.eventName LIKE 'message.%'",
+      )
       .andWhere("event.timestamp BETWEEN :startDate AND :endDate", {
         startDate,
         endDate,
@@ -326,7 +328,10 @@ export class EventRepository {
     // Count unique contacts who sent messages in this period
     const uniqueContactsResult = await qb
       .clone()
-      .select("COUNT(DISTINCT COALESCE(event.userId, event.externalId))", "count")
+      .select(
+        "COUNT(DISTINCT COALESCE(event.userId, event.externalId))",
+        "count",
+      )
       .andWhere("event.eventName = 'message.received'")
       .getRawOne();
     const uniqueContacts = parseInt(uniqueContactsResult?.count, 10) || 0;
@@ -357,7 +362,8 @@ export class EventRepository {
       `,
       [tenantId, startDate, endDate],
     );
-    const newContactsCount = parseInt(newContactsResult[0]?.new_contacts, 10) || 0;
+    const newContactsCount =
+      parseInt(newContactsResult[0]?.new_contacts, 10) || 0;
 
     return {
       messagesReceived: receivedCount,
@@ -1159,5 +1165,268 @@ export class EventRepository {
         replyRate: readCount > 0 ? (replied / readCount) * 100 : 0,
       };
     });
+  }
+
+  // ===========================================================================
+  // SELF-SERVE VS ASSISTED JOURNEY ANALYTICS
+  // ===========================================================================
+
+  /**
+   * Get self-serve vs assisted journey breakdown.
+   * Self-serve = sessions that never had an agent.handoff event
+   * Assisted = sessions that had at least one agent.handoff event
+   */
+  async getSelfServeVsAssistedStats(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    // First, get all unique sessions in the period
+    const totalSessionsResult = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT "sessionId") as total_sessions
+      FROM events
+      WHERE "tenantId" = $1
+        AND timestamp BETWEEN $2 AND $3
+        AND "sessionId" IS NOT NULL
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    // Then, get sessions that had a handoff
+    const assistedSessionsResult = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT "sessionId") as assisted_sessions
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'agent.handoff'
+        AND timestamp BETWEEN $2 AND $3
+        AND "sessionId" IS NOT NULL
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const totalSessions =
+      parseInt(totalSessionsResult[0]?.total_sessions, 10) || 0;
+    const assistedSessions =
+      parseInt(assistedSessionsResult[0]?.assisted_sessions, 10) || 0;
+    const selfServeSessions = totalSessions - assistedSessions;
+
+    return {
+      totalSessions,
+      selfServeSessions,
+      assistedSessions,
+      selfServeRate:
+        totalSessions > 0 ? (selfServeSessions / totalSessions) * 100 : 0,
+      assistedRate:
+        totalSessions > 0 ? (assistedSessions / totalSessions) * 100 : 0,
+    };
+  }
+
+  /**
+   * Get handoff rate grouped by journey step/reason.
+   * Shows which steps or issues most commonly lead to agent handoff.
+   */
+  async getHandoffByStep(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(properties->>'journeyStep', properties->>'handoffReason', 'unknown') as step,
+        COUNT(*) as handoffs
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'agent.handoff'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY COALESCE(properties->>'journeyStep', properties->>'handoffReason', 'unknown')
+      ORDER BY handoffs DESC
+      LIMIT 20
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    return result.map((r: any) => ({
+      step: r.step,
+      handoffs: parseInt(r.handoffs, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get handoff rate trend over time.
+   */
+  async getHandoffRateTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    // Get total sessions per period
+    const sessionsResult = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        COUNT(DISTINCT "sessionId") as total_sessions
+      FROM events
+      WHERE "tenantId" = $1
+        AND timestamp BETWEEN $2 AND $3
+        AND "sessionId" IS NOT NULL
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    // Get handoffs per period
+    const handoffsResult = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        COUNT(*) as handoffs
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'agent.handoff'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    // Combine into a map
+    const sessionsMap = new Map<string, number>();
+    sessionsResult.forEach((r: any) => {
+      sessionsMap.set(
+        r.period.toISOString(),
+        parseInt(r.total_sessions, 10) || 0,
+      );
+    });
+
+    const handoffsMap = new Map<string, number>();
+    handoffsResult.forEach((r: any) => {
+      handoffsMap.set(r.period.toISOString(), parseInt(r.handoffs, 10) || 0);
+    });
+
+    // Merge the results
+    const periods = new Set([...sessionsMap.keys(), ...handoffsMap.keys()]);
+    const data = Array.from(periods)
+      .sort()
+      .map((period) => {
+        const totalSessions = sessionsMap.get(period) || 0;
+        const handoffs = handoffsMap.get(period) || 0;
+        const selfServe = totalSessions - handoffs;
+        return {
+          period: new Date(period),
+          totalSessions,
+          selfServe,
+          assisted: handoffs,
+          handoffRate: totalSessions > 0 ? (handoffs / totalSessions) * 100 : 0,
+          selfServeRate:
+            totalSessions > 0 ? (selfServe / totalSessions) * 100 : 0,
+        };
+      });
+
+    return data;
+  }
+
+  /**
+   * Get agent performance stats for assisted sessions.
+   * Shows how agents are performing in handling handoffs.
+   */
+  async getAgentHandoffStats(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        properties->>'agentId' as agent_id,
+        COUNT(*) as total_handoffs,
+        COUNT(DISTINCT "sessionId") as unique_sessions
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'agent.handoff'
+        AND timestamp BETWEEN $2 AND $3
+        AND properties->>'agentId' IS NOT NULL
+      GROUP BY properties->>'agentId'
+      ORDER BY total_handoffs DESC
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    return result.map((r: any) => ({
+      agentId: r.agent_id,
+      totalHandoffs: parseInt(r.total_handoffs, 10) || 0,
+      uniqueSessions: parseInt(r.unique_sessions, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get average time to handoff (how long users wait before being transferred).
+   */
+  async getTimeToHandoff(tenantId: string, startDate: Date, endDate: Date) {
+    // This requires correlating the handoff event with session start
+    // For now, we calculate based on handoff events that have session context
+    const result = await this.repo.query(
+      `
+      WITH session_starts AS (
+        SELECT 
+          "sessionId",
+          MIN(timestamp) as session_start
+        FROM events
+        WHERE "tenantId" = $1
+          AND timestamp BETWEEN $2 AND $3
+          AND "sessionId" IS NOT NULL
+        GROUP BY "sessionId"
+      ),
+      handoffs AS (
+        SELECT 
+          "sessionId",
+          MIN(timestamp) as handoff_time
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'agent.handoff'
+          AND timestamp BETWEEN $2 AND $3
+          AND "sessionId" IS NOT NULL
+        GROUP BY "sessionId"
+      )
+      SELECT 
+        AVG(EXTRACT(EPOCH FROM (h.handoff_time - s.session_start))) as avg_seconds,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (h.handoff_time - s.session_start))) as median_seconds,
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (h.handoff_time - s.session_start))) as p95_seconds,
+        COUNT(*) as handoff_count
+      FROM handoffs h
+      JOIN session_starts s ON h."sessionId" = s."sessionId"
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const row = result[0] || {};
+    return {
+      avgSeconds: parseFloat(row.avg_seconds) || 0,
+      medianSeconds: parseFloat(row.median_seconds) || 0,
+      p95Seconds: parseFloat(row.p95_seconds) || 0,
+      handoffCount: parseInt(row.handoff_count, 10) || 0,
+    };
+  }
+
+  /**
+   * Get handoff reasons breakdown.
+   */
+  async getHandoffReasons(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(properties->>'handoffReason', 'unknown') as reason,
+        COUNT(*) as count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'agent.handoff'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY COALESCE(properties->>'handoffReason', 'unknown')
+      ORDER BY count DESC
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    return result.map((r: any) => ({
+      reason: r.reason,
+      count: parseInt(r.count, 10) || 0,
+    }));
   }
 }
