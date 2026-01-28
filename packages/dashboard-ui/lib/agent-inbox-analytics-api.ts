@@ -1,0 +1,353 @@
+/**
+ * =============================================================================
+ * AGENT ANALYTICS API CLIENT
+ * =============================================================================
+ *
+ * Frontend API client for agent analytics.
+ * Provides resolution, transfer, agent performance, and team metrics.
+ */
+
+import { fetchWithAuth } from "./api";
+
+export type Granularity = "day" | "week" | "month";
+
+// Response interfaces
+
+export interface DashboardStatsResponse {
+  resolutions: {
+    total: number;
+    uniqueAgents: number;
+    percentChange: number;
+  };
+  transfers: {
+    total: number;
+    percentChange: number;
+  };
+  chats: {
+    expired: number;
+    active: number;
+    resolved: number;
+    unassigned: number;
+    total: number;
+    expiredRate: number;
+  };
+  agents: {
+    activeAgents: number;
+    totalHandoffs: number;
+    resolutionRate: number;
+    avgResolutionsPerAgent: number;
+  };
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export interface ResolutionOverviewResponse {
+  totalResolved: number;
+  uniqueAgents: number;
+  uniqueSessions: number;
+  percentChange: number;
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export interface ResolutionTrendDataPoint {
+  period: string;
+  resolvedCount: number;
+  activeAgents: number;
+}
+
+export interface ResolutionTrendResponse {
+  data: ResolutionTrendDataPoint[];
+  summary: {
+    totalResolved: number;
+    avgPerPeriod: number;
+    percentChange: number;
+  };
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export interface ResolutionCategoryItem {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ResolutionByCategoryResponse {
+  data: ResolutionCategoryItem[];
+  summary: {
+    totalResolved: number;
+    uniqueCategories: number;
+  };
+  startDate: string;
+  endDate: string;
+}
+
+export interface TransferOverviewResponse {
+  totalTransfers: number;
+  agentsTransferring: number;
+  agentsReceiving: number;
+  uniqueSessions: number;
+  percentChange: number;
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export interface TransferTrendDataPoint {
+  period: string;
+  transferCount: number;
+}
+
+export interface TransferTrendResponse {
+  data: TransferTrendDataPoint[];
+  summary: {
+    totalTransfers: number;
+    avgPerPeriod: number;
+    percentChange: number;
+  };
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export interface TransferReasonItem {
+  reason: string;
+  count: number;
+  percentage: number;
+}
+
+export interface TransferByReasonResponse {
+  data: TransferReasonItem[];
+  summary: {
+    totalTransfers: number;
+    uniqueReasons: number;
+  };
+  startDate: string;
+  endDate: string;
+}
+
+export interface ExpiredChatsResponse {
+  expiredCount: number;
+  activeChats: number;
+  assignedCount: number;
+  resolvedCount: number;
+  unassignedCount: number;
+  totalChats: number;
+  expiredRate: number;
+}
+
+export interface AgentLeaderboardItem {
+  agentId: string;
+  resolvedCount: number;
+  categories: string[];
+  transfersOut: number;
+  transfersIn: number;
+}
+
+export interface AgentLeaderboardResponse {
+  data: AgentLeaderboardItem[];
+  summary: {
+    totalResolved: number;
+    totalAgents: number;
+    avgResolutionsPerAgent: number;
+  };
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+// API functions
+
+export async function getDashboardStats(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<DashboardStatsResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/dashboard?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getResolutionOverview(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<ResolutionOverviewResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/resolutions?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getResolutionTrend(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<ResolutionTrendResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/resolutions/trend?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getResolutionByCategory(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<ResolutionByCategoryResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/resolutions/by-category?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getTransferOverview(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<TransferOverviewResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/transfers?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getTransferTrend(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<TransferTrendResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/transfers/trend?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getTransferByReason(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<TransferByReasonResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/transfers/by-reason?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getExpiredChats(): Promise<ExpiredChatsResponse> {
+  return fetchWithAuth(`/agent-inbox-analytics/expired-chats`);
+}
+
+export async function getAgentLeaderboard(
+  granularity: Granularity = "day",
+  periods: number = 30,
+  limit: number = 10,
+): Promise<AgentLeaderboardResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/leaderboard?granularity=${granularity}&periods=${periods}&limit=${limit}`,
+  );
+}
+
+// =============================================================================
+// AGENT PERFORMANCE INTERFACES
+// =============================================================================
+
+export interface AgentActivityDataPoint {
+  period: string;
+  activeAgents: number;
+  resolutions: number;
+  transfers: number;
+  handoffs: number;
+}
+
+export interface AgentActivityResponse {
+  data: AgentActivityDataPoint[];
+  summary: {
+    peakActiveAgents: number;
+    avgActiveAgents: number;
+  };
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export interface AgentDetailedItem {
+  agentId: string;
+  resolvedCount: number;
+  handoffsReceived: number;
+  transfersOut: number;
+  transfersIn: number;
+  totalChatsHandled: number;
+  resolutionRate: number;
+}
+
+export interface AgentDetailedResponse {
+  data: AgentDetailedItem[];
+  summary: {
+    totalAgents: number;
+    totalChatsHandled: number;
+    avgChatsPerAgent: number;
+  };
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export interface AgentWorkloadResponse {
+  totalAgents: number;
+  totalChats: number;
+  avgChatsPerAgent: number;
+  maxChats: number;
+  minChats: number;
+  stddevChats: number;
+  workloadBalanceScore: number;
+  topAgents: Array<{ agentId: string; chatCount: number }>;
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export interface AgentPerformanceSummaryResponse {
+  agentsWithResolutions: number;
+  agentsWithHandoffs: number;
+  totalResolutions: number;
+  totalTransfers: number;
+  totalHandoffs: number;
+  resolutionRate: number;
+  avgResolutionsPerAgent: number;
+  resolutionRateChange: number;
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+// =============================================================================
+// AGENT PERFORMANCE API FUNCTIONS
+// =============================================================================
+
+export async function getAgentActivity(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<AgentActivityResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/agents/activity?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getAgentDetailedStats(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<AgentDetailedResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/agents/detailed?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getAgentWorkload(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<AgentWorkloadResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/agents/workload?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getAgentPerformanceSummary(
+  granularity: Granularity = "day",
+  periods: number = 30,
+): Promise<AgentPerformanceSummaryResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/agents/summary?granularity=${granularity}&periods=${periods}`,
+  );
+}

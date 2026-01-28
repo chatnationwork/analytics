@@ -44,6 +44,7 @@ import { AiAnalyticsModule } from "./ai-analytics/ai-analytics.module";
 import { AgentSystemModule } from "./agent-system/agent-system.module";
 import { TrendsModule } from "./trends/trends.module";
 import { JourneysModule } from "./journeys/journeys.module";
+import { AgentInboxAnalyticsModule } from "./agent-inbox-analytics/agent-inbox-analytics.module";
 
 /**
  * @Module() - Root module decorator
@@ -100,6 +101,7 @@ import { JourneysModule } from "./journeys/journeys.module";
     AgentSystemModule, // Agent inbox and team management
     TrendsModule, // GET /api/dashboard/trends/* (analytics trends)
     JourneysModule, // GET /api/dashboard/journeys/* (self-serve vs assisted)
+    AgentInboxAnalyticsModule, // GET /api/dashboard/agent-inbox-analytics/*
   ],
 })
 export class DashboardModule {}

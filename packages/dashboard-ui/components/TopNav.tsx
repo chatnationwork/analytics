@@ -25,6 +25,7 @@ const navGroups = [
     title: "Agent System",
     items: [
       { href: "/agent-inbox", label: "Inbox" },
+      { href: "/agent-analytics", label: "Agent Analytics" },
       { href: "/team-management", label: "Teams" },
     ],
   },

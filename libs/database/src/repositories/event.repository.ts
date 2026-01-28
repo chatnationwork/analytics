@@ -1651,4 +1651,507 @@ export class EventRepository {
       avgResolutionTime: parseFloat(r.avg_resolution_time) || 0,
     }));
   }
+
+  // ===========================================================================
+  // AGENT INBOX ANALYTICS - Resolution, Transfer, and Expired Chat Stats
+  // ===========================================================================
+
+  /**
+   * Get resolution statistics overview.
+   */
+  async getResolutionStats(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        COUNT(*) as total_resolved,
+        COUNT(DISTINCT properties->>'agentId') as unique_agents,
+        COUNT(DISTINCT properties->>'inboxSessionId') as unique_sessions
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.resolved'
+        AND timestamp BETWEEN $2 AND $3
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const row = result[0] || {};
+    return {
+      totalResolved: parseInt(row.total_resolved, 10) || 0,
+      uniqueAgents: parseInt(row.unique_agents, 10) || 0,
+      uniqueSessions: parseInt(row.unique_sessions, 10) || 0,
+    };
+  }
+
+  /**
+   * Get resolution breakdown by category.
+   */
+  async getResolutionByCategory(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(properties->>'category', 'unknown') as category,
+        COUNT(*) as count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.resolved'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY properties->>'category'
+      ORDER BY count DESC
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    return result.map((r: { category: string; count: string }) => ({
+      category: r.category,
+      count: parseInt(r.count, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get resolution trend over time.
+   */
+  async getResolutionTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        COUNT(*) as resolved_count,
+        COUNT(DISTINCT properties->>'agentId') as active_agents
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.resolved'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map(
+      (r: { period: Date; resolved_count: string; active_agents: string }) => ({
+        period: r.period,
+        resolvedCount: parseInt(r.resolved_count, 10) || 0,
+        activeAgents: parseInt(r.active_agents, 10) || 0,
+      }),
+    );
+  }
+
+  /**
+   * Get transfer statistics overview.
+   */
+  async getTransferStats(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        COUNT(*) as total_transfers,
+        COUNT(DISTINCT properties->>'fromAgentId') as agents_transferring,
+        COUNT(DISTINCT properties->>'toAgentId') as agents_receiving,
+        COUNT(DISTINCT properties->>'inboxSessionId') as unique_sessions
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.transferred'
+        AND timestamp BETWEEN $2 AND $3
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const row = result[0] || {};
+    return {
+      totalTransfers: parseInt(row.total_transfers, 10) || 0,
+      agentsTransferring: parseInt(row.agents_transferring, 10) || 0,
+      agentsReceiving: parseInt(row.agents_receiving, 10) || 0,
+      uniqueSessions: parseInt(row.unique_sessions, 10) || 0,
+    };
+  }
+
+  /**
+   * Get transfer breakdown by reason.
+   */
+  async getTransferByReason(tenantId: string, startDate: Date, endDate: Date) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(properties->>'reason', 'No reason provided') as reason,
+        COUNT(*) as count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.transferred'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY properties->>'reason'
+      ORDER BY count DESC
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    return result.map((r: { reason: string; count: string }) => ({
+      reason: r.reason,
+      count: parseInt(r.count, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get transfer trend over time.
+   */
+  async getTransferTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        COUNT(*) as transfer_count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.transferred'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: { period: Date; transfer_count: string }) => ({
+      period: r.period,
+      transferCount: parseInt(r.transfer_count, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get top agents by resolutions with detailed metrics.
+   */
+  async getAgentResolutionLeaderboard(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    limit: number = 10,
+  ) {
+    const result = await this.repo.query(
+      `
+      WITH agent_resolutions AS (
+        SELECT 
+          properties->>'agentId' as agent_id,
+          COUNT(*) as resolved_count,
+          array_agg(DISTINCT properties->>'category') as categories
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'chat.resolved'
+          AND timestamp BETWEEN $2 AND $3
+          AND properties->>'agentId' IS NOT NULL
+        GROUP BY properties->>'agentId'
+      ),
+      agent_transfers_out AS (
+        SELECT 
+          properties->>'fromAgentId' as agent_id,
+          COUNT(*) as transfers_out
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'chat.transferred'
+          AND timestamp BETWEEN $2 AND $3
+        GROUP BY properties->>'fromAgentId'
+      ),
+      agent_transfers_in AS (
+        SELECT 
+          properties->>'toAgentId' as agent_id,
+          COUNT(*) as transfers_in
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'chat.transferred'
+          AND timestamp BETWEEN $2 AND $3
+        GROUP BY properties->>'toAgentId'
+      )
+      SELECT 
+        r.agent_id,
+        r.resolved_count,
+        r.categories,
+        COALESCE(to_out.transfers_out, 0) as transfers_out,
+        COALESCE(ti.transfers_in, 0) as transfers_in
+      FROM agent_resolutions r
+      LEFT JOIN agent_transfers_out to_out ON r.agent_id = to_out.agent_id
+      LEFT JOIN agent_transfers_in ti ON r.agent_id = ti.agent_id
+      ORDER BY r.resolved_count DESC
+      LIMIT $4
+      `,
+      [tenantId, startDate, endDate, limit],
+    );
+
+    return result.map(
+      (r: {
+        agent_id: string;
+        resolved_count: string;
+        categories: string[];
+        transfers_out: string;
+        transfers_in: string;
+      }) => ({
+        agentId: r.agent_id,
+        resolvedCount: parseInt(r.resolved_count, 10) || 0,
+        categories: r.categories || [],
+        transfersOut: parseInt(r.transfers_out, 10) || 0,
+        transfersIn: parseInt(r.transfers_in, 10) || 0,
+      }),
+    );
+  }
+
+  // ===========================================================================
+  // AGENT PERFORMANCE ANALYTICS
+  // ===========================================================================
+
+  /**
+   * Get agent activity trend (how many agents were active per period).
+   */
+  async getAgentActivityTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      WITH agent_activity AS (
+        SELECT 
+          DATE_TRUNC($4, timestamp) as period,
+          properties->>'agentId' as agent_id,
+          "eventName"
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" IN ('chat.resolved', 'chat.transferred', 'agent.handoff')
+          AND timestamp BETWEEN $2 AND $3
+          AND properties->>'agentId' IS NOT NULL
+      )
+      SELECT 
+        period,
+        COUNT(DISTINCT agent_id) as active_agents,
+        COUNT(*) FILTER (WHERE "eventName" = 'chat.resolved') as resolutions,
+        COUNT(*) FILTER (WHERE "eventName" = 'chat.transferred') as transfers,
+        COUNT(*) FILTER (WHERE "eventName" = 'agent.handoff') as handoffs
+      FROM agent_activity
+      GROUP BY period
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map(
+      (r: {
+        period: Date;
+        active_agents: string;
+        resolutions: string;
+        transfers: string;
+        handoffs: string;
+      }) => ({
+        period: r.period,
+        activeAgents: parseInt(r.active_agents, 10) || 0,
+        resolutions: parseInt(r.resolutions, 10) || 0,
+        transfers: parseInt(r.transfers, 10) || 0,
+        handoffs: parseInt(r.handoffs, 10) || 0,
+      }),
+    );
+  }
+
+  /**
+   * Get detailed stats for all agents.
+   */
+  async getAgentDetailedStats(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const result = await this.repo.query(
+      `
+      WITH agent_resolutions AS (
+        SELECT 
+          properties->>'agentId' as agent_id,
+          COUNT(*) as resolved_count
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'chat.resolved'
+          AND timestamp BETWEEN $2 AND $3
+          AND properties->>'agentId' IS NOT NULL
+        GROUP BY properties->>'agentId'
+      ),
+      agent_handoffs AS (
+        SELECT 
+          properties->>'agentId' as agent_id,
+          COUNT(*) as handoffs_received
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'agent.handoff'
+          AND timestamp BETWEEN $2 AND $3
+        GROUP BY properties->>'agentId'
+      ),
+      agent_transfers_out AS (
+        SELECT 
+          properties->>'fromAgentId' as agent_id,
+          COUNT(*) as transfers_out
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'chat.transferred'
+          AND timestamp BETWEEN $2 AND $3
+        GROUP BY properties->>'fromAgentId'
+      ),
+      agent_transfers_in AS (
+        SELECT 
+          properties->>'toAgentId' as agent_id,
+          COUNT(*) as transfers_in
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'chat.transferred'
+          AND timestamp BETWEEN $2 AND $3
+        GROUP BY properties->>'toAgentId'
+      ),
+      all_agents AS (
+        SELECT DISTINCT agent_id FROM (
+          SELECT agent_id FROM agent_resolutions
+          UNION SELECT agent_id FROM agent_handoffs
+          UNION SELECT agent_id FROM agent_transfers_out
+          UNION SELECT agent_id FROM agent_transfers_in
+        ) combined WHERE agent_id IS NOT NULL
+      )
+      SELECT 
+        a.agent_id,
+        COALESCE(r.resolved_count, 0) as resolved_count,
+        COALESCE(h.handoffs_received, 0) as handoffs_received,
+        COALESCE(to_out.transfers_out, 0) as transfers_out,
+        COALESCE(ti.transfers_in, 0) as transfers_in,
+        COALESCE(r.resolved_count, 0) + COALESCE(h.handoffs_received, 0) + COALESCE(ti.transfers_in, 0) as total_chats_handled
+      FROM all_agents a
+      LEFT JOIN agent_resolutions r ON a.agent_id = r.agent_id
+      LEFT JOIN agent_handoffs h ON a.agent_id = h.agent_id
+      LEFT JOIN agent_transfers_out to_out ON a.agent_id = to_out.agent_id
+      LEFT JOIN agent_transfers_in ti ON a.agent_id = ti.agent_id
+      ORDER BY total_chats_handled DESC
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    return result.map(
+      (r: {
+        agent_id: string;
+        resolved_count: string;
+        handoffs_received: string;
+        transfers_out: string;
+        transfers_in: string;
+        total_chats_handled: string;
+      }) => ({
+        agentId: r.agent_id,
+        resolvedCount: parseInt(r.resolved_count, 10) || 0,
+        handoffsReceived: parseInt(r.handoffs_received, 10) || 0,
+        transfersOut: parseInt(r.transfers_out, 10) || 0,
+        transfersIn: parseInt(r.transfers_in, 10) || 0,
+        totalChatsHandled: parseInt(r.total_chats_handled, 10) || 0,
+      }),
+    );
+  }
+
+  /**
+   * Get agent workload distribution.
+   */
+  async getAgentWorkloadDistribution(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const result = await this.repo.query(
+      `
+      WITH agent_chats AS (
+        SELECT 
+          properties->>'agentId' as agent_id,
+          COUNT(*) as chat_count
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'agent.handoff'
+          AND timestamp BETWEEN $2 AND $3
+          AND properties->>'agentId' IS NOT NULL
+        GROUP BY properties->>'agentId'
+      ),
+      stats AS (
+        SELECT 
+          COUNT(*) as total_agents,
+          SUM(chat_count) as total_chats,
+          AVG(chat_count) as avg_chats,
+          MAX(chat_count) as max_chats,
+          MIN(chat_count) as min_chats,
+          STDDEV(chat_count) as stddev_chats
+        FROM agent_chats
+      )
+      SELECT 
+        s.total_agents,
+        s.total_chats,
+        s.avg_chats,
+        s.max_chats,
+        s.min_chats,
+        s.stddev_chats,
+        (SELECT array_agg(json_build_object('agentId', agent_id, 'chatCount', chat_count) ORDER BY chat_count DESC) FROM agent_chats LIMIT 10) as top_agents
+      FROM stats s
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const row = result[0] || {};
+    return {
+      totalAgents: parseInt(row.total_agents, 10) || 0,
+      totalChats: parseInt(row.total_chats, 10) || 0,
+      avgChatsPerAgent: parseFloat(row.avg_chats) || 0,
+      maxChats: parseInt(row.max_chats, 10) || 0,
+      minChats: parseInt(row.min_chats, 10) || 0,
+      stddevChats: parseFloat(row.stddev_chats) || 0,
+      topAgents: row.top_agents || [],
+    };
+  }
+
+  /**
+   * Get agent performance summary (overall team stats).
+   */
+  async getAgentPerformanceSummary(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        COUNT(DISTINCT CASE WHEN "eventName" = 'chat.resolved' THEN properties->>'agentId' END) as agents_with_resolutions,
+        COUNT(DISTINCT CASE WHEN "eventName" = 'agent.handoff' THEN properties->>'agentId' END) as agents_with_handoffs,
+        COUNT(*) FILTER (WHERE "eventName" = 'chat.resolved') as total_resolutions,
+        COUNT(*) FILTER (WHERE "eventName" = 'chat.transferred') as total_transfers,
+        COUNT(*) FILTER (WHERE "eventName" = 'agent.handoff') as total_handoffs
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" IN ('chat.resolved', 'chat.transferred', 'agent.handoff')
+        AND timestamp BETWEEN $2 AND $3
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const row = result[0] || {};
+    const totalResolutions = parseInt(row.total_resolutions, 10) || 0;
+    const totalHandoffs = parseInt(row.total_handoffs, 10) || 0;
+    const agentsWithResolutions =
+      parseInt(row.agents_with_resolutions, 10) || 0;
+
+    return {
+      agentsWithResolutions,
+      agentsWithHandoffs: parseInt(row.agents_with_handoffs, 10) || 0,
+      totalResolutions,
+      totalTransfers: parseInt(row.total_transfers, 10) || 0,
+      totalHandoffs,
+      resolutionRate:
+        totalHandoffs > 0 ? (totalResolutions / totalHandoffs) * 100 : 0,
+      avgResolutionsPerAgent:
+        agentsWithResolutions > 0
+          ? totalResolutions / agentsWithResolutions
+          : 0,
+    };
+  }
 }
