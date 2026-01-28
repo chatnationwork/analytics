@@ -1979,7 +1979,7 @@ function MockSessionTrendChart() {
         {data.map((value, i) => (
           <div
             key={i}
-            className="flex-1 flex flex-col items-center group relative"
+            className="flex-1 h-full flex flex-col justify-end items-center group relative"
           >
             <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
               Day {i + 1}: {value} sessions
@@ -2013,7 +2013,7 @@ function MockConversionTrendChart() {
         {data.map((value, i) => (
           <div
             key={i}
-            className="flex-1 flex flex-col items-center group relative"
+            className="flex-1 h-full flex flex-col justify-end items-center group relative"
           >
             <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
               {value}%
@@ -2059,21 +2059,30 @@ function MockUserGrowthChart() {
     <div className="space-y-2">
       <div className="h-32 flex items-end gap-1">
         {data.map((d, i) => {
-          const newHeight = (d.new / max) * 100;
-          const returningHeight = (d.returning / max) * 100;
+          const totalHeight = ((d.new + d.returning) / max) * 100;
+          const newPortion = (d.new / (d.new + d.returning)) * 100;
+          const returningPortion = (d.returning / (d.new + d.returning)) * 100;
           return (
-            <div key={i} className="flex-1 flex flex-col group relative">
+            <div
+              key={i}
+              className="flex-1 h-full flex flex-col justify-end group relative"
+            >
               <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
                 New: {d.new}, Returning: {d.returning}
               </div>
               <div
-                className="w-full bg-cyan-500 rounded-t"
-                style={{ height: `${newHeight}%` }}
-              />
-              <div
-                className="w-full bg-blue-500"
-                style={{ height: `${returningHeight}%` }}
-              />
+                className="flex flex-col w-full"
+                style={{ height: `${totalHeight}%` }}
+              >
+                <div
+                  className="w-full bg-cyan-500 rounded-t"
+                  style={{ height: `${newPortion}%` }}
+                />
+                <div
+                  className="w-full bg-blue-500"
+                  style={{ height: `${returningPortion}%` }}
+                />
+              </div>
             </div>
           );
         })}
@@ -2117,26 +2126,32 @@ function MockAiClassificationTrendChart() {
       <div className="h-32 flex items-end gap-1">
         {data.map((d, i) => {
           const classHeight = (d.classifications / max) * 100;
-          const errorHeight =
-            d.classifications > 0
-              ? (d.errors / d.classifications) * classHeight
-              : 0;
+          const errorPortion =
+            d.classifications > 0 ? (d.errors / d.classifications) * 100 : 0;
           return (
-            <div key={i} className="flex-1 flex flex-col group relative">
+            <div
+              key={i}
+              className="flex-1 h-full flex flex-col justify-end group relative"
+            >
               <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
                 {d.classifications} classifications, {d.errors} errors
               </div>
               <div
-                className="w-full bg-red-500 rounded-t"
-                style={{ height: `${errorHeight}%` }}
-              />
-              <div
-                className="w-full bg-purple-500"
-                style={{
-                  height: `${classHeight - errorHeight}%`,
-                  minHeight: "2px",
-                }}
-              />
+                className="flex flex-col w-full"
+                style={{ height: `${classHeight}%` }}
+              >
+                <div
+                  className="w-full bg-red-500 rounded-t"
+                  style={{
+                    height: `${errorPortion}%`,
+                    minHeight: d.errors > 0 ? "2px" : "0",
+                  }}
+                />
+                <div
+                  className="w-full bg-purple-500 flex-1"
+                  style={{ minHeight: "2px" }}
+                />
+              </div>
             </div>
           );
         })}
@@ -2184,19 +2199,22 @@ function MockAiLatencyTrendChart() {
           return (
             <div
               key={i}
-              className="flex-1 flex flex-col items-center group relative"
+              className="flex-1 h-full flex flex-col items-center justify-end group relative"
             >
               <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
                 P50: {d.p50}ms, P95: {d.p95}ms
               </div>
-              <div className="w-full relative h-full">
+              <div
+                className="w-full relative"
+                style={{ height: `${p95Height}%` }}
+              >
+                <div className="w-full bg-amber-300/50 rounded-t absolute inset-0" />
                 <div
-                  className="w-full bg-amber-300/50 rounded-t absolute bottom-0"
-                  style={{ height: `${p95Height}%` }}
-                />
-                <div
-                  className="w-full bg-amber-500 rounded-t relative"
-                  style={{ height: `${p50Height}%`, minHeight: "2px" }}
+                  className="w-full bg-amber-500 rounded-t absolute bottom-0"
+                  style={{
+                    height: `${(p50Height / p95Height) * 100}%`,
+                    minHeight: "2px",
+                  }}
                 />
               </div>
             </div>
@@ -2230,7 +2248,7 @@ function MockAgentResolvedTrendChart() {
         {data.map((value, i) => (
           <div
             key={i}
-            className="flex-1 flex flex-col items-center group relative"
+            className="flex-1 h-full flex flex-col justify-end items-center group relative"
           >
             <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
               {value} resolved
@@ -2356,21 +2374,32 @@ function MockSelfServeTrendChart() {
     <div className="space-y-2">
       <div className="h-32 flex items-end gap-1">
         {data.map((d, i) => {
-          const selfServeHeight = (d.selfServe / maxValue) * 100;
-          const assistedHeight = (d.assisted / maxValue) * 100;
+          const totalHeight = ((d.selfServe + d.assisted) / maxValue) * 100;
+          const selfServePortion =
+            (d.selfServe / (d.selfServe + d.assisted)) * 100;
+          const assistedPortion =
+            (d.assisted / (d.selfServe + d.assisted)) * 100;
           return (
-            <div key={i} className="flex-1 flex flex-col group relative">
+            <div
+              key={i}
+              className="flex-1 h-full flex flex-col justify-end group relative"
+            >
               <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
                 Self-serve: {d.selfServe}, Assisted: {d.assisted}
               </div>
               <div
-                className="w-full bg-blue-500 rounded-t"
-                style={{ height: `${assistedHeight}%` }}
-              />
-              <div
-                className="w-full bg-emerald-500"
-                style={{ height: `${selfServeHeight}%` }}
-              />
+                className="flex flex-col w-full"
+                style={{ height: `${totalHeight}%` }}
+              >
+                <div
+                  className="w-full bg-blue-500 rounded-t"
+                  style={{ height: `${assistedPortion}%` }}
+                />
+                <div
+                  className="w-full bg-emerald-500"
+                  style={{ height: `${selfServePortion}%` }}
+                />
+              </div>
             </div>
           );
         })}
@@ -2402,7 +2431,7 @@ function MockHandoffRateTrendChart() {
         {data.map((value, i) => (
           <div
             key={i}
-            className="flex-1 flex flex-col items-center group relative"
+            className="flex-1 h-full flex flex-col justify-end items-center group relative"
           >
             <div className="absolute bottom-full mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-white/10">
               {value}%
