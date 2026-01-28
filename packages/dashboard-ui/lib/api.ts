@@ -231,4 +231,70 @@ export const api = {
   }> {
     return fetchWithAuth("/tenants/current");
   },
+
+  /**
+   * Search for users by userId, anonymousId, phone, or email
+   */
+  async searchUsers(
+    query: string,
+    tenantId?: string,
+    limit = 10,
+  ): Promise<{
+    users: {
+      id: string;
+      type: "userId" | "anonymousId";
+      totalSessions: number;
+      totalEvents: number;
+      firstSeen: string;
+      lastSeen: string;
+    }[];
+  }> {
+    const params = new URLSearchParams({ q: query, limit: String(limit) });
+    if (tenantId) params.set("tenantId", tenantId);
+    return fetchWithAuth(`/sessions/search?${params}`);
+  },
+
+  /**
+   * Get the complete journey for a user
+   */
+  async getUserJourney(
+    id: string,
+    type: "userId" | "anonymousId",
+    tenantId?: string,
+    limit = 500,
+  ): Promise<{
+    user: {
+      id: string;
+      type: "userId" | "anonymousId";
+      totalSessions: number;
+      totalEvents: number;
+      firstSeen: string | null;
+      lastSeen: string | null;
+    };
+    sessions: {
+      sessionId: string;
+      startedAt: string;
+      endedAt: string | null;
+      durationSeconds: number;
+      eventCount: number;
+      deviceType: string | null;
+      entryPage: string | null;
+      converted: boolean;
+    }[];
+    events: {
+      eventId: string;
+      eventName: string;
+      timestamp: string;
+      sessionId: string;
+      channelType: string | null;
+      pagePath: string | null;
+      properties: Record<string, unknown> | null;
+    }[];
+  }> {
+    const params = new URLSearchParams({ type, limit: String(limit) });
+    if (tenantId) params.set("tenantId", tenantId);
+    return fetchWithAuth(
+      `/sessions/journey/${encodeURIComponent(id)}?${params}`,
+    );
+  },
 };
