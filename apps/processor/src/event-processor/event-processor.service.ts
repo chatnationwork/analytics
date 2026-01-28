@@ -37,7 +37,9 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { EventConsumer, StreamMessage, QueuedEvent } from '@lib/queue';
-import { EventRepository, SessionRepository, CreateEventDto, SessionEntity } from '@lib/database';
+import { EventRepository, SessionRepository, CreateEventDto, SessionEntity, InboxSessionEntity, MessageEntity, SessionStatus, MessageDirection, MessageType } from '@lib/database';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { GeoipEnricher } from '../enrichers/geoip.enricher';
 import { UseragentEnricher } from '../enrichers/useragent.enricher';
 
@@ -51,6 +53,10 @@ export class EventProcessorService {
     private readonly sessionRepository: SessionRepository,
     private readonly geoipEnricher: GeoipEnricher,
     private readonly useragentEnricher: UseragentEnricher,
+    @InjectRepository(InboxSessionEntity)
+    private readonly inboxSessionRepo: Repository<InboxSessionEntity>,
+    @InjectRepository(MessageEntity)
+    private readonly messageRepo: Repository<MessageEntity>,
   ) {}
 
   async start(): Promise<void> {
@@ -82,6 +88,9 @@ export class EventProcessorService {
       
       // Update sessions
       await this.processSessions(eventsToInsert);
+      
+      // Sync to Agent System (Inbox)
+      await this.syncToAgentSystem(eventsToInsert);
     }
 
     const duration = Date.now() - startTime;
@@ -180,6 +189,110 @@ export class EventProcessorService {
     }
 
     await this.sessionRepository.save(session);
+  }
+
+
+  /**
+   * Syncs relevant events (messages) to the Agent System (Inbox).
+   * This ensures the Agent UI sees messages in real-time.
+   */
+  private async syncToAgentSystem(events: CreateEventDto[]): Promise<void> {
+    for (const event of events) {
+      if (event.eventName === 'messages received' || event.eventName === 'messages sent') {
+        try {
+          await this.processInboxMessage(event);
+        } catch (err) {
+          this.logger.error(`Failed to sync message for event ${event.eventId}: ${err.message}`);
+        }
+      }
+    }
+  }
+
+  private async processInboxMessage(event: CreateEventDto): Promise<void> {
+    const props = event.properties || {};
+    const contactId = event.externalId; // This is the phone number from our enricher!
+    
+    if (!contactId) {
+       this.logger.warn(`Skipping inbox sync for event ${event.eventId}: No externalId (contact phone) found.`);
+       return;
+    }
+
+    // Determine direction and content
+    const isInbound = event.eventName === 'messages received';
+    const direction = isInbound ? MessageDirection.INBOUND : MessageDirection.OUTBOUND;
+    
+    // Extract content
+    let content = '';
+    let messageType = MessageType.TEXT;
+    
+    if (props.text && typeof props.text === 'object') {
+        content = (props.text as any).body || '';
+    } else if (typeof props.text === 'string') {
+        content = props.text;
+    } else if (props.type === 'template') {
+        messageType = MessageType.TEXT; // Metadata contains template info
+        content = `Template: ${(props.template as any)?.name}`;
+    } else if (props.type === 'image' || props.type === 'video' || props.type === 'document' || props.type === 'audio') {
+        messageType = props.type as MessageType;
+        content = `[${props.type.toUpperCase()}]`; // Placeholder for media
+    }
+
+    // Get or Create Session
+    // We can't reuse InboxService logic directly as it's in another app, so we implement simplified logic here.
+    let session = await this.inboxSessionRepo.findOne({
+      where: {
+        tenantId: event.tenantId,
+        contactId,
+        status: SessionStatus.ASSIGNED // Prioritize existing assigned sessions
+      }
+    });
+
+    if (!session) {
+       session = await this.inboxSessionRepo.findOne({
+        where: {
+           tenantId: event.tenantId,
+           contactId,
+           status: SessionStatus.UNASSIGNED
+        }
+       });
+    }
+
+    if (!session) {
+        // Create new UNASSIGNED session
+        session = this.inboxSessionRepo.create({
+            tenantId: event.tenantId,
+            contactId,
+            contactName: (props.name as string) || contactId,
+            channel: 'whatsapp',
+            status: SessionStatus.UNASSIGNED,
+            context: {
+                source: 'webhook_sync'
+            },
+            lastMessageAt: event.timestamp
+        });
+        session = await this.inboxSessionRepo.save(session);
+    } else {
+        // Update last message time
+        await this.inboxSessionRepo.update(session.id, {
+            lastMessageAt: event.timestamp
+        });
+    }
+
+    // Create Message
+    const message = this.messageRepo.create({
+        sessionId: session.id,
+        tenantId: event.tenantId,
+        externalId: (props.message_id as string) || event.messageId,
+        direction,
+        type: messageType,
+        content,
+        senderId: isInbound ? undefined : (event.userId || undefined), // If outbound, userId might be agent ID
+        metadata: props,
+        createdAt: event.timestamp
+    });
+
+    await this.messageRepo.save(message);
+    this.logger.log(`Synced message to Inbox: ${message.id} (${direction})`);
   }
 
   private enrichEvent(event: QueuedEvent): CreateEventDto {
