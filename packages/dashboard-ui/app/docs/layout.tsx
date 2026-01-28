@@ -1,9 +1,9 @@
-import { Metadata } from 'next';
-import Link from 'next/link';
+import { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: 'Documentation | Analytics',
-  description: 'Learn how to integrate analytics into your applications',
+  title: "Documentation | Analytics",
+  description: "Learn how to integrate analytics into your applications",
 };
 
 export default function DocsLayout({
@@ -24,22 +24,25 @@ export default function DocsLayout({
               <span className="font-semibold text-foreground">Analytics</span>
             </Link>
             <span className="text-muted-foreground">|</span>
-            <Link href="/docs" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              href="/docs"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
               Documentation
             </Link>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/showcase" className="text-muted-foreground hover:text-foreground text-sm transition-colors">
+            <Link
+              href="/showcase"
+              className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+            >
               Preview
             </Link>
-            <Link href="/login" className="text-muted-foreground hover:text-foreground text-sm transition-colors">
-              Dashboard
-            </Link>
-            <Link 
-              href="/signup"
+            <Link
+              href="/overview"
               className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all"
             >
-              Get Started
+              Dashboard
             </Link>
           </div>
         </div>
@@ -58,16 +61,17 @@ export default function DocsLayout({
             <SidebarLink href="/docs/ai" label="AI Integration" />
           </nav>
           <div className="mt-8 pt-6 border-t border-border">
-            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              ← Back to Home
+            <Link
+              href="/overview"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ← Back to Dashboard
             </Link>
           </div>
         </aside>
 
         {/* Main content */}
-        <main className="flex-1">
-          {children}
-        </main>
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   );

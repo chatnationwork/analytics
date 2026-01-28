@@ -20,11 +20,21 @@ import {
   Brain,
   Zap,
   ArrowRightLeft,
+  CheckCircle,
+  AlertTriangle,
+  Inbox,
+  Award,
 } from "lucide-react";
 
 export default function ShowcasePage() {
   const [activeTab, setActiveTab] = useState<
-    "overview" | "trends" | "funnel" | "whatsapp" | "selfserve" | "journey"
+    | "overview"
+    | "trends"
+    | "funnel"
+    | "whatsapp"
+    | "selfserve"
+    | "agents"
+    | "journey"
   >("overview");
 
   return (
@@ -97,6 +107,12 @@ export default function ShowcasePage() {
             🤖 Self-Serve
           </TabButton>
           <TabButton
+            active={activeTab === "agents"}
+            onClick={() => setActiveTab("agents")}
+          >
+            👥 Agent Analytics
+          </TabButton>
+          <TabButton
             active={activeTab === "journey"}
             onClick={() => setActiveTab("journey")}
           >
@@ -110,6 +126,7 @@ export default function ShowcasePage() {
         {activeTab === "funnel" && <FunnelTab />}
         {activeTab === "whatsapp" && <WhatsAppTab />}
         {activeTab === "selfserve" && <SelfServeTab />}
+        {activeTab === "agents" && <AgentAnalyticsTab />}
         {activeTab === "journey" && <JourneyTab />}
 
         {/* CTA */}
@@ -759,6 +776,560 @@ function WhatsAppTab() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ==================== AGENT ANALYTICS TAB ====================
+function AgentAnalyticsTab() {
+  // Mock data
+  const agentActivityData = [
+    { period: "Jan 1", activeAgents: 4, resolutions: 12, handoffs: 18 },
+    { period: "Jan 2", activeAgents: 5, resolutions: 15, handoffs: 20 },
+    { period: "Jan 3", activeAgents: 6, resolutions: 22, handoffs: 28 },
+    { period: "Jan 4", activeAgents: 5, resolutions: 18, handoffs: 24 },
+    { period: "Jan 5", activeAgents: 7, resolutions: 25, handoffs: 32 },
+    { period: "Jan 6", activeAgents: 6, resolutions: 20, handoffs: 26 },
+    { period: "Jan 7", activeAgents: 8, resolutions: 30, handoffs: 38 },
+  ];
+
+  const agentDetails = [
+    {
+      agentId: "a1b2c3d4",
+      resolvedCount: 45,
+      handoffsReceived: 52,
+      transfersOut: 3,
+      totalChats: 55,
+      resolutionRate: 86.5,
+    },
+    {
+      agentId: "e5f6g7h8",
+      resolvedCount: 38,
+      handoffsReceived: 48,
+      transfersOut: 5,
+      totalChats: 53,
+      resolutionRate: 79.2,
+    },
+    {
+      agentId: "i9j0k1l2",
+      resolvedCount: 32,
+      handoffsReceived: 42,
+      transfersOut: 8,
+      totalChats: 50,
+      resolutionRate: 76.2,
+    },
+    {
+      agentId: "m3n4o5p6",
+      resolvedCount: 28,
+      handoffsReceived: 38,
+      transfersOut: 4,
+      totalChats: 42,
+      resolutionRate: 73.7,
+    },
+    {
+      agentId: "q7r8s9t0",
+      resolvedCount: 22,
+      handoffsReceived: 35,
+      transfersOut: 10,
+      totalChats: 45,
+      resolutionRate: 62.9,
+    },
+  ];
+
+  const resolutionCategories = [
+    { category: "Inquiry Answered", count: 45, percentage: 35 },
+    { category: "Issue Resolved", count: 32, percentage: 25 },
+    { category: "Order Completed", count: 25, percentage: 19.5 },
+    { category: "No Response", count: 15, percentage: 11.7 },
+    { category: "Other", count: 11, percentage: 8.8 },
+  ];
+
+  const transferReasons = [
+    { reason: "Specialist needed", count: 18, percentage: 40 },
+    { reason: "Language preference", count: 12, percentage: 26.7 },
+    { reason: "Shift handover", count: 8, percentage: 17.8 },
+    { reason: "Escalation", count: 7, percentage: 15.5 },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Agent Analytics</h2>
+          <p className="text-sm text-gray-400 mt-0.5">
+            Team performance, resolutions, and workload metrics
+          </p>
+        </div>
+        <div className="text-sm text-gray-400">Last 30 days</div>
+      </div>
+
+      {/* Stats Grid - Row 1 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Active Agents"
+          value="8"
+          change="+2"
+          positive
+          icon={<Users className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Resolution Rate"
+          value="78.4%"
+          change="+5.2%"
+          positive
+          icon={<Target className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Chats Resolved"
+          value="165"
+          change="+24%"
+          positive
+          icon={<CheckCircle className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Chats Transferred"
+          value="45"
+          change="-12%"
+          positive
+          icon={<ArrowRightLeft className="w-4 h-4" />}
+        />
+      </div>
+
+      {/* Stats Grid - Row 2 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Active Chats"
+          value="24"
+          change="+8"
+          positive
+          icon={<Inbox className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Expired Chats"
+          value="3"
+          change="-2"
+          positive
+          icon={<AlertTriangle className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Workload Balance"
+          value="82%"
+          change="+5%"
+          positive
+          icon={<BarChart3 className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Peak Active Agents"
+          value="8"
+          change="+1"
+          positive
+          icon={<Activity className="w-4 h-4" />}
+        />
+      </div>
+
+      {/* Charts Row 1 */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Resolution Trend */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-medium">Resolutions Over Time</h3>
+            <span className="text-sm text-gray-400">Total: 165</span>
+          </div>
+          <MockAgentResolutionChart />
+        </div>
+
+        {/* Agent Activity */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-purple-400" />
+              <h3 className="font-medium">Agent Activity</h3>
+            </div>
+            <span className="text-sm text-gray-400">Peak: 8</span>
+          </div>
+          <MockAgentActivityChart data={agentActivityData} />
+        </div>
+      </div>
+
+      {/* Charts Row 2 */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Resolution Categories */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Resolution Categories</h3>
+          <MockBreakdownChart
+            data={resolutionCategories}
+            colors={[
+              "bg-green-500",
+              "bg-blue-500",
+              "bg-purple-500",
+              "bg-amber-500",
+              "bg-pink-500",
+            ]}
+          />
+        </div>
+
+        {/* Transfer Reasons */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Transfer Reasons</h3>
+          <MockBreakdownChart
+            data={transferReasons}
+            colors={[
+              "bg-blue-500",
+              "bg-purple-500",
+              "bg-amber-500",
+              "bg-cyan-500",
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* Charts Row 3 */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Chat Status Donut */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Current Chat Status</h3>
+          <MockChatStatusDonut />
+        </div>
+
+        {/* Agent Leaderboard */}
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Award className="w-5 h-5 text-yellow-500" />
+            <h3 className="font-medium">Top Performers</h3>
+          </div>
+          <MockAgentLeaderboard data={agentDetails} />
+        </div>
+      </div>
+
+      {/* Agent Performance Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          <h2 className="text-lg font-semibold">Agent Performance Details</h2>
+        </div>
+
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-medium">All Agents</h3>
+            <span className="text-sm text-gray-400">5 agents • 245 chats</span>
+          </div>
+          <MockAgentDetailsTable data={agentDetails} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Mock Agent Resolution Chart
+function MockAgentResolutionChart() {
+  const data = [18, 22, 28, 24, 32, 26, 15];
+  const maxValue = Math.max(...data);
+
+  return (
+    <div className="h-48">
+      <div className="h-full flex items-end gap-2">
+        {data.map((value, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div
+              className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t transition-all hover:from-green-500 hover:to-green-300"
+              style={{ height: `${(value / maxValue) * 100}%` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between mt-2 text-xs text-gray-500">
+        <span>Jan 1</span>
+        <span>Jan 7</span>
+      </div>
+    </div>
+  );
+}
+
+// Mock Agent Activity Chart
+function MockAgentActivityChart({
+  data,
+}: {
+  data: {
+    period: string;
+    activeAgents: number;
+    resolutions: number;
+    handoffs: number;
+  }[];
+}) {
+  const maxAgents = Math.max(...data.map((d) => d.activeAgents));
+
+  return (
+    <div className="h-48">
+      <div className="h-full flex items-end gap-2">
+        {data.map((point, i) => (
+          <div
+            key={i}
+            className="flex-1 flex flex-col items-center gap-1 group relative"
+          >
+            <div
+              className="w-full bg-gradient-to-t from-purple-600 to-purple-400 rounded-t transition-all hover:from-purple-500 hover:to-purple-300"
+              style={{ height: `${(point.activeAgents / maxAgents) * 100}%` }}
+            />
+            <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs p-2 rounded shadow-lg whitespace-nowrap z-10 border border-white/10">
+              <div className="font-medium">
+                {point.activeAgents} active agents
+              </div>
+              <div className="text-gray-400">
+                {point.resolutions} resolved • {point.handoffs} handoffs
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between mt-2 text-xs text-gray-500">
+        <span>{data[0]?.period}</span>
+        <span>{data[data.length - 1]?.period}</span>
+      </div>
+    </div>
+  );
+}
+
+// Mock Breakdown Chart (for categories and reasons)
+function MockBreakdownChart({
+  data,
+  colors,
+}: {
+  data: {
+    category?: string;
+    reason?: string;
+    count: number;
+    percentage: number;
+  }[];
+  colors: string[];
+}) {
+  return (
+    <div className="space-y-3">
+      {data.map((item, i) => (
+        <div key={i}>
+          <div className="flex items-center justify-between text-sm mb-1">
+            <span className="text-white">{item.category || item.reason}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">{item.count}</span>
+              <span className="text-white font-medium w-12 text-right">
+                {item.percentage.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+          <div className="h-2 bg-gray-700/50 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${colors[i % colors.length]} rounded-full transition-all duration-500`}
+              style={{ width: `${item.percentage}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Mock Chat Status Donut
+function MockChatStatusDonut() {
+  const segments = [
+    { value: 24, color: "#22c55e", label: "Active" },
+    { value: 165, color: "#3b82f6", label: "Resolved" },
+    { value: 3, color: "#f59e0b", label: "Expired" },
+    { value: 12, color: "#6b7280", label: "Unassigned" },
+  ];
+  const total = segments.reduce((sum, s) => sum + s.value, 0);
+  const radius = 50;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+
+  return (
+    <div className="flex items-center gap-6">
+      <div className="relative">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          <circle
+            cx="70"
+            cy="70"
+            r={radius}
+            fill="none"
+            stroke="#374151"
+            strokeWidth="16"
+          />
+          {segments.map((seg, i) => {
+            const pct = (seg.value / total) * 100;
+            const arc = (pct / 100) * circumference;
+            const currentOffset = offset;
+            offset += arc;
+            if (seg.value === 0) return null;
+            return (
+              <circle
+                key={i}
+                cx="70"
+                cy="70"
+                r={radius}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth="16"
+                strokeDasharray={`${arc} ${circumference}`}
+                strokeDashoffset={-currentOffset}
+                transform="rotate(-90 70 70)"
+              />
+            );
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="text-2xl font-bold">{total}</div>
+          <div className="text-xs text-gray-400">Total</div>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {segments.map((seg) => (
+          <div key={seg.label} className="flex items-center gap-2 text-sm">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: seg.color }}
+            />
+            <span className="text-gray-400">{seg.label}</span>
+            <span className="font-medium">{seg.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Mock Agent Leaderboard
+function MockAgentLeaderboard({
+  data,
+}: {
+  data: {
+    agentId: string;
+    resolvedCount: number;
+    handoffsReceived: number;
+    transfersOut: number;
+    totalChats: number;
+    resolutionRate: number;
+  }[];
+}) {
+  return (
+    <div className="space-y-2">
+      {data.slice(0, 5).map((agent, i) => (
+        <div
+          key={agent.agentId}
+          className="flex items-center gap-4 p-3 bg-gray-700/30 rounded-lg"
+        >
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm ${
+              i === 0
+                ? "bg-yellow-500/20 text-yellow-500"
+                : i === 1
+                  ? "bg-gray-400/20 text-gray-400"
+                  : i === 2
+                    ? "bg-amber-600/20 text-amber-600"
+                    : "bg-gray-700 text-gray-400"
+            }`}
+          >
+            {i + 1}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium truncate">{agent.agentId}...</div>
+            <div className="text-xs text-gray-400">
+              {agent.resolvedCount} resolved • {agent.handoffsReceived} received
+              • {agent.transfersOut} transferred
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-bold text-green-400">
+              {agent.resolvedCount}
+            </div>
+            <div className="text-xs text-gray-400">resolved</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Mock Agent Details Table
+function MockAgentDetailsTable({
+  data,
+}: {
+  data: {
+    agentId: string;
+    resolvedCount: number;
+    handoffsReceived: number;
+    transfersOut: number;
+    totalChats: number;
+    resolutionRate: number;
+  }[];
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-white/10">
+            <th className="text-left text-xs font-medium text-gray-400 py-3 px-2">
+              Agent
+            </th>
+            <th className="text-right text-xs font-medium text-gray-400 py-3 px-2">
+              Resolved
+            </th>
+            <th className="text-right text-xs font-medium text-gray-400 py-3 px-2">
+              Received
+            </th>
+            <th className="text-right text-xs font-medium text-gray-400 py-3 px-2">
+              Transferred
+            </th>
+            <th className="text-right text-xs font-medium text-gray-400 py-3 px-2">
+              Total
+            </th>
+            <th className="text-right text-xs font-medium text-gray-400 py-3 px-2">
+              Resolution Rate
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((agent) => (
+            <tr
+              key={agent.agentId}
+              className="border-b border-white/5 hover:bg-white/5"
+            >
+              <td className="py-3 px-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center">
+                    <Users className="w-3.5 h-3.5 text-gray-400" />
+                  </div>
+                  <span className="text-sm font-medium truncate max-w-[100px]">
+                    {agent.agentId}...
+                  </span>
+                </div>
+              </td>
+              <td className="text-right text-sm py-3 px-2">
+                {agent.resolvedCount}
+              </td>
+              <td className="text-right text-sm py-3 px-2">
+                {agent.handoffsReceived}
+              </td>
+              <td className="text-right text-sm py-3 px-2">
+                {agent.transfersOut}
+              </td>
+              <td className="text-right text-sm font-medium py-3 px-2">
+                {agent.totalChats}
+              </td>
+              <td className="text-right py-3 px-2">
+                <span
+                  className={`text-sm font-medium ${
+                    agent.resolutionRate >= 80
+                      ? "text-green-400"
+                      : agent.resolutionRate >= 60
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                  }`}
+                >
+                  {agent.resolutionRate.toFixed(1)}%
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
