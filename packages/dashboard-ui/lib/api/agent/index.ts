@@ -9,14 +9,14 @@ export interface Team {
 
 export interface TeamMember {
   userId: string;
-  role: 'member' | 'lead';
+  role: "member" | "lead";
 }
 
 export interface InboxSession {
   id: string;
   contactId: string;
   contactName?: string;
-  status: 'unassigned' | 'assigned' | 'resolved';
+  status: "unassigned" | "assigned" | "resolved";
   channel: string;
   lastMessageAt?: string;
   assignedAgentId?: string;
@@ -26,21 +26,39 @@ export interface InboxSession {
 export interface Message {
   id: string;
   sessionId: string;
-  direction: 'inbound' | 'outbound';
-  type: 'text' | 'image' | 'video' | 'audio' | 'document';
+  direction: "inbound" | "outbound";
+  type: "text" | "image" | "video" | "audio" | "document";
   content?: string;
   createdAt: string;
 }
 
+export interface AvailableAgent {
+  id: string;
+  name: string;
+  email: string;
+}
+
+/**
+ * Filter types for inbox queries:
+ * - 'all': All sessions assigned to the agent
+ * - 'pending': Active sessions not resolved (and not expired)
+ * - 'resolved': Resolved sessions
+ * - 'expired': Sessions with no activity for 24+ hours
+ */
+export type InboxFilter = "all" | "pending" | "resolved" | "expired";
+
 export const agentApi = {
-  getInbox: async (status?: string) => {
-    const query = status ? `?status=${status}` : '';
-    return fetchWithAuth(`/agent/inbox${query}`);
+  /**
+   * Get the agent's inbox with optional filter
+   */
+  getInbox: async (filter?: InboxFilter) => {
+    const query = filter ? `?filter=${filter}` : "";
+    return fetchWithAuth<InboxSession[]>(`/agent/inbox${query}`);
   },
 
   getUnassigned: async (teamId?: string) => {
-      const query = teamId ? `?teamId=${teamId}` : '';
-      return fetchWithAuth(`/agent/inbox/unassigned${query}`);
+    const query = teamId ? `?teamId=${teamId}` : "";
+    return fetchWithAuth(`/agent/inbox/unassigned${query}`);
   },
 
   getSession: async (sessionId: string) => {
@@ -49,43 +67,77 @@ export const agentApi = {
 
   sendMessage: async (sessionId: string, content: string) => {
     return fetchWithAuth(`/agent/inbox/${sessionId}/message`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ content }),
     });
   },
 
-  resolveSession: async (sessionId: string, data: { category: string; notes?: string }) => {
-    return fetchWithAuth(`/agent/inbox/${sessionId}/resolve`, {
-      method: 'PUT',
+  /**
+   * Resolve a session with category and optional notes
+   */
+  resolveSession: async (
+    sessionId: string,
+    data: { category: string; notes?: string; outcome?: string },
+  ) => {
+    return fetchWithAuth<InboxSession>(`/agent/inbox/${sessionId}/resolve`, {
+      method: "PUT",
       body: JSON.stringify(data),
     });
   },
-  
+
+  /**
+   * Accept/claim an unassigned session
+   */
   acceptSession: async (sessionId: string) => {
-      return fetchWithAuth(`/agent/inbox/${sessionId}/accept`, {
-          method: 'POST'
-      });
+    return fetchWithAuth<InboxSession>(`/agent/inbox/${sessionId}/accept`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Transfer a session to another agent
+   */
+  transferSession: async (
+    sessionId: string,
+    targetAgentId: string,
+    reason?: string,
+  ) => {
+    return fetchWithAuth<InboxSession>(`/agent/inbox/${sessionId}/transfer`, {
+      method: "POST",
+      body: JSON.stringify({ targetAgentId, reason }),
+    });
+  },
+
+  /**
+   * Get available agents for transferring a session
+   */
+  getAvailableAgents: async () => {
+    return fetchWithAuth<AvailableAgent[]>("/agent/inbox/transfer/agents");
   },
 
   getTeams: async () => {
-    return fetchWithAuth<Team[]>('/agent/teams');
+    return fetchWithAuth<Team[]>("/agent/teams");
   },
 
   createTeam: async (name: string, description?: string) => {
-    return fetchWithAuth<Team>('/agent/teams', {
-      method: 'POST',
+    return fetchWithAuth<Team>("/agent/teams", {
+      method: "POST",
       body: JSON.stringify({ name, description }),
     });
   },
 
-  addMember: async (teamId: string, userId: string, role: string = 'member') => {
+  addMember: async (
+    teamId: string,
+    userId: string,
+    role: string = "member",
+  ) => {
     return fetchWithAuth(`/agent/teams/${teamId}/members`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ userId, role }),
     });
   },
-  
+
   getTeamMembers: async (teamId: string) => {
-      return fetchWithAuth<TeamMember[]>(`/agent/teams/${teamId}/members`);
-  }
+    return fetchWithAuth<TeamMember[]>(`/agent/teams/${teamId}/members`);
+  },
 };
