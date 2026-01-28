@@ -1429,4 +1429,226 @@ export class EventRepository {
       count: parseInt(r.count, 10) || 0,
     }));
   }
+
+  // ===========================================================================
+  // AI ANALYTICS TRENDS
+  // ===========================================================================
+
+  /**
+   * Get AI classification volume trend over time.
+   */
+  async getAiClassificationTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        COUNT(*) FILTER (WHERE "eventName" = 'ai.classification') as classifications,
+        COUNT(*) FILTER (WHERE "eventName" = 'ai.error') as errors
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" IN ('ai.classification', 'ai.error')
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => {
+      const classifications = parseInt(r.classifications, 10) || 0;
+      const errors = parseInt(r.errors, 10) || 0;
+      return {
+        period: r.period,
+        classifications,
+        errors,
+        errorRate: classifications > 0 ? (errors / classifications) * 100 : 0,
+      };
+    });
+  }
+
+  /**
+   * Get AI latency trend over time (p50, p95, avg).
+   */
+  async getAiLatencyTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        AVG((properties->>'latency_ms')::float) as avg_latency,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY (properties->>'latency_ms')::float) as p50_latency,
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY (properties->>'latency_ms')::float) as p95_latency,
+        COUNT(*) as sample_count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'ai.classification'
+        AND timestamp BETWEEN $2 AND $3
+        AND properties->>'latency_ms' IS NOT NULL
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      avgLatency: parseFloat(r.avg_latency) || 0,
+      p50Latency: parseFloat(r.p50_latency) || 0,
+      p95Latency: parseFloat(r.p95_latency) || 0,
+      sampleCount: parseInt(r.sample_count, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get AI confidence trend over time.
+   */
+  async getAiConfidenceTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        AVG((properties->>'confidence')::float) as avg_confidence,
+        MIN((properties->>'confidence')::float) as min_confidence,
+        MAX((properties->>'confidence')::float) as max_confidence,
+        COUNT(*) as sample_count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'ai.classification'
+        AND timestamp BETWEEN $2 AND $3
+        AND properties->>'confidence' IS NOT NULL
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      avgConfidence: parseFloat(r.avg_confidence) || 0,
+      minConfidence: parseFloat(r.min_confidence) || 0,
+      maxConfidence: parseFloat(r.max_confidence) || 0,
+      sampleCount: parseInt(r.sample_count, 10) || 0,
+    }));
+  }
+
+  // ===========================================================================
+  // AGENT PERFORMANCE TRENDS
+  // ===========================================================================
+
+  /**
+   * Get agent resolved chats trend over time.
+   */
+  async getAgentResolvedTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        COUNT(*) as resolved_count,
+        COUNT(DISTINCT properties->>'agentId') as active_agents
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.resolved'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      resolvedCount: parseInt(r.resolved_count, 10) || 0,
+      activeAgents: parseInt(r.active_agents, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get agent resolution time trend over time.
+   */
+  async getAgentResolutionTimeTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        AVG((properties->>'resolution_time_seconds')::float) as avg_resolution_time,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY (properties->>'resolution_time_seconds')::float) as p50_resolution_time,
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY (properties->>'resolution_time_seconds')::float) as p95_resolution_time,
+        COUNT(*) as sample_count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.resolved'
+        AND timestamp BETWEEN $2 AND $3
+        AND properties->>'resolution_time_seconds' IS NOT NULL
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      avgResolutionTime: parseFloat(r.avg_resolution_time) || 0,
+      p50ResolutionTime: parseFloat(r.p50_resolution_time) || 0,
+      p95ResolutionTime: parseFloat(r.p95_resolution_time) || 0,
+      sampleCount: parseInt(r.sample_count, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get top agents by performance in a period.
+   */
+  async getTopAgentsByResolutions(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    limit: number = 10,
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        properties->>'agentId' as agent_id,
+        COUNT(*) as resolved_count,
+        AVG((properties->>'resolution_time_seconds')::float) as avg_resolution_time
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'chat.resolved'
+        AND timestamp BETWEEN $2 AND $3
+        AND properties->>'agentId' IS NOT NULL
+      GROUP BY properties->>'agentId'
+      ORDER BY resolved_count DESC
+      LIMIT $4
+      `,
+      [tenantId, startDate, endDate, limit],
+    );
+
+    return result.map((r: any) => ({
+      agentId: r.agent_id,
+      resolvedCount: parseInt(r.resolved_count, 10) || 0,
+      avgResolutionTime: parseFloat(r.avg_resolution_time) || 0,
+    }));
+  }
 }

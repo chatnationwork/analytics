@@ -1,107 +1,150 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { whatsappAnalyticsApi, Granularity } from '@/lib/whatsapp-analytics-api';
-import { aiAnalyticsApi } from '@/lib/ai-analytics-api';
-import { TrendingUp, TrendingDown, MessageCircle, Clock, Target, Users, Brain, Zap, AlertTriangle } from 'lucide-react';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  whatsappAnalyticsApi,
+  Granularity,
+} from "@/lib/whatsapp-analytics-api";
+import { aiAnalyticsApi } from "@/lib/ai-analytics-api";
+import * as aiTrendsApi from "@/lib/ai-trends-api";
+import {
+  TrendingUp,
+  TrendingDown,
+  MessageCircle,
+  Clock,
+  Target,
+  Users,
+  Brain,
+  Zap,
+  AlertTriangle,
+  Activity,
+} from "lucide-react";
 
 export default function WhatsAppAnalyticsPage() {
-  const [granularity, setGranularity] = useState<Granularity>('day');
-  const periods = granularity === 'day' ? 30 : granularity === 'week' ? 12 : 12;
+  const [granularity, setGranularity] = useState<Granularity>("day");
+  const periods = granularity === "day" ? 30 : granularity === "week" ? 12 : 12;
 
   const { data: stats } = useQuery({
-    queryKey: ['whatsapp-stats'],
+    queryKey: ["whatsapp-stats"],
     queryFn: () => whatsappAnalyticsApi.getStats(),
   });
 
   const { data: volume } = useQuery({
-    queryKey: ['whatsapp-volume'],
+    queryKey: ["whatsapp-volume"],
     queryFn: () => whatsappAnalyticsApi.getVolume(),
   });
 
   const { data: heatmap } = useQuery({
-    queryKey: ['whatsapp-heatmap'],
+    queryKey: ["whatsapp-heatmap"],
     queryFn: () => whatsappAnalyticsApi.getHeatmap(),
   });
 
   const { data: agents } = useQuery({
-    queryKey: ['whatsapp-agents'],
+    queryKey: ["whatsapp-agents"],
     queryFn: () => whatsappAnalyticsApi.getAgents(),
   });
 
   const { data: countries } = useQuery({
-    queryKey: ['whatsapp-countries'],
+    queryKey: ["whatsapp-countries"],
     queryFn: () => whatsappAnalyticsApi.getCountries(),
   });
 
   const { data: responseTime } = useQuery({
-    queryKey: ['whatsapp-response-time'],
+    queryKey: ["whatsapp-response-time"],
     queryFn: () => whatsappAnalyticsApi.getResponseTime(),
   });
 
   const { data: funnel } = useQuery({
-    queryKey: ['whatsapp-funnel'],
+    queryKey: ["whatsapp-funnel"],
     queryFn: () => whatsappAnalyticsApi.getFunnel(),
   });
 
   // Trend queries
   const { data: volumeTrend } = useQuery({
-    queryKey: ['whatsapp-volume-trend', granularity, periods],
-    queryFn: () => whatsappAnalyticsApi.getMessageVolumeTrend(granularity, periods),
+    queryKey: ["whatsapp-volume-trend", granularity, periods],
+    queryFn: () =>
+      whatsappAnalyticsApi.getMessageVolumeTrend(granularity, periods),
   });
 
   const { data: responseTimeTrend } = useQuery({
-    queryKey: ['whatsapp-response-time-trend', granularity, periods],
-    queryFn: () => whatsappAnalyticsApi.getResponseTimeTrend(granularity, periods),
+    queryKey: ["whatsapp-response-time-trend", granularity, periods],
+    queryFn: () =>
+      whatsappAnalyticsApi.getResponseTimeTrend(granularity, periods),
   });
 
   const { data: readRateTrend } = useQuery({
-    queryKey: ['whatsapp-read-rate-trend', granularity, periods],
+    queryKey: ["whatsapp-read-rate-trend", granularity, periods],
     queryFn: () => whatsappAnalyticsApi.getReadRateTrend(granularity, periods),
   });
 
   const { data: newContactsTrend } = useQuery({
-    queryKey: ['whatsapp-new-contacts-trend', granularity, periods],
-    queryFn: () => whatsappAnalyticsApi.getNewContactsTrend(granularity, periods),
+    queryKey: ["whatsapp-new-contacts-trend", granularity, periods],
+    queryFn: () =>
+      whatsappAnalyticsApi.getNewContactsTrend(granularity, periods),
   });
 
   // AI Analytics queries
   const { data: aiStats } = useQuery({
-    queryKey: ['ai-stats'],
+    queryKey: ["ai-stats"],
     queryFn: () => aiAnalyticsApi.getStats(),
   });
 
   const { data: aiIntents } = useQuery({
-    queryKey: ['ai-intents'],
+    queryKey: ["ai-intents"],
     queryFn: () => aiAnalyticsApi.getIntents(),
   });
 
   const { data: aiLatency } = useQuery({
-    queryKey: ['ai-latency'],
+    queryKey: ["ai-latency"],
     queryFn: () => aiAnalyticsApi.getLatency(),
+  });
+
+  // AI Trends queries
+  const { data: classificationTrend } = useQuery({
+    queryKey: ["ai-classification-trend", granularity, periods],
+    queryFn: () => aiTrendsApi.getClassificationTrend(granularity, periods),
+  });
+
+  const { data: aiLatencyTrend } = useQuery({
+    queryKey: ["ai-latency-trend", granularity, periods],
+    queryFn: () => aiTrendsApi.getLatencyTrend(granularity, periods),
+  });
+
+  const { data: agentResolvedTrend } = useQuery({
+    queryKey: ["agent-resolved-trend", granularity, periods],
+    queryFn: () => aiTrendsApi.getAgentResolvedTrend(granularity, periods),
+  });
+
+  const { data: topAgents } = useQuery({
+    queryKey: ["top-agents", granularity, periods],
+    queryFn: () => aiTrendsApi.getTopAgents(granularity, periods, 10),
   });
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-foreground">WhatsApp Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Insights from WhatsApp events we collect</p>
+        <h1 className="text-xl font-semibold text-foreground">
+          WhatsApp Analytics
+        </h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Insights from WhatsApp events we collect
+        </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           label="Messages Received"
-          value={stats?.messagesReceived?.toLocaleString() ?? '0'}
+          value={stats?.messagesReceived?.toLocaleString() ?? "0"}
           change="Last 30 days"
           positive
           icon={<MessageCircle className="w-4 h-4" />}
         />
         <StatCard
           label="Messages Sent"
-          value={stats?.messagesSent?.toLocaleString() ?? '0'}
+          value={stats?.messagesSent?.toLocaleString() ?? "0"}
           change="Last 30 days"
           positive
           icon={<MessageCircle className="w-4 h-4" />}
@@ -115,14 +158,14 @@ export default function WhatsAppAnalyticsPage() {
         />
         <StatCard
           label="Unique Contacts"
-          value={stats?.uniqueContacts?.toLocaleString() ?? '0'}
+          value={stats?.uniqueContacts?.toLocaleString() ?? "0"}
           change="Active in period"
           positive
           icon={<Users className="w-4 h-4" />}
         />
         <StatCard
           label="New Contacts"
-          value={stats?.newContacts?.toLocaleString() ?? '0'}
+          value={stats?.newContacts?.toLocaleString() ?? "0"}
           change="First-time users"
           positive
           icon={<Users className="w-4 h-4" />}
@@ -132,7 +175,9 @@ export default function WhatsAppAnalyticsPage() {
       {/* Trends Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Message Trends</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            Message Trends
+          </h2>
           <select
             value={granularity}
             onChange={(e) => setGranularity(e.target.value as Granularity)}
@@ -147,28 +192,28 @@ export default function WhatsAppAnalyticsPage() {
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Message Volume Trend */}
-          <MessageVolumeTrendChart 
-            data={volumeTrend?.data ?? []} 
+          <MessageVolumeTrendChart
+            data={volumeTrend?.data ?? []}
             summary={volumeTrend?.summary}
           />
 
           {/* Response Time Trend */}
-          <ResponseTimeTrendChart 
-            data={responseTimeTrend?.data ?? []} 
+          <ResponseTimeTrendChart
+            data={responseTimeTrend?.data ?? []}
             summary={responseTimeTrend?.summary}
           />
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Read Rate Trend */}
-          <ReadRateTrendChart 
-            data={readRateTrend?.data ?? []} 
+          <ReadRateTrendChart
+            data={readRateTrend?.data ?? []}
             summary={readRateTrend?.summary}
           />
 
           {/* New Contacts Trend */}
-          <NewContactsTrendChart 
-            data={newContactsTrend?.data ?? []} 
+          <NewContactsTrendChart
+            data={newContactsTrend?.data ?? []}
             summary={newContactsTrend?.summary}
           />
         </div>
@@ -178,27 +223,38 @@ export default function WhatsAppAnalyticsPage() {
       <div className="grid md:grid-cols-2 gap-6">
         {/* Response Time Distribution */}
         <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-          <h3 className="font-medium text-foreground mb-6">Response Time Distribution</h3>
+          <h3 className="font-medium text-foreground mb-6">
+            Response Time Distribution
+          </h3>
           <ResponseTimeHistogram data={responseTime?.distribution ?? []} />
           <div className="text-sm text-muted-foreground mt-4 text-center">
-            Median: <span className="text-foreground">{responseTime?.medianMinutes ? `${responseTime.medianMinutes.toFixed(1)}m` : '--'}</span> • 
-            Target: <span className="text-green-500">&lt; 5m</span>
+            Median:{" "}
+            <span className="text-foreground">
+              {responseTime?.medianMinutes
+                ? `${responseTime.medianMinutes.toFixed(1)}m`
+                : "--"}
+            </span>{" "}
+            • Target: <span className="text-green-500">&lt; 5m</span>
           </div>
         </div>
 
         {/* Volume by Hour */}
         <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-          <h3 className="font-medium text-foreground mb-6">Message Volume by Hour</h3>
+          <h3 className="font-medium text-foreground mb-6">
+            Message Volume by Hour
+          </h3>
           <VolumeChart data={volume ?? []} />
           <div className="text-sm text-muted-foreground mt-4 text-center">
-             (UTC time)
+            (UTC time)
           </div>
         </div>
       </div>
 
       {/* Heatmap */}
       <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-        <h3 className="font-medium text-foreground mb-6">Activity by Day & Hour</h3>
+        <h3 className="font-medium text-foreground mb-6">
+          Activity by Day & Hour
+        </h3>
         <HeatmapChart data={heatmap ?? []} />
         <p className="text-sm text-muted-foreground mt-4 text-center">
           Heatmap based on message volume
@@ -215,7 +271,9 @@ export default function WhatsAppAnalyticsPage() {
 
         {/* Country Breakdown */}
         <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-          <h3 className="font-medium text-foreground mb-6">Traffic by Country</h3>
+          <h3 className="font-medium text-foreground mb-6">
+            Traffic by Country
+          </h3>
           <CountryTable data={countries ?? []} />
         </div>
       </div>
@@ -224,14 +282,16 @@ export default function WhatsAppAnalyticsPage() {
       <div className="border-t border-border pt-6">
         <div className="flex items-center gap-2 mb-6">
           <Brain className="w-5 h-5 text-purple-500" />
-          <h2 className="text-lg font-semibold text-foreground">AI Performance</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            AI Performance
+          </h2>
         </div>
 
         {/* AI Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard
             label="AI Classifications"
-            value={aiStats?.totalClassifications?.toLocaleString() ?? '0'}
+            value={aiStats?.totalClassifications?.toLocaleString() ?? "0"}
             change="Last 30 days"
             positive
             icon={<Brain className="w-4 h-4" />}
@@ -246,7 +306,7 @@ export default function WhatsAppAnalyticsPage() {
           <StatCard
             label="Avg Latency"
             value={`${Math.round(aiStats?.avgLatencyMs ?? 0)}ms`}
-            change={(aiStats?.avgLatencyMs ?? 0) < 500 ? 'Fast' : 'Check'}
+            change={(aiStats?.avgLatencyMs ?? 0) < 500 ? "Fast" : "Check"}
             positive={(aiStats?.avgLatencyMs ?? 0) < 500}
             icon={<Zap className="w-4 h-4" />}
           />
@@ -263,35 +323,166 @@ export default function WhatsAppAnalyticsPage() {
         <div className="grid md:grid-cols-2 gap-6">
           {/* Intent Breakdown */}
           <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <h3 className="font-medium text-foreground mb-6">Top User Intents</h3>
+            <h3 className="font-medium text-foreground mb-6">
+              Top User Intents
+            </h3>
             <IntentBreakdown data={aiIntents ?? []} />
           </div>
 
           {/* AI Latency Distribution */}
           <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <h3 className="font-medium text-foreground mb-6">AI Latency Distribution</h3>
+            <h3 className="font-medium text-foreground mb-6">
+              AI Latency Distribution
+            </h3>
             <AiLatencyChart data={aiLatency ?? []} />
+          </div>
+        </div>
+
+        {/* AI Trends */}
+        <div className="grid md:grid-cols-2 gap-6 mt-6">
+          {/* Classification Volume Trend */}
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-medium text-foreground">
+                  AI Classification Trend
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Volume over time
+                </p>
+              </div>
+              {classificationTrend?.summary && (
+                <span
+                  className={`text-sm font-medium flex items-center gap-1 ${
+                    classificationTrend.summary.percentChange >= 0
+                      ? "text-green-500"
+                      : "text-red-500"
+                  }`}
+                >
+                  {classificationTrend.summary.percentChange >= 0 ? (
+                    <TrendingUp className="w-3 h-3" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3" />
+                  )}
+                  {classificationTrend.summary.percentChange >= 0 ? "+" : ""}
+                  {classificationTrend.summary.percentChange.toFixed(1)}%
+                </span>
+              )}
+            </div>
+            <AiClassificationTrendChart
+              data={classificationTrend?.data ?? []}
+            />
+          </div>
+
+          {/* AI Latency Trend */}
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-medium text-foreground">
+                  AI Latency Trend
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  P50 & P95 over time
+                </p>
+              </div>
+              {aiLatencyTrend?.summary && (
+                <div className="text-right">
+                  <div className="text-lg font-bold text-foreground">
+                    {Math.round(aiLatencyTrend.summary.avgP50Latency)}ms
+                  </div>
+                  <div className="text-xs text-muted-foreground">Avg P50</div>
+                </div>
+              )}
+            </div>
+            <AiLatencyTrendChart data={aiLatencyTrend?.data ?? []} />
           </div>
         </div>
       </div>
 
-      {/* Agent Performance */}
+      {/* Agent Performance Trends */}
+      <div className="border-t border-border pt-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Activity className="w-5 h-5 text-blue-500" />
+          <h2 className="text-lg font-semibold text-foreground">
+            Agent Performance Trends
+          </h2>
+        </div>
+
+        {/* Agent Resolved Trend */}
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-medium text-foreground">Chats Resolved</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Agent productivity over time
+              </p>
+            </div>
+            {agentResolvedTrend?.summary && (
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <div className="text-lg font-bold text-foreground">
+                    {agentResolvedTrend.summary.totalResolved.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Total Resolved
+                  </div>
+                </div>
+                <span
+                  className={`text-sm font-medium flex items-center gap-1 ${
+                    agentResolvedTrend.summary.percentChange >= 0
+                      ? "text-green-500"
+                      : "text-red-500"
+                  }`}
+                >
+                  {agentResolvedTrend.summary.percentChange >= 0 ? (
+                    <TrendingUp className="w-3 h-3" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3" />
+                  )}
+                  {agentResolvedTrend.summary.percentChange >= 0 ? "+" : ""}
+                  {agentResolvedTrend.summary.percentChange.toFixed(1)}%
+                </span>
+              </div>
+            )}
+          </div>
+          <AgentResolvedTrendChart data={agentResolvedTrend?.data ?? []} />
+        </div>
+
+        {/* Top Agents Leaderboard */}
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+          <h3 className="font-medium text-foreground mb-6">
+            Top Agents Leaderboard
+          </h3>
+          <TopAgentsTable data={topAgents ?? []} />
+        </div>
+      </div>
+
+      {/* Agent Performance (Legacy) */}
       <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
         <h3 className="font-medium text-foreground mb-6">Agent Performance</h3>
         <div className="space-y-3">
           {agents?.map((agent: any, i: number) => (
-            <div key={i} className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+            <div
+              key={i}
+              className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg"
+            >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-medium text-sm text-white">
                 {i + 1}
               </div>
               <div className="flex-1">
-                <div className="font-medium text-foreground">{agent.agentId}</div>
-                <div className="text-sm text-muted-foreground">{agent.chatCount} chats resolved</div>
+                <div className="font-medium text-foreground">
+                  {agent.agentId}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {agent.chatCount} chats resolved
+                </div>
               </div>
             </div>
           ))}
           {(!agents || agents.length === 0) && (
-            <p className="text-gray-400 text-center text-sm py-4">No agent data available</p>
+            <p className="text-gray-400 text-center text-sm py-4">
+              No agent data available
+            </p>
           )}
         </div>
       </div>
@@ -303,9 +494,12 @@ export default function WhatsAppAnalyticsPage() {
           <div>
             <div className="font-medium text-blue-400">About This Data</div>
             <div className="text-sm text-gray-300 mt-1">
-              This page shows analytics from WhatsApp events sent to our collector. 
-              For CRM-specific data (contacts, campaigns), visit{' '}
-              <a href="/whatsapp" className="text-blue-400 hover:underline">WhatsApp CRM</a>.
+              This page shows analytics from WhatsApp events sent to our
+              collector. For CRM-specific data (contacts, campaigns), visit{" "}
+              <a href="/whatsapp" className="text-blue-400 hover:underline">
+                WhatsApp CRM
+              </a>
+              .
             </div>
           </div>
         </div>
@@ -314,23 +508,38 @@ export default function WhatsAppAnalyticsPage() {
   );
 }
 
-function IntentBreakdown({ data }: { data: { intent: string; count: number; avgConfidence: number }[] }) {
+function IntentBreakdown({
+  data,
+}: {
+  data: { intent: string; count: number; avgConfidence: number }[];
+}) {
   if (!data.length) {
-    return <div className="text-muted-foreground text-sm text-center py-8">No AI classification data yet</div>;
+    return (
+      <div className="text-muted-foreground text-sm text-center py-8">
+        No AI classification data yet
+      </div>
+    );
   }
 
-  const max = Math.max(...data.map(d => d.count), 1);
+  const max = Math.max(...data.map((d) => d.count), 1);
 
   return (
     <div className="space-y-2 max-h-64 overflow-y-auto">
       {data.map((item, i) => (
         <div key={item.intent} className="flex items-center gap-3">
-          <div className="w-6 text-center font-medium text-gray-400 text-sm">{i + 1}</div>
+          <div className="w-6 text-center font-medium text-gray-400 text-sm">
+            {i + 1}
+          </div>
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-foreground">{item.intent.replace(/_/g, ' ')}</span>
+              <span className="text-sm text-foreground">
+                {item.intent.replace(/_/g, " ")}
+              </span>
               <span className="text-xs text-muted-foreground">
-                {item.count} <span className="text-purple-500">({(item.avgConfidence * 100).toFixed(0)}%)</span>
+                {item.count}{" "}
+                <span className="text-purple-500">
+                  ({(item.avgConfidence * 100).toFixed(0)}%)
+                </span>
               </span>
             </div>
             <div className="h-2 bg-muted rounded overflow-hidden">
@@ -346,22 +555,35 @@ function IntentBreakdown({ data }: { data: { intent: string; count: number; avgC
   );
 }
 
-function AiLatencyChart({ data }: { data: { bucket: string; count: number }[] }) {
-  if (!data.length || data.every(d => d.count === 0)) {
-    return <div className="text-muted-foreground text-sm text-center py-8">No AI latency data yet</div>;
+function AiLatencyChart({
+  data,
+}: {
+  data: { bucket: string; count: number }[];
+}) {
+  if (!data.length || data.every((d) => d.count === 0)) {
+    return (
+      <div className="text-muted-foreground text-sm text-center py-8">
+        No AI latency data yet
+      </div>
+    );
   }
 
-  const max = Math.max(...data.map(d => d.count), 1);
+  const max = Math.max(...data.map((d) => d.count), 1);
 
   return (
     <div className="h-32 flex items-end gap-2">
       {data.map((item, i) => (
-        <div key={item.bucket} className="flex-1 flex flex-col items-center gap-1 group relative">
+        <div
+          key={item.bucket}
+          className="flex-1 flex flex-col items-center gap-1 group relative"
+        >
           <div
-            className={`w-full rounded-t min-h-[2px] ${i < 3 ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-amber-600 to-amber-400'}`}
+            className={`w-full rounded-t min-h-[2px] ${i < 3 ? "bg-gradient-to-t from-green-600 to-green-400" : "bg-gradient-to-t from-amber-600 to-amber-400"}`}
             style={{ height: `${(item.count / max) * 100}%` }}
           />
-          <span className="text-[9px] text-muted-foreground">{item.bucket}ms</span>
+          <span className="text-[9px] text-muted-foreground">
+            {item.bucket}ms
+          </span>
           {item.count > 0 && (
             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md">
               {item.count}
@@ -373,7 +595,13 @@ function AiLatencyChart({ data }: { data: { bucket: string; count: number }[] })
   );
 }
 
-function StatCard({ label, value, change, positive, icon }: {
+function StatCard({
+  label,
+  value,
+  change,
+  positive,
+  icon,
+}: {
   label: string;
   value: string;
   change: string;
@@ -387,7 +615,9 @@ function StatCard({ label, value, change, positive, icon }: {
         <div className="text-muted-foreground">{icon}</div>
       </div>
       <div className="text-2xl font-bold text-foreground mb-1">{value}</div>
-      <div className={`text-sm flex items-center gap-1 ${positive ? 'text-green-500' : 'text-muted-foreground'}`}>
+      <div
+        className={`text-sm flex items-center gap-1 ${positive ? "text-green-500" : "text-muted-foreground"}`}
+      >
         {positive ? <TrendingUp className="w-3 h-3" /> : null}
         {change}
       </div>
@@ -395,15 +625,30 @@ function StatCard({ label, value, change, positive, icon }: {
   );
 }
 
-function ResponseTimeHistogram({ data }: { data: { bucket: string; count: string }[] }) {
-  const buckets = ['0-1', '1-2', '2-3', '3-4', '4-5', '5-6', '6-7', '7-8', '8-9', '9+'];
-  const counts = buckets.map(b => {
-    const found = data.find(d => d.bucket === b);
+function ResponseTimeHistogram({
+  data,
+}: {
+  data: { bucket: string; count: string }[];
+}) {
+  const buckets = [
+    "0-1",
+    "1-2",
+    "2-3",
+    "3-4",
+    "4-5",
+    "5-6",
+    "6-7",
+    "7-8",
+    "8-9",
+    "9+",
+  ];
+  const counts = buckets.map((b) => {
+    const found = data.find((d) => d.bucket === b);
     return found ? parseInt(found.count, 10) : 0;
   });
   const max = Math.max(...counts, 1);
 
-  if (counts.every(c => c === 0)) {
+  if (counts.every((c) => c === 0)) {
     return (
       <div className="h-32 flex items-center justify-center text-muted-foreground text-sm">
         No response time data available
@@ -414,12 +659,17 @@ function ResponseTimeHistogram({ data }: { data: { bucket: string; count: string
   return (
     <div className="h-32 flex items-end gap-1">
       {counts.map((val, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+        <div
+          key={i}
+          className="flex-1 flex flex-col items-center gap-1 group relative"
+        >
           <div
-            className={`w-full rounded-t min-h-[2px] ${i < 5 ? 'bg-gradient-to-t from-green-600 to-green-400' : 'bg-gradient-to-t from-amber-600 to-amber-400'}`}
+            className={`w-full rounded-t min-h-[2px] ${i < 5 ? "bg-gradient-to-t from-green-600 to-green-400" : "bg-gradient-to-t from-amber-600 to-amber-400"}`}
             style={{ height: `${(val / max) * 100}%` }}
           />
-          <span className="text-[9px] text-muted-foreground">{buckets[i]}m</span>
+          <span className="text-[9px] text-muted-foreground">
+            {buckets[i]}m
+          </span>
           {val > 0 && (
             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md">
               {val}
@@ -431,13 +681,23 @@ function ResponseTimeHistogram({ data }: { data: { bucket: string; count: string
   );
 }
 
-function MessageFunnel({ data, rates }: { data: { stage: string; count: number }[]; rates?: { deliveryRate: number; readRate: number; replyRate: number } }) {
+function MessageFunnel({
+  data,
+  rates,
+}: {
+  data: { stage: string; count: number }[];
+  rates?: { deliveryRate: number; readRate: number; replyRate: number };
+}) {
   if (!data.length) {
-    return <div className="text-gray-500 text-sm text-center py-8">No funnel data available</div>;
+    return (
+      <div className="text-gray-500 text-sm text-center py-8">
+        No funnel data available
+      </div>
+    );
   }
 
-  const max = Math.max(...data.map(d => d.count), 1);
-  const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B'];
+  const max = Math.max(...data.map((d) => d.count), 1);
+  const colors = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B"];
 
   return (
     <div className="space-y-3">
@@ -447,7 +707,10 @@ function MessageFunnel({ data, rates }: { data: { stage: string; count: number }
           <div className="flex-1 h-8 bg-muted rounded relative overflow-hidden">
             <div
               className="h-full rounded transition-all"
-              style={{ width: `${(item.count / max) * 100}%`, backgroundColor: colors[i % colors.length] }}
+              style={{
+                width: `${(item.count / max) * 100}%`,
+                backgroundColor: colors[i % colors.length],
+              }}
             />
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-foreground font-medium">
               {item.count.toLocaleString()}
@@ -457,18 +720,41 @@ function MessageFunnel({ data, rates }: { data: { stage: string; count: number }
       ))}
       {rates && (
         <div className="flex justify-between text-xs text-muted-foreground mt-4 pt-3 border-t border-border">
-          <span>Delivery: <span className="text-foreground">{rates.deliveryRate.toFixed(1)}%</span></span>
-          <span>Read: <span className="text-foreground">{rates.readRate.toFixed(1)}%</span></span>
-          <span>Reply: <span className="text-foreground">{rates.replyRate.toFixed(1)}%</span></span>
+          <span>
+            Delivery:{" "}
+            <span className="text-foreground">
+              {rates.deliveryRate.toFixed(1)}%
+            </span>
+          </span>
+          <span>
+            Read:{" "}
+            <span className="text-foreground">
+              {rates.readRate.toFixed(1)}%
+            </span>
+          </span>
+          <span>
+            Reply:{" "}
+            <span className="text-foreground">
+              {rates.replyRate.toFixed(1)}%
+            </span>
+          </span>
         </div>
       )}
     </div>
   );
 }
 
-function CountryTable({ data }: { data: { countryCode: string; count: number }[] }) {
+function CountryTable({
+  data,
+}: {
+  data: { countryCode: string; count: number }[];
+}) {
   if (!data.length) {
-    return <div className="text-gray-500 text-sm text-center py-8">No country data available</div>;
+    return (
+      <div className="text-gray-500 text-sm text-center py-8">
+        No country data available
+      </div>
+    );
   }
 
   const total = data.reduce((acc, d) => acc + d.count, 0);
@@ -476,11 +762,21 @@ function CountryTable({ data }: { data: { countryCode: string; count: number }[]
   return (
     <div className="space-y-2 max-h-64 overflow-y-auto">
       {data.slice(0, 10).map((item, i) => (
-        <div key={item.countryCode} className="flex items-center gap-3 p-2 bg-muted/30 rounded">
-          <div className="w-6 text-center font-medium text-muted-foreground text-sm">{i + 1}</div>
-          <div className="flex-1 font-medium text-foreground">{item.countryCode || 'Unknown'}</div>
+        <div
+          key={item.countryCode}
+          className="flex items-center gap-3 p-2 bg-muted/30 rounded"
+        >
+          <div className="w-6 text-center font-medium text-muted-foreground text-sm">
+            {i + 1}
+          </div>
+          <div className="flex-1 font-medium text-foreground">
+            {item.countryCode || "Unknown"}
+          </div>
           <div className="text-sm text-muted-foreground">
-            {item.count.toLocaleString()} <span className="text-muted-foreground/70">({((item.count / total) * 100).toFixed(1)}%)</span>
+            {item.count.toLocaleString()}{" "}
+            <span className="text-muted-foreground/70">
+              ({((item.count / total) * 100).toFixed(1)}%)
+            </span>
           </div>
         </div>
       ))}
@@ -491,26 +787,31 @@ function CountryTable({ data }: { data: { countryCode: string; count: number }[]
 function VolumeChart({ data }: { data: any[] }) {
   const hours = Array.from({ length: 24 }, (_, i) => i);
   // data is [{ hour: '14', count: '5' }]
-  const counts = hours.map(h => {
-    const found = data.find(d => Number(d.hour) === h);
+  const counts = hours.map((h) => {
+    const found = data.find((d) => Number(d.hour) === h);
     return found ? Number(found.count) : 0;
   });
-  
+
   const max = Math.max(...counts, 1);
 
   return (
     <div className="h-32 flex items-end gap-1">
       {counts.map((val, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+        <div
+          key={i}
+          className="flex-1 flex flex-col items-center gap-1 group relative"
+        >
           <div
             className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t min-h-[1px]"
             style={{ height: `${(val / max) * 100}%` }}
           />
-          {i % 3 === 0 && <span className="text-[10px] text-muted-foreground">{i}h</span>}
+          {i % 3 === 0 && (
+            <span className="text-[10px] text-muted-foreground">{i}h</span>
+          )}
           {val > 0 && (
-             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
-               {val}
-             </div>
+            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
+              {val}
+            </div>
           )}
         </div>
       ))}
@@ -519,14 +820,16 @@ function VolumeChart({ data }: { data: any[] }) {
 }
 
 function HeatmapChart({ data }: { data: any[] }) {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const hours = ['6am', '9am', '12pm', '3pm', '6pm', '9pm'];
-  
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const hours = ["6am", "9am", "12pm", "3pm", "6pm", "9pm"];
+
   // Create 7x24 grid
-  const grid = Array(7).fill(0).map(() => Array(24).fill(0));
+  const grid = Array(7)
+    .fill(0)
+    .map(() => Array(24).fill(0));
   let max = 1;
-  
-  data.forEach(d => {
+
+  data.forEach((d) => {
     const day = Number(d.day);
     const hour = Number(d.hour);
     const count = Number(d.count);
@@ -539,12 +842,18 @@ function HeatmapChart({ data }: { data: any[] }) {
   return (
     <div className="flex gap-2">
       <div className="flex flex-col gap-1 pr-2 text-xs text-muted-foreground">
-        {days.map(d => <div key={d} className="h-6 flex items-center">{d}</div>)}
+        {days.map((d) => (
+          <div key={d} className="h-6 flex items-center">
+            {d}
+          </div>
+        ))}
       </div>
       <div className="flex-1 overflow-x-auto">
         <div className="flex gap-1 mb-2 text-xs text-muted-foreground min-w-[600px]">
-          {Array.from({ length: 24 }, (_, i) => i).map(h => (
-            <div key={h} className="flex-1 text-center">{h}</div>
+          {Array.from({ length: 24 }, (_, i) => i).map((h) => (
+            <div key={h} className="flex-1 text-center">
+              {h}
+            </div>
           ))}
         </div>
         <div className="space-y-1 min-w-[600px]">
@@ -554,8 +863,11 @@ function HeatmapChart({ data }: { data: any[] }) {
                 <div
                   key={j}
                   className="flex-1 h-6 rounded"
-                  style={{ 
-                    backgroundColor: val > 0 ? `rgba(34, 197, 94, ${Math.max(val / max, 0.2)})` : 'rgba(255, 255, 255, 0.05)',
+                  style={{
+                    backgroundColor:
+                      val > 0
+                        ? `rgba(34, 197, 94, ${Math.max(val / max, 0.2)})`
+                        : "rgba(255, 255, 255, 0.05)",
                   }}
                   title={`${days[i]} ${j}:00 - ${val} messages`}
                 />
@@ -574,20 +886,22 @@ function HeatmapChart({ data }: { data: any[] }) {
 
 function formatDate(d: string) {
   const date = new Date(d);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function MessageVolumeTrendChart({ 
-  data, 
-  summary 
-}: { 
+function MessageVolumeTrendChart({
+  data,
+  summary,
+}: {
   data: { period: string; received: number; sent: number }[];
   summary?: { totalReceived: number; totalSent: number; total: number };
 }) {
   if (!data?.length) {
     return (
       <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-        <h3 className="font-medium text-foreground mb-6">Message Volume Trend</h3>
+        <h3 className="font-medium text-foreground mb-6">
+          Message Volume Trend
+        </h3>
         <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
           No data available
         </div>
@@ -595,7 +909,7 @@ function MessageVolumeTrendChart({
     );
   }
 
-  const max = Math.max(...data.map(d => Math.max(d.received, d.sent))) || 1;
+  const max = Math.max(...data.map((d) => Math.max(d.received, d.sent))) || 1;
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
@@ -622,11 +936,18 @@ function MessageVolumeTrendChart({
 
       <div className="h-48 flex items-end gap-1">
         {data.map((point, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+          <div
+            key={i}
+            className="flex-1 flex flex-col items-center gap-0.5 group relative"
+          >
             <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
-              {formatDate(point.period)}: {point.received} received, {point.sent} sent
+              {formatDate(point.period)}: {point.received} received,{" "}
+              {point.sent} sent
             </div>
-            <div className="w-full flex gap-0.5 items-end" style={{ height: '100%' }}>
+            <div
+              className="w-full flex gap-0.5 items-end"
+              style={{ height: "100%" }}
+            >
               <div
                 className="flex-1 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t min-h-[2px]"
                 style={{ height: `${(point.received / max) * 100}%` }}
@@ -642,24 +963,37 @@ function MessageVolumeTrendChart({
 
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
         <span>{formatDate(data[0]?.period)}</span>
-        {data.length > 2 && <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>}
+        {data.length > 2 && (
+          <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>
+        )}
         <span>{formatDate(data[data.length - 1]?.period)}</span>
       </div>
     </div>
   );
 }
 
-function ResponseTimeTrendChart({ 
-  data, 
-  summary 
-}: { 
-  data: { period: string; medianMinutes: number; p95Minutes: number; responseCount: number }[];
-  summary?: { overallMedianMinutes: number; totalResponses: number; targetMinutes: number };
+function ResponseTimeTrendChart({
+  data,
+  summary,
+}: {
+  data: {
+    period: string;
+    medianMinutes: number;
+    p95Minutes: number;
+    responseCount: number;
+  }[];
+  summary?: {
+    overallMedianMinutes: number;
+    totalResponses: number;
+    targetMinutes: number;
+  };
 }) {
   if (!data?.length) {
     return (
       <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-        <h3 className="font-medium text-foreground mb-6">Response Time Trend</h3>
+        <h3 className="font-medium text-foreground mb-6">
+          Response Time Trend
+        </h3>
         <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
           No data available
         </div>
@@ -667,7 +1001,9 @@ function ResponseTimeTrendChart({
     );
   }
 
-  const maxMedian = Math.max(...data.map(d => d.medianMinutes), summary?.targetMinutes || 5) * 1.2 || 10;
+  const maxMedian =
+    Math.max(...data.map((d) => d.medianMinutes), summary?.targetMinutes || 5) *
+      1.2 || 10;
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
@@ -676,7 +1012,9 @@ function ResponseTimeTrendChart({
           <h3 className="font-medium text-foreground">Response Time Trend</h3>
           {summary && (
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-2xl font-bold text-foreground">{summary.overallMedianMinutes}m</span>
+              <span className="text-2xl font-bold text-foreground">
+                {summary.overallMedianMinutes}m
+              </span>
               <span className="text-sm text-muted-foreground">median</span>
             </div>
           )}
@@ -684,7 +1022,9 @@ function ResponseTimeTrendChart({
         {summary?.targetMinutes && (
           <div className="text-right">
             <div className="text-sm text-muted-foreground">Target</div>
-            <div className="text-lg font-semibold text-green-500">&lt; {summary.targetMinutes}m</div>
+            <div className="text-lg font-semibold text-green-500">
+              &lt; {summary.targetMinutes}m
+            </div>
           </div>
         )}
       </div>
@@ -700,18 +1040,24 @@ function ResponseTimeTrendChart({
 
         {data.map((point, i) => {
           const heightPercent = (point.medianMinutes / maxMedian) * 100;
-          const isUnderTarget = summary?.targetMinutes ? point.medianMinutes <= summary.targetMinutes : true;
+          const isUnderTarget = summary?.targetMinutes
+            ? point.medianMinutes <= summary.targetMinutes
+            : true;
 
           return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+            <div
+              key={i}
+              className="flex-1 flex flex-col items-center gap-1 group relative"
+            >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
-                {formatDate(point.period)}: {point.medianMinutes.toFixed(1)}m median
+                {formatDate(point.period)}: {point.medianMinutes.toFixed(1)}m
+                median
               </div>
               <div
                 className={`w-full rounded-t min-h-[2px] ${
                   isUnderTarget
-                    ? 'bg-gradient-to-t from-green-600 to-green-400'
-                    : 'bg-gradient-to-t from-amber-600 to-amber-400'
+                    ? "bg-gradient-to-t from-green-600 to-green-400"
+                    : "bg-gradient-to-t from-amber-600 to-amber-400"
                 }`}
                 style={{ height: `${heightPercent}%` }}
               />
@@ -722,17 +1068,19 @@ function ResponseTimeTrendChart({
 
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
         <span>{formatDate(data[0]?.period)}</span>
-        {data.length > 2 && <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>}
+        {data.length > 2 && (
+          <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>
+        )}
         <span>{formatDate(data[data.length - 1]?.period)}</span>
       </div>
     </div>
   );
 }
 
-function ReadRateTrendChart({ 
-  data, 
-  summary 
-}: { 
+function ReadRateTrendChart({
+  data,
+  summary,
+}: {
   data: { period: string; sent: number; readCount: number; readRate: number }[];
   summary?: { totalSent: number; totalRead: number; overallReadRate: number };
 }) {
@@ -756,7 +1104,9 @@ function ReadRateTrendChart({
           <h3 className="font-medium text-foreground">Read Rate Trend</h3>
           {summary && (
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-2xl font-bold text-foreground">{summary.overallReadRate}%</span>
+              <span className="text-2xl font-bold text-foreground">
+                {summary.overallReadRate}%
+              </span>
               <span className="text-sm text-muted-foreground">overall</span>
             </div>
           )}
@@ -768,9 +1118,13 @@ function ReadRateTrendChart({
           const heightPercent = (point.readRate / maxRate) * 100;
 
           return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+            <div
+              key={i}
+              className="flex-1 flex flex-col items-center gap-1 group relative"
+            >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
-                {formatDate(point.period)}: {point.readRate.toFixed(1)}% ({point.readCount}/{point.sent})
+                {formatDate(point.period)}: {point.readRate.toFixed(1)}% (
+                {point.readCount}/{point.sent})
               </div>
               <div
                 className="w-full bg-gradient-to-t from-purple-600 to-purple-400 rounded-t min-h-[2px]"
@@ -783,19 +1137,25 @@ function ReadRateTrendChart({
 
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
         <span>{formatDate(data[0]?.period)}</span>
-        {data.length > 2 && <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>}
+        {data.length > 2 && (
+          <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>
+        )}
         <span>{formatDate(data[data.length - 1]?.period)}</span>
       </div>
     </div>
   );
 }
 
-function NewContactsTrendChart({ 
-  data, 
-  summary 
-}: { 
+function NewContactsTrendChart({
+  data,
+  summary,
+}: {
   data: { period: string; newContacts: number }[];
-  summary?: { totalNewContacts: number; previousTotal: number; percentChange: number };
+  summary?: {
+    totalNewContacts: number;
+    previousTotal: number;
+    percentChange: number;
+  };
 }) {
   if (!data?.length) {
     return (
@@ -808,7 +1168,7 @@ function NewContactsTrendChart({
     );
   }
 
-  const max = Math.max(...data.map(d => d.newContacts)) || 1;
+  const max = Math.max(...data.map((d) => d.newContacts)) || 1;
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
@@ -817,11 +1177,20 @@ function NewContactsTrendChart({
           <h3 className="font-medium text-foreground">New Contacts Trend</h3>
           {summary && (
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-2xl font-bold text-foreground">{summary.totalNewContacts.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-foreground">
+                {summary.totalNewContacts.toLocaleString()}
+              </span>
               {summary.percentChange !== 0 && (
-                <span className={`flex items-center gap-1 text-sm ${summary.percentChange > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {summary.percentChange > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  {summary.percentChange > 0 ? '+' : ''}{summary.percentChange}%
+                <span
+                  className={`flex items-center gap-1 text-sm ${summary.percentChange > 0 ? "text-green-500" : "text-red-500"}`}
+                >
+                  {summary.percentChange > 0 ? (
+                    <TrendingUp className="w-3 h-3" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3" />
+                  )}
+                  {summary.percentChange > 0 ? "+" : ""}
+                  {summary.percentChange}%
                 </span>
               )}
             </div>
@@ -834,7 +1203,10 @@ function NewContactsTrendChart({
           const heightPercent = (point.newContacts / max) * 100;
 
           return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+            <div
+              key={i}
+              className="flex-1 flex flex-col items-center gap-1 group relative"
+            >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
                 {formatDate(point.period)}: {point.newContacts} new contacts
               </div>
@@ -849,9 +1221,265 @@ function NewContactsTrendChart({
 
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
         <span>{formatDate(data[0]?.period)}</span>
-        {data.length > 2 && <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>}
+        {data.length > 2 && (
+          <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>
+        )}
         <span>{formatDate(data[data.length - 1]?.period)}</span>
       </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// AI TREND CHARTS
+// ===========================================================================
+
+function AiClassificationTrendChart({
+  data,
+}: {
+  data: aiTrendsApi.ClassificationTrendDataPoint[];
+}) {
+  if (!data?.length) {
+    return (
+      <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
+        No classification data available
+      </div>
+    );
+  }
+
+  const max = Math.max(...data.map((d) => d.classifications)) || 1;
+
+  return (
+    <div className="space-y-2">
+      <div className="h-40 flex items-end gap-1">
+        {data.map((point, i) => {
+          const heightPercent = (point.classifications / max) * 100;
+          const errorHeightPercent =
+            point.classifications > 0
+              ? (point.errors / point.classifications) * heightPercent
+              : 0;
+
+          return (
+            <div
+              key={i}
+              className="flex-1 flex flex-col items-center gap-1 group relative"
+            >
+              <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
+                {formatDate(point.period)}: {point.classifications}{" "}
+                classifications, {point.errors} errors
+              </div>
+              <div className="w-full flex flex-col">
+                <div
+                  className="w-full bg-red-500 rounded-t"
+                  style={{ height: `${errorHeightPercent * 1.5}px` }}
+                />
+                <div
+                  className="w-full bg-purple-500"
+                  style={{
+                    height: `${(heightPercent - errorHeightPercent) * 1.5}px`,
+                    minHeight: "2px",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{formatDate(data[0]?.period)}</span>
+        <span>{formatDate(data[data.length - 1]?.period)}</span>
+      </div>
+      <div className="flex justify-center gap-4 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-purple-500" />
+          <span className="text-muted-foreground">Classifications</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-red-500" />
+          <span className="text-muted-foreground">Errors</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AiLatencyTrendChart({
+  data,
+}: {
+  data: aiTrendsApi.LatencyTrendDataPoint[];
+}) {
+  if (!data?.length) {
+    return (
+      <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
+        No latency data available
+      </div>
+    );
+  }
+
+  const maxP95 = Math.max(...data.map((d) => d.p95Latency)) || 1;
+
+  return (
+    <div className="space-y-2">
+      <div className="h-40 flex items-end gap-1">
+        {data.map((point, i) => {
+          const p50Height = (point.p50Latency / maxP95) * 100;
+          const p95Height = (point.p95Latency / maxP95) * 100;
+
+          return (
+            <div
+              key={i}
+              className="flex-1 flex flex-col items-center group relative"
+            >
+              <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
+                P50: {Math.round(point.p50Latency)}ms, P95:{" "}
+                {Math.round(point.p95Latency)}ms
+              </div>
+              <div className="w-full relative">
+                {/* P95 bar (background) */}
+                <div
+                  className="w-full bg-amber-300/50 rounded-t absolute bottom-0"
+                  style={{ height: `${p95Height * 1.5}px` }}
+                />
+                {/* P50 bar (foreground) */}
+                <div
+                  className="w-full bg-amber-500 rounded-t relative"
+                  style={{ height: `${p50Height * 1.5}px`, minHeight: "2px" }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{formatDate(data[0]?.period)}</span>
+        <span>{formatDate(data[data.length - 1]?.period)}</span>
+      </div>
+      <div className="flex justify-center gap-4 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-amber-500" />
+          <span className="text-muted-foreground">P50</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-amber-300/50" />
+          <span className="text-muted-foreground">P95</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentResolvedTrendChart({
+  data,
+}: {
+  data: aiTrendsApi.AgentResolvedTrendDataPoint[];
+}) {
+  if (!data?.length) {
+    return (
+      <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
+        No resolution data available
+      </div>
+    );
+  }
+
+  const max = Math.max(...data.map((d) => d.resolvedCount)) || 1;
+
+  return (
+    <div className="space-y-2">
+      <div className="h-40 flex items-end gap-1">
+        {data.map((point, i) => {
+          const heightPercent = (point.resolvedCount / max) * 100;
+
+          return (
+            <div
+              key={i}
+              className="flex-1 flex flex-col items-center gap-1 group relative"
+            >
+              <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
+                {formatDate(point.period)}: {point.resolvedCount} resolved,{" "}
+                {point.activeAgents} agents
+              </div>
+              <div
+                className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t min-h-[2px]"
+                style={{ height: `${heightPercent * 1.5}px` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{formatDate(data[0]?.period)}</span>
+        <span>{formatDate(data[data.length - 1]?.period)}</span>
+      </div>
+    </div>
+  );
+}
+
+function TopAgentsTable({ data }: { data: aiTrendsApi.TopAgentItem[] }) {
+  if (!data?.length) {
+    return (
+      <div className="text-muted-foreground text-sm text-center py-8">
+        No agent data available
+      </div>
+    );
+  }
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return "-";
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+    return `${Math.round(seconds / 3600)}h`;
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="pb-2 text-left text-xs font-medium text-muted-foreground uppercase">
+              Rank
+            </th>
+            <th className="pb-2 text-left text-xs font-medium text-muted-foreground uppercase">
+              Agent ID
+            </th>
+            <th className="pb-2 text-right text-xs font-medium text-muted-foreground uppercase">
+              Resolved
+            </th>
+            <th className="pb-2 text-right text-xs font-medium text-muted-foreground uppercase">
+              Avg Time
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((agent, i) => (
+            <tr key={i} className="border-b border-border/50 last:border-0">
+              <td className="py-2 text-sm">
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                    i === 0
+                      ? "bg-yellow-500/20 text-yellow-500"
+                      : i === 1
+                        ? "bg-gray-400/20 text-gray-400"
+                        : i === 2
+                          ? "bg-amber-600/20 text-amber-600"
+                          : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {i + 1}
+                </div>
+              </td>
+              <td className="py-2 text-sm text-foreground font-mono">
+                {agent.agentId.slice(0, 8)}...
+              </td>
+              <td className="py-2 text-right text-sm text-foreground font-medium">
+                {agent.resolvedCount}
+              </td>
+              <td className="py-2 text-right text-sm text-muted-foreground">
+                {formatTime(agent.avgResolutionTime)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
