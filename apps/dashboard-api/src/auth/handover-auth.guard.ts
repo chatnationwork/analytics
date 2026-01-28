@@ -14,7 +14,8 @@ export class HandoverAuthGuard extends JwtAuthGuard {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const apiKey = request.headers['x-api-key'] as string;
+    // Check Header first, then Query Param - bypasses Proxy/Nginx stripping headers
+    const apiKey = (request.headers['x-api-key'] as string) || (request.query['apiKey'] as string);
 
     // 1. Check API Key first
     if (apiKey) {
