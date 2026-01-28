@@ -655,7 +655,7 @@ export default function AgentAnalyticsPage() {
   });
 
   return (
-    <RouteGuard permission="analytics:read">
+    <RouteGuard permission="analytics.view">
       <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
