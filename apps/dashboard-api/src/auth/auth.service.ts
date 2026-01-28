@@ -162,14 +162,29 @@ export class AuthService {
    * Generate JWT and login response.
    */
   private async generateLoginResponse(user: { id: string; email: string; name?: string | null }): Promise<LoginResponseDto> {
+    // Determine expiration based on tenant settings
+    const tenants = await this.tenantRepository.findByUserId(user.id);
+    const activeTenant = tenants[0];
+    
+    // Default: 7 days in minutes
+    let maxDurationMinutes = 10080; 
+
+    if (activeTenant && activeTenant.settings && activeTenant.settings.session) {
+        maxDurationMinutes = activeTenant.settings.session.maxDurationMinutes || 10080;
+    }
+
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
     };
 
-    const accessToken = this.jwtService.sign(payload);
-    const decoded = this.jwtService.decode(accessToken) as { exp: number; iat: number };
-    const expiresIn = decoded.exp - decoded.iat;
+    // Sign with dynamic expiration
+    const accessToken = this.jwtService.sign(payload, { 
+        expiresIn: `${maxDurationMinutes}m` 
+    });
+    
+    // Calculate seconds for response
+    const expiresIn = maxDurationMinutes * 60;
 
     const permissions = await this.getUserPermissions(user.id);
 

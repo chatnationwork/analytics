@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { PermissionProvider } from "@/components/auth/PermissionContext";
+import { SessionManager } from "@/components/auth/SessionManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,6 +35,7 @@ export default function RootLayout({
         <Providers>
           <AuthProvider>
             <PermissionProvider>
+              <SessionManager />
               {children}
             </PermissionProvider>
           </AuthProvider>

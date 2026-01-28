@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { CrmSettings } from '@/components/settings/CrmSettings';
 import { ApiKeySettings } from '@/components/settings/ApiKeySettings';
 import { TeamManagement } from '@/components/settings/team-management';
+import { SessionSettings } from '@/components/settings/SessionSettings';
 import { fetchWithAuth } from '@/lib/api';
 import { usePermission } from '@/components/auth/PermissionContext';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'api-keys' | 'crm' | 'team'>('api-keys');
+  const [activeTab, setActiveTab] = useState<'api-keys' | 'crm' | 'team' | 'session'>('api-keys');
   const [tenantId, setTenantId] = useState<string>('');
   
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function SettingsPage() {
     { id: 'api-keys' as const, label: 'API Keys', permission: 'settings.manage' },
     { id: 'crm' as const, label: 'CRM Integrations', permission: 'settings.manage' },
     { id: 'team' as const, label: 'Team', permission: 'teams.manage' },
+    { id: 'session' as const, label: 'Session', permission: 'settings.manage' },
   ];
 
   const tabs = allTabs.filter(tab => !tab.permission || can(tab.permission));
@@ -90,6 +92,11 @@ export default function SettingsPage() {
         {activeTab === 'team' && (
           <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
             <TeamManagement tenantId={tenantId} />
+          </div>
+        )}
+        {activeTab === 'session' && (
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+            <SessionSettings tenantId={tenantId} />
           </div>
         )}
       </div>

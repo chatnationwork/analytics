@@ -1,264 +1,245 @@
 # Database Schema
 
 ## Overview
-This document defines the database schema for storing analytics events. The schema is designed for **ClickHouse** (recommended for scale) with **PostgreSQL** alternatives noted.
+This document defines the current PostgreSQL database schema for the Analytics Platform, derived from the application entities. It supports multi-tenancy, specific agent workflows, and analytics data.
+
+> **Note:** While some analytics tables (`events`) are designed with ClickHouse migration in mind, the current implementation uses PostgreSQL for all entities.
 
 ---
 
-## 1. Core Events Table
+## Entity Relationship Diagram (ERD)
 
-### ClickHouse Schema
-
-```sql
-CREATE TABLE events (
-    -- Identifiers
-    event_id UUID,
-    message_id UUID,  -- For deduplication
+```mermaid
+erDiagram
+    %% Core Multi-Tenancy
+    Tenant ||--o{ TenantMembership : "has members"
+    Tenant ||--o{ Project : "owns"
+    Tenant ||--o{ CrmIntegration : "has"
+    Tenant ||--o{ ApiKey : "issues"
+    Tenant ||--o{ Invitation : "sends"
     
-    -- Tenant
-    tenant_id String,
-    project_id String,
+    User ||--o{ TenantMembership : "belongs to"
+    User ||--|| AgentProfile : "has profile"
+    User ||--o{ TeamMember : "part of teams"
+    User ||--o{ Shift : "works"
     
-    -- Event Info
-    event_name LowCardinality(String),
-    event_type LowCardinality(String) DEFAULT 'track',  -- track, identify, page
-    timestamp DateTime64(3),
-    received_at DateTime64(3),
+    %% Teams & Routing
+    Team ||--o{ TeamMember : "includes"
+    Team ||--o{ Shift : "schedules"
+    Team ||--o{ InboxSession : "assigned to"
     
-    -- Identity
-    anonymous_id String,
-    user_id Nullable(String),
-    session_id String,
+    %% Inbox & Messaging
+    InboxSession }o--|| User : "assigned agent"
+    InboxSession ||--o{ Message : "contains"
+    InboxSession ||--|| Resolution : "results in"
     
-    -- Channel (Phase 2 ready)
-    channel_type LowCardinality(String) DEFAULT 'web',  -- web, whatsapp
-    external_id Nullable(String),  -- WhatsApp phone ID
-    handshake_token Nullable(String),
+    %% Analytics (Logical Links)
+    Event }o--|| Session : "belongs to"
+    Session }o--|| User : "associated user"
     
-    -- Context (flattened for query performance)
-    page_path String,
-    page_url String,
-    page_title String,
-    page_referrer String,
-    
-    -- Device
-    user_agent String,
-    device_type LowCardinality(String),  -- desktop, mobile, tablet
-    os_name LowCardinality(String),
-    os_version String,
-    browser_name LowCardinality(String),
-    browser_version String,
-    
-    -- Geo (enriched by processor)
-    ip_address String,
-    country_code LowCardinality(String),
-    city String,
-    
-    -- Properties (flexible JSON)
-    properties String,  -- JSON string
-    
-    -- Metadata
-    sdk_version String,
-    processed_at DateTime64(3)
-)
-ENGINE = MergeTree()
-PARTITION BY toYYYYMM(timestamp)
-ORDER BY (tenant_id, timestamp, event_id)
-TTL timestamp + INTERVAL 2 YEAR;
-```
-
-### PostgreSQL Alternative
-
-```sql
-CREATE TABLE events (
-    event_id UUID PRIMARY KEY,
-    message_id UUID UNIQUE,
-    
-    tenant_id VARCHAR(50) NOT NULL,
-    project_id VARCHAR(50) NOT NULL,
-    
-    event_name VARCHAR(100) NOT NULL,
-    event_type VARCHAR(20) DEFAULT 'track',
-    timestamp TIMESTAMPTZ NOT NULL,
-    received_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    anonymous_id VARCHAR(100) NOT NULL,
-    user_id VARCHAR(100),
-    session_id VARCHAR(100) NOT NULL,
-    
-    channel_type VARCHAR(20) DEFAULT 'web',
-    external_id VARCHAR(100),
-    handshake_token VARCHAR(100),
-    
-    page_path VARCHAR(500),
-    page_url TEXT,
-    page_title VARCHAR(500),
-    page_referrer TEXT,
-    
-    user_agent TEXT,
-    device_type VARCHAR(20),
-    os_name VARCHAR(50),
-    os_version VARCHAR(50),
-    browser_name VARCHAR(50),
-    browser_version VARCHAR(50),
-    
-    ip_address INET,
-    country_code CHAR(2),
-    city VARCHAR(100),
-    
-    properties JSONB,
-    
-    sdk_version VARCHAR(20),
-    processed_at TIMESTAMPTZ
-);
-
--- Indexes
-CREATE INDEX idx_events_tenant_time ON events(tenant_id, timestamp DESC);
-CREATE INDEX idx_events_session ON events(session_id);
-CREATE INDEX idx_events_user ON events(user_id) WHERE user_id IS NOT NULL;
-CREATE INDEX idx_events_name ON events(event_name);
-
--- Partitioning (recommended for scale)
--- Partition by month: events_2024_01, events_2024_02, etc.
-```
-
----
-
-## 2. Sessions Table
-
-Materialized view or separate table for session-level aggregates.
-
-```sql
-CREATE TABLE sessions (
-    session_id UUID PRIMARY KEY,
-    tenant_id String,
-    
-    anonymous_id String,
-    user_id Nullable(String),
-    
-    -- Timing
-    started_at DateTime64(3),
-    ended_at DateTime64(3),
-    duration_seconds UInt32,
-    
-    -- Metrics
-    event_count UInt16,
-    page_count UInt16,
-    
-    -- First touch
-    entry_page String,
-    referrer String,
-    utm_source Nullable(String),
-    utm_medium Nullable(String),
-    utm_campaign Nullable(String),
-    
-    -- Device
-    device_type LowCardinality(String),
-    country_code LowCardinality(String),
-    
-    -- Outcome (computed)
-    converted Boolean DEFAULT false,
-    conversion_event Nullable(String)
-)
-ENGINE = ReplacingMergeTree(ended_at)
-ORDER BY (tenant_id, session_id);
+    %% Table Definitions
+    Tenant {
+        uuid id PK
+        string slug
+        string name
+        jsonb settings
+    }
+    User {
+        uuid id PK
+        string email
+        string passwordHash
+        string name
+    }
+    TenantMembership {
+        uuid userId PK
+        uuid tenantId PK
+        enum role "owner, admin, member"
+    }
+    Project {
+        uuid projectId PK
+        uuid tenantId
+        string name
+        string writeKey
+    }
+    CrmIntegration {
+        uuid id PK
+        uuid tenantId
+        string apiUrl
+        string apiKeyEncrypted
+    }
+    ApiKey {
+        uuid id PK
+        uuid tenantId
+        string keyPrefix
+        enum type "read, write"
+    }
+    Invitation {
+        uuid id PK
+        string email
+        uuid tenantId
+        string token
+    }
+    AgentProfile {
+        uuid userId PK
+        enum status "online, offline, busy"
+        int maxConcurrentChats
+    }
+    Team {
+        uuid id PK
+        string name
+        string routingStrategy
+    }
+    TeamMember {
+        uuid id PK
+        uuid teamId
+        uuid userId
+        enum role "manager, agent"
+    }
+    Shift {
+        uuid id PK
+        uuid teamId
+        uuid userId
+        timestamp startTime
+        timestamp endTime
+    }
+    InboxSession {
+        uuid id PK
+        uuid tenantId
+        string contactId
+        enum status "unassigned, assigned, resolved"
+        uuid assignedAgentId FK
+        uuid assignedTeamId FK
+    }
+    Message {
+        uuid id PK
+        uuid sessionId FK
+        enum direction "inbound, outbound"
+        text content
+    }
+    Resolution {
+        uuid id PK
+        uuid sessionId FK
+        string category
+        string outcome
+    }
 ```
 
 ---
 
-## 3. Identities Table
+## 1. Core Identity & Tenancy
 
-Links anonymous IDs to known users for cross-session/cross-device tracking.
+### `tenants`
+The top-level organization unit.
+- **id** (UUID, PK): Unique identifier.
+- **slug** (String, Unique): URL-friendly identifier.
+- **name** (String): Organization display name.
+- **settings** (JSONB): Configuration (branding, **session settings**, timezone).
+- **plan** (Enum): Subscription level (`free`, `starter`, `pro`).
 
-```sql
-CREATE TABLE identities (
-    tenant_id String,
-    anonymous_id String,
-    user_id String,
-    
-    linked_at DateTime64(3),
-    link_source LowCardinality(String),  -- 'identify', 'login', 'handshake'
-    
-    -- User traits (denormalized for quick lookup)
-    traits String  -- JSON: { "name": "...", "email": "...", "pin": "..." }
-)
-ENGINE = ReplacingMergeTree(linked_at)
-ORDER BY (tenant_id, anonymous_id, user_id);
-```
+### `users`
+Global user accounts.
+- **id** (UUID, PK): Unique identifier.
+- **email** (String, Unique): Login email.
+- **passwordHash** (String): Bcrypt hash.
+- **name** (String): Display name.
 
----
+### `tenant_memberships`
+Links users to tenants.
+- **userId** (UUID, PK, FK): Reference to `users`.
+- **tenantId** (UUID, PK, FK): Reference to `tenants`.
+- **role** (Enum): Authorization level (`super_admin`, `admin`, `member`, `auditor`).
 
-## 4. Projects Table (Multi-Tenant)
+### `invitations`
+Pending tenant memberships.
+- **email**: Email of invited user.
+- **token**: Secure unique token for acceptance.
+- **status**: `pending`, `accepted`, `expired`.
 
-```sql
-CREATE TABLE projects (
-    project_id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL,
-    
-    name VARCHAR(100) NOT NULL,
-    write_key VARCHAR(100) UNIQUE NOT NULL,  -- Public key for SDK
-    
-    allowed_origins TEXT[],  -- CORS whitelist
-    
-    settings JSONB,  -- Rate limits, retention policy, etc.
-    
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
+### `role_permissions`
+Defines granular permissions for roles.
+- **role** (String): The role name (e.g., `admin`).
+- **permission** (Enum): Specific capability (e.g., `analytics.view`, `settings.manage`).
 
 ---
 
-## 5. Phase 2: Conversation States (WhatsApp)
+## 2. Agent System & Teams
 
-Reserved for future implementation:
+### `teams`
+Groups of agents for routing and management.
+- **name**: Team name (e.g., "Support", "Sales").
+- **routingStrategy**: Logic for assigning chats (`round_robin`, etc.).
 
-```sql
-CREATE TABLE conversations (
-    conversation_id UUID PRIMARY KEY,
-    tenant_id String,
-    
-    whatsapp_phone_id String,
-    user_id Nullable(String),
-    
-    -- State machine
-    current_state LowCardinality(String),  -- queued, bot_active, agent_active, resolved
-    
-    -- Timing
-    started_at DateTime64(3),
-    first_response_at Nullable(DateTime64(3)),
-    resolved_at Nullable(DateTime64(3)),
-    
-    -- Metrics
-    message_count UInt16,
-    bot_message_count UInt16,
-    agent_message_count UInt16,
-    
-    -- Cross-channel
-    linked_session_id Nullable(String),
-    handshake_token Nullable(String)
-);
-```
+### `team_members`
+Links users to teams.
+- **role**: `manager`, `agent`.
+
+### `agent_profiles`
+Extension of user profile for agent-specific state.
+- **status**: Availability status (`online`, `offline`, `busy`).
+- **maxConcurrentChats**: Load limit.
+
+### `shifts`
+Scheduled working hours for agents/teams.
+- **startTime**, **endTime**: Shift duration.
+
+### `assignment_configs`
+Configuration for routing logic.
+- **strategy**, **settings**: Rules for distributing chats.
 
 ---
 
-## Index Strategy
+## 3. Communication & Inbox
 
-| Query Pattern | Index |
-|---------------|-------|
-| Events by time range | `(tenant_id, timestamp)` - Primary |
-| Funnel queries | `(tenant_id, event_name, timestamp)` |
-| User history | `(user_id, timestamp)` |
-| Session lookup | `(session_id)` |
-| Deduplication | `(message_id)` - Unique |
+### `inbox_sessions`
+Represents a conversation/ticket with a contact.
+- **contactId**: Identifier for the end-user (e.g., Phone Number).
+- **status**: Lifecycle state (`unassigned`, `assigned`, `resolved`).
+- **assignedAgentId**: Agent handling the session.
+- **assignedTeamId**: Team responsible for the session.
+- **priority**: Integer level for queue sorting.
+
+### `messages`
+Individual messages within a session.
+- **direction**: `inbound` (from user), `outbound` (from agent).
+- **type**: Content type (`text`, `image`, `video`).
+- **content**: Message body.
+
+### `resolutions`
+Outcome of a session.
+- **outcome**: Result status (e.g., `resolved`).
+- **category**: Classification of the issue.
+- **csatScore**: Customer satisfaction rating.
+
+### `crm_integrations`
+Credentials for external CRM/Messaging providers (WhatsApp).
+- **apiUrl**: Endpoint for the provider.
+- **apiKeyEncrypted**: Encrypted credentials.
 
 ---
 
-## Data Retention
+## 4. Analytics Data
 
-| Data Type | Retention | Action |
-|-----------|-----------|--------|
-| Raw events | 2 years | TTL delete |
-| Sessions | 2 years | TTL delete |
-| Identities | Indefinite | Manual cleanup |
-| Aggregates | 5 years | Archive to cold storage |
+### `events`
+High-volume event stream.
+- **eventId**: UUID.
+- **eventName**, **eventType**: What happened.
+- **timestamp**: When it happened.
+- **sessionId**, **userId**, **anonymousId**: Who did it.
+- **properties** (JSONB): Custom data payload.
+
+### `sessions` (Analytics)
+Aggregated visit data.
+- **metrics**: `durationSeconds`, `pageCount`, `eventCount`.
+- **attribution**: `utmSource`, `referrer`.
+
+### `identities`
+Links anonymous browsing to known users.
+- **anonymousId** ↔ **userId** mapping.
+
+### `projects`
+Scopes analytics data within a tenant.
+- **writeKey**: Public key for SDK ingestion.
+
+### `api_keys`
+Server-side access keys.
+- **type**: `read` (API access), `write` (Ingestion).

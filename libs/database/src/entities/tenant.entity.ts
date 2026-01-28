@@ -41,6 +41,23 @@ export interface TenantSettings {
   customDomain?: string;
   /** Timezone for reports */
   timezone?: string;
+  /** Session management configuration */
+  session?: SessionSettings;
+}
+
+/** Configuration for session management */
+export interface SessionSettings {
+  /** Maximum session duration in minutes. Default: 10080 (7 days) */
+  maxDurationMinutes: number;
+  
+  /** Inactivity timeout in minutes. Default: 30 */
+  inactivityTimeoutMinutes: number;
+  
+  /** 
+   * Timestamp when sessions were last revoked/reset.
+   * Any token issued before this time will be considered invalid.
+   */
+  sessionsRevokedAt?: string; // ISO Date string
 }
 
 /** Available subscription plans */

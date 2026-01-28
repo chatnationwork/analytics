@@ -13,11 +13,15 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService, JwtPayload, AuthUser } from './auth.service';
 
+import { TenantRepository } from '@lib/database';
+// ... imports
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
     private readonly authService: AuthService,
+    private readonly tenantRepository: TenantRepository,
   ) {
     super({
       // Extract JWT from Authorization: Bearer <token>
@@ -38,6 +42,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
+
+    // Check for session revocation
+    const tenants = await this.tenantRepository.findByUserId(user.id);
+    const activeTenant = tenants[0];
+
+    if (activeTenant && activeTenant.settings && activeTenant.settings.session?.sessionsRevokedAt) {
+        const revokedAt = new Date(activeTenant.settings.session.sessionsRevokedAt).getTime() / 1000;
+        if (payload.iat && payload.iat < revokedAt) {
+            throw new UnauthorizedException('Session has been revoked');
+        }
+    }
+
     return user;
   }
 }

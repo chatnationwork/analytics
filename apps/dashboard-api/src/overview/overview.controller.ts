@@ -70,8 +70,6 @@ export class OverviewController {
       ? new Date(startDate) 
       : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    console.log(`[Overview] getOverview params: tenantId=${tenantId}, start=${start.toISOString()}, end=${end.toISOString()}`);
-
     return this.overviewService.getOverview(
       tenantId,
       start,
