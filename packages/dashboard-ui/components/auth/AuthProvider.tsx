@@ -1,8 +1,14 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, authClient } from '@/lib/auth-client';
-import { useRouter } from 'next/navigation';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import { User, authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
@@ -25,7 +31,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await authClient.getProfile();
         setUser(profile);
       } catch (error) {
-        console.error('Failed to load profile (likely unauthenticated):', error);
+        console.error(
+          "Failed to load profile (likely unauthenticated):",
+          error,
+        );
         // Do not force logout redirect here, allow Middleware to handle protection
         // or just leave user as null (public view)
       } finally {
@@ -36,16 +45,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const login = (token: string, user: User) => {
-    // Token is handled by HttpOnly cookie
+  const login = (_token: string, user: User) => {
+    // Token is handled by HttpOnly cookie (set by server action)
+    // Just update the user state - let caller handle navigation
     setUser(user);
-    router.push('/dashboard');
   };
 
   const logout = () => {
     authClient.logout();
     setUser(null);
-    router.push('/login');
+    router.push("/login");
   };
 
   return (
@@ -58,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

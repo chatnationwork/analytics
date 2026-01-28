@@ -5,9 +5,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { toast } from "sonner";
 import { loginAction } from "./actions";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -30,9 +31,10 @@ function getReasonMessage(reason: string | null): string | null {
   }
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +68,9 @@ export default function LoginPage() {
         throw new Error(result.error || "Login failed");
       }
 
-      // Token is set via Server Action Cookie
+      // Update AuthProvider state with the user (includes permissions)
+      // This ensures navigation shows correct permissions immediately
+      login(result.token, result.user);
 
       toast.success("Welcome back!");
       router.push("/overview");
@@ -159,6 +163,36 @@ export default function LoginPage() {
           {isLoading ? "Signing in..." : "Sign in"}
         </button>
       </form>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFormSkeleton />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginFormSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+      <div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 rounded mb-8" />
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <div>
+            <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
+          </div>
+          <div>
+            <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
+          </div>
+        </div>
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
+      </div>
     </div>
   );
 }
