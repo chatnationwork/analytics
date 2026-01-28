@@ -953,4 +953,211 @@ export class EventRepository {
       take: limit,
     });
   }
+
+  // =============================================================================
+  // WHATSAPP TREND ANALYTICS METHODS
+  // =============================================================================
+
+  /**
+   * Get WhatsApp message volume trend (received vs sent) over time.
+   */
+  async getWhatsappMessageVolumeTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        SUM(CASE WHEN "eventName" = 'message.received' THEN 1 ELSE 0 END) as received,
+        SUM(CASE WHEN "eventName" = 'message.sent' THEN 1 ELSE 0 END) as sent
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" IN ('message.received', 'message.sent')
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      received: parseInt(r.received, 10) || 0,
+      sent: parseInt(r.sent, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get WhatsApp response time trend (median per period).
+   */
+  async getWhatsappResponseTimeTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    // Calculate median response time per period
+    const result = await this.repo.query(
+      `
+      WITH response_pairs AS (
+        SELECT 
+          r.timestamp as received_at,
+          s.timestamp as sent_at,
+          EXTRACT(EPOCH FROM (s.timestamp - r.timestamp)) / 60 as response_minutes
+        FROM events r
+        JOIN events s ON 
+          r."tenantId" = s."tenantId"
+          AND COALESCE(r."userId", r."externalId") = COALESCE(s."userId", s."externalId")
+          AND s.timestamp > r.timestamp
+          AND s.timestamp < r.timestamp + INTERVAL '30 minutes'
+        WHERE r."tenantId" = $1
+          AND r."eventName" = 'message.received'
+          AND s."eventName" = 'message.sent'
+          AND r.timestamp BETWEEN $2 AND $3
+      )
+      SELECT 
+        DATE_TRUNC($4, received_at) as period,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY response_minutes) as median_minutes,
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_minutes) as p95_minutes,
+        COUNT(*) as response_count
+      FROM response_pairs
+      WHERE response_minutes > 0
+      GROUP BY DATE_TRUNC($4, received_at)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      medianMinutes: parseFloat(r.median_minutes) || 0,
+      p95Minutes: parseFloat(r.p95_minutes) || 0,
+      responseCount: parseInt(r.response_count, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get WhatsApp read rate trend over time.
+   */
+  async getWhatsappReadRateTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        SUM(CASE WHEN "eventName" = 'message.sent' THEN 1 ELSE 0 END) as sent,
+        SUM(CASE WHEN "eventName" = 'message.read' THEN 1 ELSE 0 END) as read_count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" IN ('message.sent', 'message.read')
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => {
+      const sent = parseInt(r.sent, 10) || 0;
+      const readCount = parseInt(r.read_count, 10) || 0;
+      return {
+        period: r.period,
+        sent,
+        readCount,
+        readRate: sent > 0 ? (readCount / sent) * 100 : 0,
+      };
+    });
+  }
+
+  /**
+   * Get WhatsApp new contacts trend over time.
+   * Counts unique contacts whose first message was in each period.
+   */
+  async getWhatsappNewContactsTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      WITH first_contact AS (
+        SELECT 
+          COALESCE("userId", "externalId") as contact_id,
+          MIN(timestamp) as first_message_at
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'message.received'
+          AND COALESCE("userId", "externalId") IS NOT NULL
+        GROUP BY COALESCE("userId", "externalId")
+      )
+      SELECT 
+        DATE_TRUNC($4, first_message_at) as period,
+        COUNT(*) as new_contacts
+      FROM first_contact
+      WHERE first_message_at BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, first_message_at)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      newContacts: parseInt(r.new_contacts, 10) || 0,
+    }));
+  }
+
+  /**
+   * Get WhatsApp delivery funnel trend over time.
+   */
+  async getWhatsappFunnelTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        DATE_TRUNC($4, timestamp) as period,
+        SUM(CASE WHEN "eventName" = 'message.sent' THEN 1 ELSE 0 END) as sent,
+        SUM(CASE WHEN "eventName" = 'message.delivered' THEN 1 ELSE 0 END) as delivered,
+        SUM(CASE WHEN "eventName" = 'message.read' THEN 1 ELSE 0 END) as read_count,
+        SUM(CASE WHEN "eventName" = 'message.received' THEN 1 ELSE 0 END) as replied
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" IN ('message.sent', 'message.delivered', 'message.read', 'message.received')
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => {
+      const sent = parseInt(r.sent, 10) || 0;
+      const delivered = parseInt(r.delivered, 10) || 0;
+      const readCount = parseInt(r.read_count, 10) || 0;
+      const replied = parseInt(r.replied, 10) || 0;
+
+      return {
+        period: r.period,
+        sent,
+        delivered,
+        readCount,
+        replied,
+        deliveryRate: sent > 0 ? (delivered / sent) * 100 : 0,
+        readRate: delivered > 0 ? (readCount / delivered) * 100 : 0,
+        replyRate: readCount > 0 ? (replied / readCount) * 100 : 0,
+      };
+    });
+  }
 }

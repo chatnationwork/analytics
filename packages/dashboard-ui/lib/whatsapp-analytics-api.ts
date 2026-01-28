@@ -1,5 +1,7 @@
 import { fetchWithAuth } from './api';
 
+export type Granularity = 'day' | 'week' | 'month';
+
 export const whatsappAnalyticsApi = {
   getStats: async (startDate?: string, endDate?: string) => {
     const params = new URLSearchParams();
@@ -62,6 +64,34 @@ export const whatsappAnalyticsApi = {
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     return fetchWithAuth(`/whatsapp-analytics/conversation-length?${params.toString()}`);
+  },
+
+  // =============================================================================
+  // TREND ENDPOINTS
+  // =============================================================================
+
+  getMessageVolumeTrend: async (granularity: Granularity = 'day', periods: number = 30) => {
+    return fetchWithAuth(
+      `/whatsapp-analytics/trends/volume?granularity=${granularity}&periods=${periods}`,
+    );
+  },
+
+  getResponseTimeTrend: async (granularity: Granularity = 'day', periods: number = 30) => {
+    return fetchWithAuth(
+      `/whatsapp-analytics/trends/response-time?granularity=${granularity}&periods=${periods}`,
+    );
+  },
+
+  getReadRateTrend: async (granularity: Granularity = 'day', periods: number = 30) => {
+    return fetchWithAuth(
+      `/whatsapp-analytics/trends/read-rate?granularity=${granularity}&periods=${periods}`,
+    );
+  },
+
+  getNewContactsTrend: async (granularity: Granularity = 'day', periods: number = 30) => {
+    return fetchWithAuth(
+      `/whatsapp-analytics/trends/new-contacts?granularity=${granularity}&periods=${periods}`,
+    );
   },
 };
 

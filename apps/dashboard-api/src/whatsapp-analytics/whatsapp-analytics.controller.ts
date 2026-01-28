@@ -123,5 +123,61 @@ export class WhatsappAnalyticsController {
       endDate ? new Date(endDate) : undefined,
     );
   }
+
+  // =============================================================================
+  // TREND ENDPOINTS
+  // =============================================================================
+
+  @Get('trends/volume')
+  getMessageVolumeTrend(
+    @Request() req: any,
+    @Query('granularity') granularity?: string,
+    @Query('periods') periods?: string,
+  ) {
+    return this.service.getMessageVolumeTrend(
+      req.user.tenantId,
+      (granularity as 'day' | 'week' | 'month') || 'day',
+      periods ? parseInt(periods, 10) : 30,
+    );
+  }
+
+  @Get('trends/response-time')
+  getResponseTimeTrend(
+    @Request() req: any,
+    @Query('granularity') granularity?: string,
+    @Query('periods') periods?: string,
+  ) {
+    return this.service.getResponseTimeTrend(
+      req.user.tenantId,
+      (granularity as 'day' | 'week' | 'month') || 'day',
+      periods ? parseInt(periods, 10) : 30,
+    );
+  }
+
+  @Get('trends/read-rate')
+  getReadRateTrend(
+    @Request() req: any,
+    @Query('granularity') granularity?: string,
+    @Query('periods') periods?: string,
+  ) {
+    return this.service.getReadRateTrend(
+      req.user.tenantId,
+      (granularity as 'day' | 'week' | 'month') || 'day',
+      periods ? parseInt(periods, 10) : 30,
+    );
+  }
+
+  @Get('trends/new-contacts')
+  getNewContactsTrend(
+    @Request() req: any,
+    @Query('granularity') granularity?: string,
+    @Query('periods') periods?: string,
+  ) {
+    return this.service.getNewContactsTrend(
+      req.user.tenantId,
+      (granularity as 'day' | 'week' | 'month') || 'day',
+      periods ? parseInt(periods, 10) : 30,
+    );
+  }
 }
 
