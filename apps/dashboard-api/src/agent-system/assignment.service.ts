@@ -18,7 +18,12 @@ import {
   AgentProfileEntity,
   AgentStatus,
   AssignmentConfigEntity,
+  TenantMembershipEntity,
+  MembershipRole,
+  MessageDirection,
 } from '@lib/database';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { InboxService } from './inbox.service';
 
 export type AssignmentStrategy = 'round_robin' | 'load_balanced' | 'manual';
 
@@ -50,6 +55,10 @@ export class AssignmentService {
     private readonly agentRepo: Repository<AgentProfileEntity>,
     @InjectRepository(AssignmentConfigEntity)
     private readonly configRepo: Repository<AssignmentConfigEntity>,
+    @InjectRepository(TenantMembershipEntity)
+    private readonly tenantMembershipRepo: Repository<TenantMembershipEntity>,
+    private readonly whatsappService: WhatsappService,
+    private readonly inboxService: InboxService,
   ) {}
 
   /**
@@ -117,48 +126,62 @@ export class AssignmentService {
    * Gets available agents for assignment.
    * An agent is available if they are online and not at max capacity.
    */
+  /**
+   * Gets available agents for assignment using "Waterfall" Logic.
+   * 1. Check Team Members
+   * 2. Check General Members (Role: MEMBER)
+   * 3. Check Admins
+   * 4. Check Super Admins
+   * 
+   * Ignores "Online" status and Capacity for now (MVP).
+   */
+  /**
+   * Gets available agents using Configurable Waterfall Logic.
+   */
   private async getAvailableAgents(
     tenantId: string,
     teamId?: string,
-  ): Promise<AgentProfileEntity[]> {
-    let agentIds: string[] = [];
+  ): Promise<string[]> {
+    // 1. Fetch Config
+    const config = await this.configRepo.findOne({
+      where: { tenantId, teamId: undefined, enabled: true },
+    });
+    
+    // Default Waterfall Settings
+    const waterfall = config?.settings?.waterfall || {
+       levels: ['team', 'member', 'admin', 'super_admin'],
+       enabled: true
+    };
+    
+    // Ordered levels to check
+    const levelsToCheck = waterfall.levels || ['team', 'member', 'admin', 'super_admin'];
 
-    if (teamId) {
-      // Get agents in the team
-      const members = await this.memberRepo.find({
-        where: { teamId },
-        select: ['userId'],
-      });
-      agentIds = members.map((m) => m.userId);
+    for (const level of levelsToCheck) {
+        let foundIds: string[] = [];
+
+        if (level === 'team' && teamId) {
+             const teamMembers = await this.memberRepo.find({ where: { teamId }, select: ['userId'] });
+             foundIds = teamMembers.map(m => m.userId);
+             if (foundIds.length > 0) this.logger.log(`Found ${foundIds.length} agents in Team ${teamId}`);
+        } else if (level !== 'team') {
+             // Treat level as role
+             const role = level as MembershipRole; 
+             // Note: 'member' in stored settings maps to 'member' role, etc.
+             const members = await this.tenantMembershipRepo.find({
+                 where: { tenantId, role },
+                 select: ['userId']
+             });
+             foundIds = members.map(m => m.userId);
+             if (foundIds.length > 0) this.logger.log(`Found ${foundIds.length} users with role ${role}`);
+        }
+
+        if (foundIds.length > 0) {
+            return foundIds;
+        }
     }
 
-    // Query for online agents
-    const query = this.agentRepo
-      .createQueryBuilder('agent')
-      .where('agent.status = :status', { status: AgentStatus.ONLINE });
-
-    if (agentIds.length > 0) {
-      query.andWhere('agent.userId IN (:...agentIds)', { agentIds });
-    }
-
-    const agents = await query.getMany();
-
-    // Filter by capacity
-    const availableAgents: AgentProfileEntity[] = [];
-    for (const agent of agents) {
-      const openChats = await this.sessionRepo.count({
-        where: {
-          assignedAgentId: agent.userId,
-          status: SessionStatus.ASSIGNED,
-        },
-      });
-
-      if (openChats < agent.maxConcurrentChats) {
-        availableAgents.push(agent);
-      }
-    }
-
-    return availableAgents;
+    this.logger.warn('No agents found in configurable waterfall');
+    return [];
   }
 
   /**
@@ -168,23 +191,23 @@ export class AssignmentService {
     session: InboxSessionEntity,
   ): Promise<InboxSessionEntity | null> {
     const contextKey = session.assignedTeamId || session.tenantId;
-    const agents = await this.getAvailableAgents(
+    const agentIds = await this.getAvailableAgents(
       session.tenantId,
       session.assignedTeamId || undefined,
     );
 
-    if (agents.length === 0) {
+    if (agentIds.length === 0) {
       this.logger.warn('No available agents for round-robin assignment');
       return null;
     }
 
     const lastIndex = this.roundRobinContext[contextKey] ?? -1;
-    const nextIndex = (lastIndex + 1) % agents.length;
+    const nextIndex = (lastIndex + 1) % agentIds.length;
     this.roundRobinContext[contextKey] = nextIndex;
 
-    const selectedAgent = agents[nextIndex];
+    const selectedAgentId = agentIds[nextIndex];
 
-    session.assignedAgentId = selectedAgent.userId;
+    session.assignedAgentId = selectedAgentId;
     session.status = SessionStatus.ASSIGNED;
 
     return this.sessionRepo.save(session);
@@ -196,39 +219,40 @@ export class AssignmentService {
   private async assignLoadBalanced(
     session: InboxSessionEntity,
   ): Promise<InboxSessionEntity | null> {
-    const agents = await this.getAvailableAgents(
+    const agentIds = await this.getAvailableAgents(
       session.tenantId,
       session.assignedTeamId || undefined,
     );
 
-    if (agents.length === 0) {
+    if (agentIds.length === 0) {
       this.logger.warn('No available agents for load-balanced assignment');
       return null;
     }
 
     // Find agent with fewest open chats
     let minChats = Infinity;
-    let selectedAgent: AgentProfileEntity | null = null;
+    let selectedAgentId: string | null = null;
 
-    for (const agent of agents) {
+    for (const userId of agentIds) {
       const openChats = await this.sessionRepo.count({
         where: {
-          assignedAgentId: agent.userId,
+          assignedAgentId: userId,
           status: SessionStatus.ASSIGNED,
         },
       });
 
       if (openChats < minChats) {
         minChats = openChats;
-        selectedAgent = agent;
+        selectedAgentId = userId;
       }
     }
 
-    if (!selectedAgent) {
-      return null;
+    if (!selectedAgentId) {
+       // Should not happen if list > 0, unless all are somehow unavailable (not checked here)
+       selectedAgentId = agentIds[0];
     }
 
-    session.assignedAgentId = selectedAgent.userId;
+    session.assignedAgentId = selectedAgentId;
     session.status = SessionStatus.ASSIGNED;
 
     return this.sessionRepo.save(session);
@@ -257,10 +281,46 @@ export class AssignmentService {
     }
 
     await this.sessionRepo.save(session);
-
+    
     // Attempt auto-assignment
     const assigned = await this.assignSession(session);
 
-    return assigned || session;
+    if (assigned) {
+        return assigned;
+    }
+
+    // --- NO AGENT AVAILABLE HANDLING ---
+    
+    // 1. Fetch Config
+    const config = await this.configRepo.findOne({
+      where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
+    });
+
+    const waterfall = config?.settings?.waterfall;
+    const noAgentAction = waterfall?.noAgentAction || 'queue'; // 'queue' | 'reply'
+
+    if (noAgentAction === 'reply') {
+        const messageText = waterfall?.noAgentMessage || 'All of our agents are currently busy. We will get back to you shortly.';
+        
+        try {
+            // Send WA message
+            await this.whatsappService.sendMessage(session.contactId, messageText);
+            
+            // Record in Inbox
+            await this.inboxService.addMessage({
+                tenantId: session.tenantId,
+                sessionId: session.id,
+                contactId: session.contactId,
+                direction: MessageDirection.OUTBOUND,
+                content: messageText,
+                senderId: undefined // system
+            });
+            this.logger.log(`Sent no-agent fallback message to ${session.contactId}`);
+        } catch (e) {
+            this.logger.error('Failed to send no-agent fallback message', e);
+        }
+    }
+
+    return session;
   }
 }

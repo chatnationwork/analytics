@@ -23,6 +23,7 @@ import {
   AssignmentConfigEntity,
   UserEntity,
   RolePermissionEntity,
+  TenantMembershipEntity,
 } from '@lib/database';
 
 import { InboxService } from './inbox.service';
@@ -49,6 +50,7 @@ import { ApiKeysModule } from '../api-keys/api-keys.module';
       ShiftEntity,
       AssignmentConfigEntity,
       UserEntity,
+      TenantMembershipEntity,
     ]),
   ],
   controllers: [AgentInboxController, TeamController, IntegrationController],
