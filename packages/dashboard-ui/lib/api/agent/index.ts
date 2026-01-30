@@ -5,6 +5,12 @@ export interface Team {
   name: string;
   description?: string;
   memberCount?: number;
+  schedule?: {
+    timezone: string;
+    enabled: boolean;
+    outOfOfficeMessage?: string;
+    days: Record<string, Array<{ start: string; end: string }>>;
+  };
 }
 
 export interface TeamMember {
@@ -123,6 +129,13 @@ export const agentApi = {
     return fetchWithAuth<Team>("/agent/teams", {
       method: "POST",
       body: JSON.stringify({ name, description }),
+    });
+  },
+
+  updateTeam: async (teamId: string, data: Partial<Team>) => {
+    return fetchWithAuth<Team>(`/agent/teams/${teamId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
     });
   },
 

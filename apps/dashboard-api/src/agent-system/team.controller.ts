@@ -42,6 +42,12 @@ interface CreateTeamDto {
   name: string;
   description?: string;
   routingStrategy?: string;
+  schedule?: {
+    timezone: string;
+    enabled: boolean;
+    outOfOfficeMessage?: string;
+    days: Record<string, Array<{ start: string; end: string }>>;
+  };
 }
 
 /**

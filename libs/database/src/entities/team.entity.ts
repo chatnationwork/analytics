@@ -22,6 +22,18 @@ export class TeamEntity {
   @Column({ default: "round_robin" })
   routingStrategy: string;
 
+  /**
+   * Team Schedule Configuration
+   * Stores: timezone, working days, shifts, OOO message.
+   */
+  @Column("jsonb", { nullable: true })
+  schedule: {
+    timezone: string;
+    enabled: boolean;
+    outOfOfficeMessage?: string;
+    days: Record<string, Array<{ start: string; end: string }>>; // e.g. "monday": [{ start: "09:00", end: "17:00" }]
+  } | null;
+
   /** Whether this team is active (false = disabled) */
   @Column({ default: true })
   isActive: boolean;

@@ -70,13 +70,15 @@ function shouldRedirectOn401(): boolean {
 function scheduleAuthRedirect(reason: LogoutReason): void {
   if (typeof window === "undefined") return;
 
-  // Mark that we're redirecting
+  // Dispatch event for UI to handle (e.g. show modal)
+  window.dispatchEvent(new CustomEvent('auth:expired', { detail: { reason } }));
+
+  // Mark that we're redirecting (prevents repeated calls if multiple 401s occur)
   sessionStorage.setItem("auth_redirect_time", Date.now().toString());
 
-  // Use setTimeout to batch multiple 401s and only redirect once
-  setTimeout(() => {
-    logout(reason);
-  }, 100);
+  // REMOVED: Fallback setTimeout(() => logout(reason), 2000);
+  // We rely on the SessionExpiredDialog to handle the logout/login flow.
+  // Auto-redirecting here causes a reload loop if the user is already on a page triggering 401s.
 }
 
 export async function fetchWithAuth<T = any>(

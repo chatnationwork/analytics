@@ -281,6 +281,46 @@ export class AssignmentService {
     }
 
     await this.sessionRepo.save(session);
+
+    // CHECK SCHEDULE AVAILABILITY
+    if (teamId) {
+      const { isOpen, nextOpen, message } = await this.checkScheduleAvailability(teamId);
+      if (!isOpen) {
+          this.logger.log(`Team ${teamId} is closed. Next open: ${nextOpen}`);
+          
+          let action = 'queue';
+          if (nextOpen) {
+              const diffMs = nextOpen.getTime() - Date.now();
+              const diffHours = diffMs / (1000 * 60 * 60);
+              if (diffHours > 24) {
+                  action = 'ooo';
+              }
+          } else {
+              action = 'ooo'; // No known next shift
+          }
+
+          if (action === 'ooo') {
+               const oooMsg = message || "We are currently closed.";
+               try {
+                  await this.whatsappService.sendMessage(session.tenantId, session.contactId, oooMsg);
+                  await this.inboxService.addMessage({
+                      tenantId: session.tenantId,
+                      sessionId: session.id,
+                      contactId: session.contactId,
+                      direction: MessageDirection.OUTBOUND,
+                      content: oooMsg,
+                      senderId: undefined // system
+                  });
+               } catch (e) {
+                   this.logger.error("Failed to send OOO message", e);
+               }
+               return session; // Stop assignment
+          }
+           
+          // If 'queue', we just return the session without assigning.
+          return session; 
+      }
+    }
     
     // Attempt auto-assignment
     const assigned = await this.assignSession(session);
@@ -290,6 +330,15 @@ export class AssignmentService {
     }
 
     // --- NO AGENT AVAILABLE HANDLING ---
+
+    // Check Schedule first (if no agent was found immediately, or strictly enforce it?)
+    // Actually, we should check schedule BEFORE assignment attempts if we want to blocking OOO.
+    // But typically "Assignment" involves checking agents. If schedule says "Closed", we shouldn't even look for agents.
+    // Let's refactor to check schedule at the start of requestAssignment?
+    // User requirement: "on days where the team does now work we dont assign messages"
+    // So YES, check schedule first.
+
+    // Move logic up.
     
     // 1. Fetch Config
     const config = await this.configRepo.findOne({
@@ -322,5 +371,73 @@ export class AssignmentService {
     }
 
     return session;
+  }
+
+  /**
+   * Checks if the team is currently available based on its schedule.
+   */
+  async checkScheduleAvailability(teamId: string): Promise<{ isOpen: boolean; nextOpen?: Date; message?: string }> {
+      const team = await this.teamRepo.findOne({ where: { id: teamId } });
+      if (!team || !team.schedule || !team.schedule.enabled) {
+          return { isOpen: true }; // Default to open if no schedule
+      }
+
+      const { timezone, days, outOfOfficeMessage } = team.schedule;
+      
+      const now = new Date();
+      // Helper to get day/time in target zone
+      const getParts = (d: Date) => {
+          const options: Intl.DateTimeFormatOptions = { timeZone: timezone, weekday: 'long', hour: 'numeric', minute: 'numeric', hour12: false };
+          const formatter = new Intl.DateTimeFormat('en-US', options);
+          const parts = formatter.formatToParts(d);
+          const day = parts.find(p => p.type === 'weekday')?.value.toLowerCase() || '';
+          const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+          const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+          return { day, h, m, mins: h * 60 + m };
+      };
+
+      const current = getParts(now);
+      
+      // Check today's shifts
+      const dayShifts = days[current.day] || [];
+      for (const shift of dayShifts) {
+          const [startH, startM] = shift.start.split(':').map(Number);
+          const [endH, endM] = shift.end.split(':').map(Number);
+          const startMins = startH * 60 + startM;
+          const endMins = endH * 60 + endM;
+
+          if (current.mins >= startMins && current.mins < endMins) {
+              return { isOpen: true };
+          }
+      }
+
+      // Find next open slot
+      // Look up to 7 days ahead
+      for (let i = 0; i < 7; i++) {
+          // Construct date for "now + i days"
+          // Note: naive addition, simplified for MVP
+          const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+          const p = getParts(d);
+          const shifts = days[p.day] || [];
+          
+          for (const shift of shifts) {
+               const [startH, startM] = shift.start.split(':').map(Number);
+               const startMins = startH * 60 + startM;
+               
+               // If it's today (i=0), shift must be in future
+               if (i === 0 && startMins <= current.mins) continue;
+               
+               // Found next shift
+               // Calculate minutes until that shift
+               // (i * 24h) + (shiftStartMins - currentMins)
+               // Only works correctly if timezone doesn't change offset in these days (mostly fine)
+               const minutesUntil = (i * 24 * 60) + (startMins - current.mins);
+               const nextOpenDate = new Date(now.getTime() + minutesUntil * 60 * 1000);
+               
+               return { isOpen: false, nextOpen: nextOpenDate, message: outOfOfficeMessage };
+          }
+      }
+
+      return { isOpen: false, message: outOfOfficeMessage };
   }
 }

@@ -9,10 +9,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { agentApi, TeamMember } from "@/lib/api/agent";
+import { agentApi, TeamMember, Team } from "@/lib/api/agent";
 import { toast } from "sonner";
-import { Loader2, Trash2, UserX, UserCheck, Shield, User } from "lucide-react";
+import { Loader2, Trash2, UserX, UserCheck, Shield, User, Clock, Calendar, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// Removed ScrollArea import
+
 
 interface ManageTeamDialogProps {
   open: boolean;
@@ -30,20 +37,70 @@ interface ExtendedTeamMember extends TeamMember {
   joinedAt: string;
 }
 
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+// Get all valid IANA timezones
+const SUPPORTED_TIMEZONES = Intl.supportedValuesOf('timeZone');
+
 export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSuccess }: ManageTeamDialogProps) {
   const [members, setMembers] = useState<ExtendedTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  
+  // Schedule State: Days now support multiple shifts
+  const [scheduleConfig, setScheduleConfig] = useState<{
+      timezone: string;
+      enabled: boolean;
+      outOfOfficeMessage: string;
+      days: Record<string, { enabled: boolean; shifts: Array<{ start: string; end: string }> }>;
+  }>({
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      enabled: false,
+      outOfOfficeMessage: "We are currently closed.",
+      days: DAYS.reduce((acc, day) => ({ 
+          ...acc, 
+          [day]: { enabled: true, shifts: [{ start: "09:00", end: "17:00" }] } 
+      }), {})
+  });
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
-  const fetchMembers = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await agentApi.getTeamMembers(teamId);
-      // @ts-ignore - The API returns extended info but types need update
-      setMembers(data);
+      const [membersData, teamsData] = await Promise.all([
+          agentApi.getTeamMembers(teamId),
+          agentApi.getTeams() 
+      ]);
+      
+      const team = teamsData.find(t => t.id === teamId);
+      
+      // @ts-ignore
+      setMembers(membersData);
+
+      if (team && team.schedule) {
+          const loadedDays = { ...scheduleConfig.days };
+          
+          Object.entries(team.schedule.days).forEach(([day, shifts]) => {
+              if (shifts && shifts.length > 0) {
+                  loadedDays[day] = { enabled: true, shifts: shifts };
+              } else {
+                  // If explicit empty array in DB, it implies disabled for that day
+                  // But we want to show at least one disabled shift row for UI
+                  loadedDays[day] = { enabled: false, shifts: [{ start: "09:00", end: "17:00" }] };
+              }
+          });
+          
+          setScheduleConfig({
+              timezone: team.schedule.timezone || scheduleConfig.timezone,
+              enabled: team.schedule.enabled ?? false,
+              outOfOfficeMessage: team.schedule.outOfOfficeMessage || scheduleConfig.outOfOfficeMessage,
+              days: loadedDays
+          });
+      }
+
     } catch (error) {
-      console.error("Failed to fetch members:", error);
-      toast.error("Failed to load members");
+      console.error("Failed to fetch data:", error);
+      toast.error("Failed to load team data");
     } finally {
       setLoading(false);
     }
@@ -51,7 +108,7 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
 
   useEffect(() => {
     if (open) {
-      fetchMembers();
+      fetchData();
     }
   }, [open, teamId]);
 
@@ -65,14 +122,13 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
         await agentApi.enableTeamMember(teamId, member.userId);
         toast.success("Member enabled");
       }
-      fetchMembers();
+      fetchData();
     } catch (error) {
       toast.error("Failed to update status");
     } finally {
       setProcessingId(null);
     }
   };
-
 
   const handleDeactivateTeam = async () => {
     if (!confirm("Are you sure you want to deactivate this team? Members will be unassigned.")) return;
@@ -86,83 +142,297 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
     }
   };
 
+  const handleSaveSchedule = async () => {
+      setSavingSchedule(true);
+      try {
+          // Convert UI state to API format
+          const daysApi: Record<string, Array<{ start: string; end: string }>> = {};
+          Object.entries(scheduleConfig.days).forEach(([day, config]) => {
+              if (config.enabled && config.shifts.length > 0) {
+                  daysApi[day] = config.shifts;
+              } else {
+                  daysApi[day] = [];
+              }
+          });
+
+          await agentApi.updateTeam(teamId, {
+              schedule: {
+                  timezone: scheduleConfig.timezone,
+                  enabled: scheduleConfig.enabled,
+                  outOfOfficeMessage: scheduleConfig.outOfOfficeMessage,
+                  days: daysApi
+              }
+          });
+          toast.success("Schedule updated");
+      } catch (error) {
+          console.error(error);
+          toast.error("Failed to save schedule");
+      } finally {
+          setSavingSchedule(false);
+      }
+  };
+
+  const addShift = (day: string) => {
+      setScheduleConfig(prev => ({
+          ...prev,
+          days: {
+              ...prev.days,
+              [day]: {
+                  ...prev.days[day],
+                  shifts: [...prev.days[day].shifts, { start: "09:00", end: "13:00" }]
+              }
+          }
+      }));
+  };
+
+  const removeShift = (day: string, index: number) => {
+      setScheduleConfig(prev => {
+          const newShifts = [...prev.days[day].shifts];
+          newShifts.splice(index, 1);
+          return {
+              ...prev,
+              days: {
+                  ...prev.days,
+                  [day]: {
+                      ...prev.days[day],
+                      shifts: newShifts
+                  }
+              }
+          };
+      });
+  };
+
+  const updateShift = (day: string, index: number, field: 'start' | 'end', value: string) => {
+      setScheduleConfig(prev => {
+          const newShifts = [...prev.days[day].shifts];
+          newShifts[index] = { ...newShifts[index], [field]: value };
+          return {
+              ...prev,
+              days: {
+                  ...prev.days,
+                  [day]: {
+                      ...prev.days[day],
+                      shifts: newShifts
+                  }
+              }
+          };
+      });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manage Team: {teamName}</DialogTitle>
           <DialogDescription>
-            Manage members and team status.
+            Manage members, team status, and working schedule.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-            <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">
-                <span className="text-sm font-medium">Team Status</span>
-                <Button variant="destructive" size="sm" onClick={handleDeactivateTeam}>
-                    Deactivate Team
-                </Button>
-            </div>
+        <Tabs defaultValue="members" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="members">Members</TabsTrigger>
+                <TabsTrigger value="schedule">Schedule & Routing</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="members" className="space-y-4 py-4">
+                 <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">
+                    <span className="text-sm font-medium">Team Status</span>
+                    <Button variant="destructive" size="sm" onClick={handleDeactivateTeam}>
+                        Deactivate Team
+                    </Button>
+                </div>
 
-            <div className="space-y-2">
-                <h4 className="text-sm font-medium">Members</h4>
-                {loading ? (
-                    <div className="flex justify-center p-4">
-                        <Loader2 className="animate-spin h-5 w-5" />
-                    </div>
-                ) : members.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No members in this team.</p>
-                ) : (
-                    <div className="border rounded-md divide-y max-h-[300px] overflow-y-auto">
-                        {members.map((member) => (
-                            <div key={member.id} className="flex items-center justify-between p-3">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${member.isActive ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'}`}>
-                                        <User size={16} />
-                                    </div>
-                                    <div>
-                                        <div className="font-medium text-sm flex items-center gap-2">
-                                            {member.name}
-                                            {!member.isActive && <Badge variant="secondary" className="text-[10px] h-4">Disabled</Badge>}
+                <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Members</h4>
+                    {loading ? (
+                        <div className="flex justify-center p-4">
+                            <Loader2 className="animate-spin h-5 w-5" />
+                        </div>
+                    ) : members.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No members in this team.</p>
+                    ) : (
+                        <div className="border rounded-md divide-y max-h-[300px] overflow-y-auto">
+                            {members.map((member) => (
+                                <div key={member.id} className="flex items-center justify-between p-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${member.isActive ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-400'}`}>
+                                            <User size={16} />
                                         </div>
-                                        <div className="text-xs text-muted-foreground">{member.email}</div>
+                                        <div>
+                                            <div className="font-medium text-sm flex items-center gap-2">
+                                                {member.name}
+                                                {!member.isActive && <Badge variant="secondary" className="text-[10px] h-4">Disabled</Badge>}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">{member.email}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <div className="mr-2">
+                                            <Badge variant="outline" className="text-[10px]">
+                                                {member.role === 'manager' ? <Shield className="w-3 h-3 mr-1"/> : null}
+                                                {member.role}
+                                            </Badge>
+                                        </div>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            title={member.isActive ? "Disable Member" : "Enable Member"}
+                                            onClick={() => handleToggleStatus(member)}
+                                            disabled={!!processingId}
+                                        >
+                                            {processingId === member.userId ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : member.isActive ? (
+                                                <UserX className="h-4 w-4 text-amber-500" />
+                                            ) : (
+                                                <UserCheck className="h-4 w-4 text-green-500" />
+                                            )}
+                                        </Button>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    <div className="mr-2">
-                                        <Badge variant="outline" className="text-[10px]">
-                                            {member.role === 'manager' ? <Shield className="w-3 h-3 mr-1"/> : null}
-                                            {member.role}
-                                        </Badge>
-                                    </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        title={member.isActive ? "Disable Member" : "Enable Member"}
-                                        onClick={() => handleToggleStatus(member)}
-                                        disabled={!!processingId}
-                                    >
-                                        {processingId === member.userId ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : member.isActive ? (
-                                            <UserX className="h-4 w-4 text-amber-500" />
-                                        ) : (
-                                            <UserCheck className="h-4 w-4 text-green-500" />
-                                        )}
-                                    </Button>
-                                    
-                                    
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </TabsContent>
+            
+            <TabsContent value="schedule" className="space-y-4 py-4">
+                 <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="schedule-enabled" 
+                        checked={scheduleConfig.enabled}
+                        onCheckedChange={(checked) => setScheduleConfig(prev => ({ ...prev, enabled: !!checked }))}
+                      />
+                      <label 
+                        htmlFor="schedule-enabled" 
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Enable Working Hours & OOO Auto-Reply
+                      </label>
+                 </div>
+
+                 <div className={`space-y-4 ${!scheduleConfig.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                     <div className="grid gap-2">
+                         <Label htmlFor="timezone">Timezone</Label>
+                         <Select 
+                            value={scheduleConfig.timezone} 
+                            onValueChange={(val) => setScheduleConfig(prev => ({ ...prev, timezone: val }))}
+                         >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select Timezone" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[200px]">
+                                {SUPPORTED_TIMEZONES.map(tz => (
+                                    <SelectItem key={tz} value={tz}>
+                                        {tz.replace(/_/g, ' ')}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                         </Select>
+                     </div>
+
+                     <div className="grid gap-2">
+                         <Label htmlFor="ooo">Out of Office Message</Label>
+                         <Input 
+                            id="ooo" 
+                            value={scheduleConfig.outOfOfficeMessage} 
+                            onChange={(e) => setScheduleConfig(prev => ({ ...prev, outOfOfficeMessage: e.target.value }))}
+                         />
+                     </div>
+
+                     <div className="border rounded-md p-4 space-y-4">
+                         <Label className="mb-2 block">Weekly Schedule</Label>
+                         {DAYS.map(day => (
+                             <div key={day} className="flex flex-col gap-2 pb-2 border-b last:border-0">
+                                 <div className="flex items-center gap-4">
+                                     <div className="w-24 capitalize text-sm font-medium shrink-0">
+                                         <div className="flex items-center space-x-2">
+                                             <Checkbox 
+                                                id={`day-${day}`}
+                                                checked={scheduleConfig.days[day]?.enabled}
+                                                onCheckedChange={(checked) => {
+                                                    setScheduleConfig(prev => ({
+                                                        ...prev,
+                                                        days: {
+                                                            ...prev.days,
+                                                            [day]: { ...prev.days[day], enabled: !!checked }
+                                                        }
+                                                    }));
+                                                }}
+                                             />
+                                             <label htmlFor={`day-${day}`}>{day}</label>
+                                         </div>
+                                     </div>
+                                     
+                                     {/* Shifts */}
+                                     {scheduleConfig.days[day]?.enabled && (
+                                         <div className="flex-1 space-y-2">
+                                             {scheduleConfig.days[day].shifts.map((shift, idx) => (
+                                                 <div key={idx} className="flex items-center gap-2">
+                                                     <Input 
+                                                        type="time" 
+                                                        className="w-28 h-8 text-xs" 
+                                                        value={shift.start}
+                                                        onChange={(e) => updateShift(day, idx, 'start', e.target.value)}
+                                                     />
+                                                     <span className="text-xs text-muted-foreground">-</span>
+                                                     <Input 
+                                                        type="time" 
+                                                        className="w-28 h-8 text-xs" 
+                                                        value={shift.end}
+                                                        onChange={(e) => updateShift(day, idx, 'end', e.target.value)}
+                                                     />
+                                                     {scheduleConfig.days[day].shifts.length > 1 && (
+                                                         <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                                                            onClick={() => removeShift(day, idx)}
+                                                         >
+                                                             <X size={14} />
+                                                         </Button>
+                                                     )}
+                                                     {idx === scheduleConfig.days[day].shifts.length - 1 && (
+                                                         <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-muted-foreground hover:text-green-500"
+                                                            onClick={() => addShift(day)}
+                                                            title="Add Shift"
+                                                         >
+                                                             <Plus size={14} />
+                                                         </Button>
+                                                     )}
+                                                 </div>
+                                             ))}
+                                             {scheduleConfig.days[day].shifts.length === 0 && (
+                                                <Button variant="link" size="sm" onClick={() => addShift(day)} className="h-6 p-0 text-xs">
+                                                    + Add Hours
+                                                </Button>
+                                             )}
+                                         </div>
+                                     )}
+                                     
+                                     {!scheduleConfig.days[day]?.enabled && (
+                                         <span className="text-xs text-muted-foreground italic">Closed</span>
+                                     )}
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+                 
+                 <Button onClick={handleSaveSchedule} disabled={savingSchedule} className="w-full">
+                     {savingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                     Save Schedule
+                 </Button>
+            </TabsContent>
+        </Tabs>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            Done
           </Button>
         </DialogFooter>
       </DialogContent>

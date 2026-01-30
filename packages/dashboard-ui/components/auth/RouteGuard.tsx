@@ -20,7 +20,8 @@ export function RouteGuard({ children, permission, redirectTo = '/agent-inbox' }
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
-         // Should be handled by layout/middleware, but safe double check
+         console.warn(`Access denied. No user found. Redirecting to login...`);
+         router.replace('/login');
          return; 
       }
       

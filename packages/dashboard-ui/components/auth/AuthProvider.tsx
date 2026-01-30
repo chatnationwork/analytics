@@ -19,6 +19,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+import { SessionExpiredDialog } from "../session/SessionExpiredDialog";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout }}>
       {children}
+      <SessionExpiredDialog onLogout={logout} />
     </AuthContext.Provider>
   );
 }
