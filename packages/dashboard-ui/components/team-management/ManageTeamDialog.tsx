@@ -47,16 +47,24 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   
-  // Schedule State: Days now support multiple shifts
+  // Schedule & Routing State
   const [scheduleConfig, setScheduleConfig] = useState<{
       timezone: string;
       enabled: boolean;
       outOfOfficeMessage: string;
+      routingStrategy: string;
+      routingPriority: string[];
+      routingSortBy: string;
+      routingTimeWindow: string;
       days: Record<string, { enabled: boolean; shifts: Array<{ start: string; end: string }> }>;
   }>({
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       enabled: false,
       outOfOfficeMessage: "We are currently closed.",
+      routingStrategy: 'round_robin',
+      routingPriority: ['least_active', 'least_assigned'],
+      routingSortBy: 'name',
+      routingTimeWindow: 'all_time',
       days: DAYS.reduce((acc, day) => ({ 
           ...acc, 
           [day]: { enabled: true, shifts: [{ start: "09:00", end: "17:00" }] } 
@@ -94,8 +102,20 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
               timezone: team.schedule.timezone || scheduleConfig.timezone,
               enabled: team.schedule.enabled ?? false,
               outOfOfficeMessage: team.schedule.outOfOfficeMessage || scheduleConfig.outOfOfficeMessage,
+              routingStrategy: team.routingStrategy || 'round_robin',
+              routingPriority: team.routingConfig?.priority || ['least_active', 'least_assigned'],
+              routingSortBy: team.routingConfig?.sortBy || 'name',
+              routingTimeWindow: team.routingConfig?.timeWindow || 'all_time',
               days: loadedDays
           });
+      } else if (team) {
+           setScheduleConfig(prev => ({
+               ...prev,
+               routingStrategy: team.routingStrategy || 'round_robin',
+               routingPriority: team.routingConfig?.priority || ['least_active', 'least_assigned'],
+               routingSortBy: team.routingConfig?.sortBy || 'name',
+               routingTimeWindow: team.routingConfig?.timeWindow || 'all_time'
+           }));
       }
 
     } catch (error) {
@@ -161,6 +181,12 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
                   enabled: scheduleConfig.enabled,
                   outOfOfficeMessage: scheduleConfig.outOfOfficeMessage,
                   days: daysApi
+              },
+              routingStrategy: scheduleConfig.routingStrategy,
+              routingConfig: {
+                  priority: scheduleConfig.routingPriority,
+                  sortBy: scheduleConfig.routingSortBy,
+                  timeWindow: scheduleConfig.routingTimeWindow
               }
           });
           toast.success("Schedule updated");
@@ -298,11 +324,12 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
             </TabsContent>
             
             <TabsContent value="schedule" className="space-y-4 py-4">
+                 {/* --- Schedule Toggle --- */}
                  <div className="flex items-center space-x-2">
                       <Checkbox 
                         id="schedule-enabled" 
                         checked={scheduleConfig.enabled}
-                        onCheckedChange={(checked) => setScheduleConfig(prev => ({ ...prev, enabled: !!checked }))}
+                        onCheckedChange={(checked: boolean | string) => setScheduleConfig(prev => ({ ...prev, enabled: !!checked }))}
                       />
                       <label 
                         htmlFor="schedule-enabled" 
@@ -310,6 +337,123 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
                       >
                         Enable Working Hours & OOO Auto-Reply
                       </label>
+                 </div>
+                 
+                 {/* --- Routing Strategy Section --- */}
+                 <div className="border rounded-md p-4 space-y-4 bg-slate-50 dark:bg-slate-900/20">
+                     <h4 className="text-sm font-medium flex items-center gap-2">
+                        <Shield size={14} className="text-primary"/> 
+                        Assignment Logic
+                     </h4>
+                     <div className="grid gap-2">
+                         <Label>Routing Strategy</Label>
+                         <Select 
+                            value={scheduleConfig.routingStrategy} 
+                            onValueChange={(val) => setScheduleConfig(prev => ({ ...prev, routingStrategy: val }))}
+                         >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select Strategy" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="round_robin">Round Robin (Cyclical)</SelectItem>
+                                <SelectItem value="least_active">Least Active (Optimize for Availability)</SelectItem>
+                                <SelectItem value="least_assigned">Least Assigned (Load Balancing)</SelectItem>
+                                <SelectItem value="hybrid">Hybrid (Custom Priority)</SelectItem>
+                            </SelectContent>
+                         </Select>
+                         <p className="text-[10px] text-muted-foreground">
+                            {scheduleConfig.routingStrategy === 'round_robin' && "Assigns chats to agents in a standardized circular order."}
+                            {scheduleConfig.routingStrategy === 'least_active' && "Prioritizes agents with the fewest OPEN chats."}
+                            {scheduleConfig.routingStrategy === 'least_assigned' && "Prioritizes agents with the fewest TOTAL assignments (all time)."}
+                            {scheduleConfig.routingStrategy === 'hybrid' && "Uses a custom priority list. Falls back to Round Robin on ties."}
+                         </p>
+                     </div>
+
+                     {scheduleConfig.routingStrategy === 'round_robin' && (
+                         <div className="grid gap-2 pl-2 border-l-2 border-primary/20">
+                             <Label className="text-xs">Order Agents By</Label>
+                             <Select 
+                                value={scheduleConfig.routingSortBy} 
+                                onValueChange={(val) => setScheduleConfig(prev => ({ ...prev, routingSortBy: val }))}
+                             >
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="name">Name (A-Z)</SelectItem>
+                                    <SelectItem value="created_at">Join Date (Oldest First)</SelectItem>
+                                    <SelectItem value="random">Random (ID)</SelectItem>
+                                </SelectContent>
+                             </Select>
+                         </div>
+                     )}
+
+                     {scheduleConfig.routingStrategy === 'least_assigned' && (
+                         <div className="grid gap-2 pl-2 border-l-2 border-primary/20">
+                             <Label className="text-xs">Calculation Time Window</Label>
+                             <Select 
+                                value={scheduleConfig.routingTimeWindow} 
+                                onValueChange={(val) => setScheduleConfig(prev => ({ ...prev, routingTimeWindow: val }))}
+                             >
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="shift">Current Shift (Last 12h)</SelectItem>
+                                    <SelectItem value="day">Today</SelectItem>
+                                    <SelectItem value="week">This Week</SelectItem>
+                                    <SelectItem value="month">This Month</SelectItem>
+                                    <SelectItem value="all_time">All Time</SelectItem>
+                                </SelectContent>
+                             </Select>
+                         </div>
+                     )}
+
+                     {scheduleConfig.routingStrategy === 'hybrid' && (
+                         <div className="space-y-3 pl-2 border-l-2 border-primary/20">
+                             <Label className="text-xs">Priority Rules</Label>
+                             <div className="grid grid-cols-2 gap-2">
+                                 <div>
+                                    <Label className="text-[10px] text-muted-foreground">Primary Metric</Label>
+                                    <Select 
+                                        value={scheduleConfig.routingPriority[0]} 
+                                        onValueChange={(val) => setScheduleConfig(prev => {
+                                            const newPriority = [...prev.routingPriority];
+                                            newPriority[0] = val;
+                                            return { ...prev, routingPriority: newPriority };
+                                        })}
+                                    >
+                                        <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="least_active">Active Chats</SelectItem>
+                                            <SelectItem value="least_assigned">Total Assignments</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                 </div>
+                                 <div>
+                                    <Label className="text-[10px] text-muted-foreground">Secondary Metric</Label>
+                                    <Select 
+                                        value={scheduleConfig.routingPriority[1]} 
+                                        onValueChange={(val) => setScheduleConfig(prev => {
+                                            const newPriority = [...prev.routingPriority];
+                                            newPriority[1] = val;
+                                            return { ...prev, routingPriority: newPriority };
+                                        })}
+                                    >
+                                        <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="least_active">Active Chats</SelectItem>
+                                            <SelectItem value="least_assigned">Total Assignments</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                 </div>
+                             </div>
+                         </div>
+                     )}
                  </div>
 
                  <div className={`space-y-4 ${!scheduleConfig.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -351,7 +495,7 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
                                              <Checkbox 
                                                 id={`day-${day}`}
                                                 checked={scheduleConfig.days[day]?.enabled}
-                                                onCheckedChange={(checked) => {
+                                                onCheckedChange={(checked: boolean | string) => {
                                                     setScheduleConfig(prev => ({
                                                         ...prev,
                                                         days: {
@@ -425,7 +569,7 @@ export function ManageTeamDialog({ open, onOpenChange, teamId, teamName, onSucce
                  
                  <Button onClick={handleSaveSchedule} disabled={savingSchedule} className="w-full">
                      {savingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                     Save Schedule
+                     Save Settings
                  </Button>
             </TabsContent>
         </Tabs>

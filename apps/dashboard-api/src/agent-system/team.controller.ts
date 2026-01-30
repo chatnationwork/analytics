@@ -48,6 +48,9 @@ interface CreateTeamDto {
     outOfOfficeMessage?: string;
     days: Record<string, Array<{ start: string; end: string }>>;
   };
+  routingConfig?: {
+    priority: string[];
+  };
 }
 
 /**

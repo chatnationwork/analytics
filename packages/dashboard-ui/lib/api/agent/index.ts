@@ -11,6 +11,12 @@ export interface Team {
     outOfOfficeMessage?: string;
     days: Record<string, Array<{ start: string; end: string }>>;
   };
+  routingStrategy?: string; // 'round_robin' | 'least_active' | 'least_assigned' | 'hybrid'
+  routingConfig?: {
+    priority: string[];
+    sortBy?: string;
+    timeWindow?: string;
+  };
 }
 
 export interface TeamMember {

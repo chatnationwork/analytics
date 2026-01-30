@@ -31,7 +31,12 @@ export class TeamEntity {
     timezone: string;
     enabled: boolean;
     outOfOfficeMessage?: string;
-    days: Record<string, Array<{ start: string; end: string }>>; // e.g. "monday": [{ start: "09:00", end: "17:00" }]
+    days: Record<string, Array<{ start: string; end: string }>>;
+  } | null;
+
+  @Column("jsonb", { nullable: true })
+  routingConfig: {
+    priority: string[]; // e.g. ['active_chats', 'total_assignments']
   } | null;
 
   /** Whether this team is active (false = disabled) */

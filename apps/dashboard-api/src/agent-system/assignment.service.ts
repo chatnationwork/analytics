@@ -25,7 +25,7 @@ import {
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { InboxService } from './inbox.service';
 
-export type AssignmentStrategy = 'round_robin' | 'load_balanced' | 'manual';
+export type AssignmentStrategy = 'round_robin' | 'least_active' | 'least_assigned' | 'hybrid' | 'load_balanced' | 'manual';
 
 /**
  * Context for the round-robin strategy.
@@ -33,6 +33,17 @@ export type AssignmentStrategy = 'round_robin' | 'load_balanced' | 'manual';
  */
 interface RoundRobinContext {
   [teamOrTenantId: string]: number;
+}
+
+interface AgentMetrics {
+  activeCount: number;
+  totalCount: number;
+}
+
+interface AgentDetail {
+    id: string;
+    name: string;
+    createdAt: Date;
 }
 
 /**
@@ -68,7 +79,7 @@ export class AssignmentService {
   async assignSession(
     session: InboxSessionEntity,
   ): Promise<InboxSessionEntity | null> {
-    const strategy = await this.getStrategy(
+    const { strategy, config } = await this.getStrategyWithType(
       session.tenantId,
       session.assignedTeamId || undefined,
     );
@@ -80,8 +91,13 @@ export class AssignmentService {
     switch (strategy) {
       case 'round_robin':
         return this.assignRoundRobin(session);
-      case 'load_balanced':
-        return this.assignLoadBalanced(session);
+      case 'load_balanced': // Legacy alias
+      case 'least_active':
+        return this.assignLeastActive(session);
+      case 'least_assigned':
+        return this.assignLeastAssigned(session);
+      case 'hybrid':
+        return this.assignHybrid(session, config?.priority || ['least_active', 'least_assigned']);
       case 'manual':
         // Manual strategy means agents pick from queue, no auto-assignment
         return null;
@@ -92,25 +108,20 @@ export class AssignmentService {
   }
 
   /**
-   * Gets the assignment strategy for a team or tenant.
+   * Gets the assignment strategy and config for a team or tenant.
    */
-  private async getStrategy(
+  private async getStrategyWithType(
     tenantId: string,
     teamId?: string,
-  ): Promise<AssignmentStrategy> {
+  ): Promise<{ strategy: AssignmentStrategy; config?: any }> {
     // Check team-specific config first
     if (teamId) {
-      const teamConfig = await this.configRepo.findOne({
-        where: { tenantId, teamId, enabled: true },
-      });
-      if (teamConfig) {
-        return teamConfig.strategy as AssignmentStrategy;
-      }
-
-      // Check team's routing strategy
       const team = await this.teamRepo.findOne({ where: { id: teamId } });
       if (team) {
-        return team.routingStrategy as AssignmentStrategy;
+        return { 
+            strategy: team.routingStrategy as AssignmentStrategy,
+            config: team.routingConfig
+        };
       }
     }
 
@@ -119,13 +130,116 @@ export class AssignmentService {
       where: { tenantId, teamId: undefined, enabled: true },
     });
 
-    return (tenantConfig?.strategy as AssignmentStrategy) || 'round_robin';
+    return { strategy: (tenantConfig?.strategy as AssignmentStrategy) || 'round_robin' };
   }
 
   /**
-   * Gets available agents for assignment.
-   * An agent is available if they are online and not at max capacity.
+   * Gets the assignment strategy (backward compatibility helper)
    */
+  private async getStrategy(tenantId: string, teamId?: string): Promise<AssignmentStrategy> {
+      const { strategy } = await this.getStrategyWithType(tenantId, teamId);
+      return strategy;
+  }
+
+  /**
+   * Helper to fetch metrics for a list of agents
+   */
+  private async getAgentMetrics(agentIds: string[], timeWindow?: string): Promise<Map<string, AgentMetrics>> {
+      const metrics = new Map<string, AgentMetrics>();
+      
+      let startDate: Date | undefined;
+      const now = new Date();
+      
+      if (timeWindow) {
+          switch (timeWindow) {
+              case 'shift': 
+                  // Approximate "current shift" as last 12 hours for MVP
+                  startDate = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+                  break;
+              case 'day':
+                  startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                  break;
+              case 'week':
+                  const day = now.getDay();
+                  const diff = now.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+                  startDate = new Date(now.setDate(diff));
+                  startDate.setHours(0,0,0,0);
+                  break;
+              case 'month':
+                  startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                  break;
+              case 'all_time':
+              default:
+                  startDate = undefined;
+          }
+      }
+
+      for (const agentId of agentIds) {
+          // Initialize
+          metrics.set(agentId, { activeCount: 0, totalCount: 0 });
+
+          // Count Active (OPEN/ASSIGNED) - Always real-time
+          const active = await this.sessionRepo.count({
+              where: {
+                  assignedAgentId: agentId,
+                  status: SessionStatus.ASSIGNED
+              }
+          });
+
+          // Count Total (Historical)
+          const totalQuery = this.sessionRepo.createQueryBuilder('session')
+              .where('session.assignedAgentId = :agentId', { agentId });
+              
+          if (startDate) {
+              totalQuery.andWhere('session.assignedAt >= :startDate', { startDate });
+          }
+
+          const total = await totalQuery.getCount();
+          
+          metrics.set(agentId, { activeCount: active, totalCount: total });
+      }
+      return metrics;
+  }
+
+  /**
+   * Helper to fetch details for sorting
+   */
+  private async getAgentDetails(agentIds: string[]): Promise<AgentDetail[]> {
+      // We look in UserEntity via Member/Profile?
+      // Since `getAvailableAgents` returns userId, we can query UserEntity.
+      // But we don't have UserRepo injected? We have MemberRepo.
+      if (agentIds.length === 0) return [];
+
+      const members = await this.memberRepo.createQueryBuilder('member')
+          .leftJoinAndSelect('member.user', 'user')
+          .where('member.userId IN (:...ids)', { ids: agentIds })
+          .getMany();
+      
+      const details: AgentDetail[] = [];
+      const seen = new Set<string>();
+
+      // Also check tenant memberships if they are not team members (admins/etc)
+      // This is a bit tricky if they aren't in `memberRepo` (team members).
+      // For MVP, if they are assignable, they are likely team members or we'll miss their name sort.
+      // Fallback to ID for sorting if name not found.
+      
+      for (const m of members) {
+          if (m.user) {
+              details.push({ id: m.userId, name: m.user.name, createdAt: m.user.createdAt });
+              seen.add(m.userId);
+          }
+      }
+      
+      // If any missing (super admins not in team?), add placeholders
+      for (const id of agentIds) {
+          if (!seen.has(id)) {
+               details.push({ id, name: id, createdAt: new Date(0) });
+          }
+      }
+      
+      return details;
+  }
+
   /**
    * Gets available agents for assignment using "Waterfall" Logic.
    * 1. Check Team Members
@@ -134,9 +248,6 @@ export class AssignmentService {
    * 4. Check Super Admins
    * 
    * Ignores "Online" status and Capacity for now (MVP).
-   */
-  /**
-   * Gets available agents using Configurable Waterfall Logic.
    */
   private async getAvailableAgents(
     tenantId: string,
@@ -166,7 +277,6 @@ export class AssignmentService {
         } else if (level !== 'team') {
              // Treat level as role
              const role = level as MembershipRole; 
-             // Note: 'member' in stored settings maps to 'member' role, etc.
              const members = await this.tenantMembershipRepo.find({
                  where: { tenantId, role },
                  select: ['userId']
@@ -191,6 +301,8 @@ export class AssignmentService {
     session: InboxSessionEntity,
   ): Promise<InboxSessionEntity | null> {
     const contextKey = session.assignedTeamId || session.tenantId;
+    const { config } = await this.getStrategyWithType(session.tenantId, session.assignedTeamId);
+    
     const agentIds = await this.getAvailableAgents(
       session.tenantId,
       session.assignedTeamId || undefined,
@@ -199,6 +311,36 @@ export class AssignmentService {
     if (agentIds.length === 0) {
       this.logger.warn('No available agents for round-robin assignment');
       return null;
+    }
+
+    // SORTING Logic
+    // Default: 'name' (Alphabetical) as per user request? User said "name, order of date added".
+    // Default config should probably be 'name'.
+    const sortBy = config?.sortBy || 'name'; // 'name' | 'created_at' | 'random'
+
+    if (sortBy === 'random') {
+        // shuffle
+        // To maintain "Round Robin" ring with random sort, the ring changes every time? 
+        // No, Round Robin implies a STABLE ring. 
+        // "Random" usually means "Random Assignment", not RR.
+        // If "Round Robin based on Random", it means we randomize the order ONCE? No.
+        // Let's assume 'random' effectively means Random Assignment.
+        // But for RR consistency, we should stick to a stable field.
+        // If sorting by ID, it's stable.
+        agentIds.sort();
+    } else {
+        const details = await this.getAgentDetails(agentIds);
+        agentIds.sort((a, b) => {
+            const detailA = details.find(d => d.id === a);
+            const detailB = details.find(d => d.id === b);
+            if (!detailA || !detailB) return 0;
+
+            if (sortBy === 'created_at') {
+                return detailA.createdAt.getTime() - detailB.createdAt.getTime();
+            }
+            // Default name
+            return detailA.name.localeCompare(detailB.name);
+        });
     }
 
     const lastIndex = this.roundRobinContext[contextKey] ?? -1;
@@ -214,9 +356,9 @@ export class AssignmentService {
   }
 
   /**
-   * Load-balanced assignment: assigns to the agent with the fewest open chats.
+   * Least Active assignment: assigns to the agent with the fewest open chats.
    */
-  private async assignLoadBalanced(
+  private async assignLeastActive(
     session: InboxSessionEntity,
   ): Promise<InboxSessionEntity | null> {
     const agentIds = await this.getAvailableAgents(
@@ -224,38 +366,140 @@ export class AssignmentService {
       session.assignedTeamId || undefined,
     );
 
-    if (agentIds.length === 0) {
-      this.logger.warn('No available agents for load-balanced assignment');
-      return null;
-    }
+    if (agentIds.length === 0) return null;
 
-    // Find agent with fewest open chats
-    let minChats = Infinity;
-    let selectedAgentId: string | null = null;
+    const metrics = await this.getAgentMetrics(agentIds);
+    
+    // Sort by active count ASC, then Round Robin (index) -> actually simple sort is active ASC
+    // For tie-breaking to Round Robin, we need to defer to RR logic if min values are equal.
+    
+    // Find min active count
+    let minActive = Infinity;
+    metrics.forEach(m => {
+        if (m.activeCount < minActive) minActive = m.activeCount;
+    });
 
-    for (const userId of agentIds) {
-      const openChats = await this.sessionRepo.count({
-        where: {
-          assignedAgentId: userId,
-          status: SessionStatus.ASSIGNED,
-        },
+    // Get candidates with minActive
+    const candidates = agentIds.filter(id => metrics.get(id)?.activeCount === minActive);
+
+    // Pick one from candidates using Round Robin
+    return this.pickRoundRobinFromCandidates(session, candidates);
+  }
+
+  /**
+   * Least Assigned assignment: assigns to the agent with fewest total assignments.
+   */
+  private async assignLeastAssigned(
+    session: InboxSessionEntity,
+  ): Promise<InboxSessionEntity | null> {
+    const { config } = await this.getStrategyWithType(session.tenantId, session.assignedTeamId);
+    const timeWindow = config?.timeWindow || 'all_time';
+
+    const agentIds = await this.getAvailableAgents(
+      session.tenantId,
+      session.assignedTeamId || undefined,
+    );
+
+    if (agentIds.length === 0) return null;
+
+    const metrics = await this.getAgentMetrics(agentIds, timeWindow);
+    
+    let minTotal = Infinity;
+    metrics.forEach(m => {
+        if (m.totalCount < minTotal) minTotal = m.totalCount;
+    });
+
+    const candidates = agentIds.filter(id => metrics.get(id)?.totalCount === minTotal);
+
+    return this.pickRoundRobinFromCandidates(session, candidates);
+  }
+
+  /**
+   * Hybrid assignment: Sorts by User Priorities.
+   * Fallback to Round Robin on ties.
+   */
+  private async assignHybrid(
+    session: InboxSessionEntity,
+    priorities: string[]
+  ): Promise<InboxSessionEntity | null> {
+      const agentIds = await this.getAvailableAgents(
+        session.tenantId,
+        session.assignedTeamId || undefined,
+      );
+  
+      if (agentIds.length === 0) return null;
+  
+      const metrics = await this.getAgentMetrics(agentIds);
+      
+      // Sort agents
+      agentIds.sort((a, b) => {
+          const metricA = metrics.get(a)!;
+          const metricB = metrics.get(b)!;
+          
+          for (const priority of priorities) {
+              if (priority === 'least_active') {
+                  if (metricA.activeCount !== metricB.activeCount) return metricA.activeCount - metricB.activeCount;
+              }
+              if (priority === 'least_assigned') {
+                  if (metricA.totalCount !== metricB.totalCount) return metricA.totalCount - metricB.totalCount;
+              }
+          }
+          return 0; // Tie
       });
+  
+      // Find all top agents (first one + any ties)
+      const bestAgent = agentIds[0];
+      const metricBest = metrics.get(bestAgent)!;
+      
+      // Filter strictly for ties with the best agent
+      const candidates = agentIds.filter(id => {
+          const m = metrics.get(id)!;
+          // Must match match on ALL priorities
+          for (const priority of priorities) {
+            if (priority === 'least_active' && m.activeCount !== metricBest.activeCount) return false;
+            if (priority === 'least_assigned' && m.totalCount !== metricBest.totalCount) return false;
+          }
+          return true;
+      });
+  
+      return this.pickRoundRobinFromCandidates(session, candidates);
+  }
 
-      if (openChats < minChats) {
-        minChats = openChats;
-        selectedAgentId = userId;
-      }
-    }
+  /**
+   * Helper to perform Round Robin selection on a filtered subset of agents.
+   * Used for tie-breaking.
+   */
+  private async pickRoundRobinFromCandidates(session: InboxSessionEntity, candidates: string[]): Promise<InboxSessionEntity> {
+      // Sort candidates by ID for deterministic ring
+      candidates.sort();
 
-    if (!selectedAgentId) {
-       // Should not happen if list > 0, unless all are somehow unavailable (not checked here)
-       selectedAgentId = agentIds[0];
-    }
-
-    session.assignedAgentId = selectedAgentId;
-    session.status = SessionStatus.ASSIGNED;
-
-    return this.sessionRepo.save(session);
+      const contextKey = session.assignedTeamId || session.tenantId;
+      const lastIndex = this.roundRobinContext[contextKey] ?? -1;
+      
+      // We need to pick the "next" agent relative to the entire pool context, 
+      // OR just round robin within this candidate list?
+      // "When equal, default to round robin". 
+      // If we just RR within candidates, it works.
+      
+      // Simple local RR for candidates
+      // To prevent "starvation" or sticky assignment if candidates are always the same 2 people, 
+      // we need a persistent index for this group? 
+      // Or just rely on random? 
+      // User asked for "Round Robin". 
+      // Ideally we maintain the global pointer. 
+      // But candidates might change. 
+      // Let's just create a hash or increment a counter for the team to rotate through ties.
+      
+      const counter = this.roundRobinContext[contextKey] ?? 0;
+      const selectedId = candidates[counter % candidates.length];
+      
+      // Increment global counter
+      this.roundRobinContext[contextKey] = counter + 1;
+      
+      session.assignedAgentId = selectedId;
+      session.status = SessionStatus.ASSIGNED;
+      
+      return this.sessionRepo.save(session);
   }
 
   /**
