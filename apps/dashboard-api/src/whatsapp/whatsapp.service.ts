@@ -157,16 +157,19 @@ export class WhatsappService {
   /**
    * Send a WhatsApp message via Meta Cloud API (or Proxy)
    */
-  async sendMessage(to: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    const token = process.env.WHATSAPP_ACCESS_TOKEN;
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  async sendMessage(tenantId: string, to: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const integration = await this.crmService.getActiveIntegration(tenantId);
 
-    if (!token || !phoneNumberId) {
-      console.error('WhatsApp API credentials not configured (WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID)');
-      return { success: false, error: 'WhatsApp sending not configured' };
+    if (!integration || !integration.config?.phoneNumberId) {
+      console.error(`WhatsApp credentials not configured for tenant ${tenantId}`);
+      return { success: false, error: 'WhatsApp sending not configured for this tenant' };
     }
 
+    const { phoneNumberId } = integration.config;
+    const token = integration.apiKey; // Decrypted key
+
     // Using the URL provided by the user
+    // Note: If using custom provider from config, this could be dynamic, but for now we stick to the Meta proxy
     const url = `https://crm.chatnation.co.ke/api/meta/v21.0/${phoneNumberId}/messages`;
     
     // Clean phone number (remove + or spaces if needed, user snippet had 'cleanPhoneNumber' helper which I don't have, so I'll just trim)

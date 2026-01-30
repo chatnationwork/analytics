@@ -1,4 +1,3 @@
-
 import {
   Entity,
   Column,
@@ -6,22 +5,30 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
-} from 'typeorm';
-import { TeamMemberEntity } from './team-member.entity';
+} from "typeorm";
+import { TeamMemberEntity } from "./team-member.entity";
 
-@Entity('teams')
+@Entity("teams")
 export class TeamEntity {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
   @Column({ length: 100 })
   name: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   description: string;
 
-  @Column({ default: 'round_robin' })
+  @Column({ default: "round_robin" })
   routingStrategy: string;
+
+  /** Whether this team is active (false = disabled) */
+  @Column({ default: true })
+  isActive: boolean;
+
+  /** Whether this is the default team for the tenant (cannot be deleted) */
+  @Column({ default: false })
+  isDefault: boolean;
 
   @OneToMany(() => TeamMemberEntity, (member) => member.team)
   members: TeamMemberEntity[];
@@ -29,9 +36,9 @@ export class TeamEntity {
   @Column({ length: 50 })
   tenantId: string;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 }

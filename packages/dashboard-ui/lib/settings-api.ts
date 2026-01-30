@@ -12,6 +12,7 @@ export interface CrmIntegration {
   name: string;
   apiUrl: string;
   isActive: boolean;
+  config: Record<string, any> | null;
   lastConnectedAt: string | null;
   lastError: string | null;
   createdAt: string;
@@ -38,7 +39,7 @@ export const settingsApi = {
     return json.data;
   },
 
-  async createCrmIntegration(data: { name: string; apiUrl: string; apiKey: string }): Promise<CrmIntegration> {
+  async createCrmIntegration(data: { name: string; apiUrl: string; apiKey: string; config?: Record<string, any> }): Promise<CrmIntegration> {
     const res = await fetch(`${API_BASE_URL}/api/dashboard/crm-integrations`, {
       method: 'POST',
       headers: getHeaders(),

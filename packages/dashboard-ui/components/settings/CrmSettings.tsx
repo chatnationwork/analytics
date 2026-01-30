@@ -13,6 +13,8 @@ const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   apiUrl: z.string().url('Must be a valid URL'),
   apiKey: z.string().min(1, 'API Key is required'),
+  phoneNumberId: z.string().optional(),
+  phoneNumber: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -74,7 +76,14 @@ export function CrmSettings() {
   });
 
   const onSubmit = (data: FormData) => {
-    createMutation.mutate(data);
+    createMutation.mutate({
+      ...data,
+      config: {
+        provider: 'meta',
+        phoneNumberId: data.phoneNumberId,
+        phoneNumber: data.phoneNumber,
+      }
+    });
   };
 
   return (
@@ -105,7 +114,7 @@ export function CrmSettings() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
                 <input
                   {...register('name')}
-                  placeholder="e.g. Production CRM"
+                  placeholder="e.g. Production WhatsApp"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm py-2 px-3"
                 />
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
@@ -120,8 +129,28 @@ export function CrmSettings() {
                 {errors.apiUrl && <p className="text-red-500 text-xs mt-1">{errors.apiUrl.message}</p>}
               </div>
             </div>
+            
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number ID</label>
+                <input
+                  {...register('phoneNumberId')}
+                  placeholder="e.g. 100012345678901"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm py-2 px-3"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number</label>
+                <input
+                  {...register('phoneNumber')}
+                  placeholder="e.g. 254712345678"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm py-2 px-3"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">API Key</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">API Key / Access Token</label>
               <input
                 type="password"
                 {...register('apiKey')}
@@ -173,6 +202,9 @@ export function CrmSettings() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900 dark:text-white">{integration.name}</div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">{integration.apiUrl}</div>
+                    {integration.config?.phoneNumber && (
+                       <div className="text-xs text-gray-400 mt-0.5">WA: {integration.config.phoneNumber}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {integration.lastError ? (

@@ -9,7 +9,7 @@ export interface Team {
 
 export interface TeamMember {
   userId: string;
-  role: "member" | "lead";
+  role: "manager" | "agent" | "member" | "lead";
 }
 
 export interface InboxSession {
@@ -139,5 +139,29 @@ export const agentApi = {
 
   getTeamMembers: async (teamId: string) => {
     return fetchWithAuth<TeamMember[]>(`/agent/teams/${teamId}/members`);
+  },
+
+  disableTeam: async (teamId: string) => {
+    return fetchWithAuth(`/agent/teams/${teamId}/disable`, {
+      method: "PATCH",
+    });
+  },
+
+  disableTeamMember: async (teamId: string, userId: string) => {
+    return fetchWithAuth(`/agent/teams/${teamId}/members/${userId}/disable`, {
+      method: "PATCH",
+    });
+  },
+
+  enableTeamMember: async (teamId: string, userId: string) => {
+    return fetchWithAuth(`/agent/teams/${teamId}/members/${userId}/enable`, {
+      method: "PATCH",
+    });
+  },
+
+  removeTeamMember: async (teamId: string, userId: string) => {
+    return fetchWithAuth(`/agent/teams/${teamId}/members/${userId}`, {
+      method: "DELETE",
+    });
   },
 };

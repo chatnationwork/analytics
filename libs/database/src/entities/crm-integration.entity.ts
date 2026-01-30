@@ -59,6 +59,13 @@ export class CrmIntegrationEntity {
   apiUrl: string;
 
   /** 
+   * Provider-specific configuration.
+   * Stores: phoneNumberId, phoneNumber, wabaId, verifyToken, etc.
+   */
+  @Column('jsonb', { nullable: true })
+  config: Record<string, any> | null;
+
+  /** 
    * AES-256-GCM encrypted API key.
    * Format: iv:encryptedData:authTag (base64 encoded)
    */

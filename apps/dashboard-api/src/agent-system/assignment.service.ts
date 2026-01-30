@@ -304,7 +304,7 @@ export class AssignmentService {
         
         try {
             // Send WA message
-            await this.whatsappService.sendMessage(session.contactId, messageText);
+            await this.whatsappService.sendMessage(session.tenantId, session.contactId, messageText);
             
             // Record in Inbox
             await this.inboxService.addMessage({

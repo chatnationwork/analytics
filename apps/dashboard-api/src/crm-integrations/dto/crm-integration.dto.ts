@@ -24,6 +24,10 @@ export class CreateCrmIntegrationDto {
   @IsString()
   @MinLength(10, { message: 'API key seems too short' })
   apiKey: string;
+
+  /** Provider-specific config (e.g. WhatsApp IDs) */
+  @IsOptional()
+  config?: Record<string, any>;
 }
 
 /** Update an existing CRM integration */
@@ -46,6 +50,9 @@ export class UpdateCrmIntegrationDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  config?: Record<string, any>;
 }
 
 /** Response DTO (never exposes API key) */
@@ -54,6 +61,7 @@ export class CrmIntegrationResponseDto {
   name: string;
   apiUrl: string;
   isActive: boolean;
+  config: Record<string, any> | null;
   lastConnectedAt: string | null;
   lastError: string | null;
   createdAt: string;

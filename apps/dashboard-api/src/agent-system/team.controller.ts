@@ -5,8 +5,8 @@
  *
  * API endpoints for team management.
  * - List teams
- * - Create/update teams
- * - Manage team members
+ * - Create/update/disable teams
+ * - Manage team members (add, disable, enable)
  */
 
 import {
@@ -14,6 +14,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -21,11 +22,18 @@ import {
   UseGuards,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { TeamEntity, TeamMemberEntity, TeamRole, UserEntity } from '@lib/database';
+  ForbiddenException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import {
+  TeamEntity,
+  TeamMemberEntity,
+  TeamRole,
+  UserEntity,
+  TenantMembershipEntity,
+} from "@lib/database";
 
 /**
  * DTO for creating a team
@@ -47,7 +55,7 @@ interface AddMemberDto {
 /**
  * Controller for team management operations.
  */
-@Controller('agent/teams')
+@Controller("agent/teams")
 @UseGuards(JwtAuthGuard)
 export class TeamController {
   constructor(
@@ -57,28 +65,69 @@ export class TeamController {
     private readonly memberRepo: Repository<TeamMemberEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    @InjectRepository(TenantMembershipEntity)
+    private readonly tenantMembershipRepo: Repository<TenantMembershipEntity>,
   ) {}
 
   /**
-   * List all teams for the tenant
+   * List all teams for the tenant (with member counts)
    */
   @Get()
   async listTeams(@Request() req: { user: { tenantId: string } }) {
-    return this.teamRepo.find({
+    const teams = await this.teamRepo.find({
       where: { tenantId: req.user.tenantId },
-      relations: ['members'],
+      relations: ["members"],
+      order: { isDefault: "DESC", createdAt: "ASC" },
     });
+
+    // Add member counts (only active members)
+    return teams.map((team) => ({
+      ...team,
+      memberCount: team.members?.filter((m) => m.isActive).length || 0,
+      totalMemberCount: team.members?.length || 0,
+    }));
   }
 
   /**
-   * Get a specific team with members
+   * Get a specific team with members (including user details)
    */
-  @Get(':teamId')
-  async getTeam(@Param('teamId') teamId: string) {
-    return this.teamRepo.findOne({
+  @Get(":teamId")
+  async getTeam(@Param("teamId") teamId: string) {
+    const team = await this.teamRepo.findOne({
       where: { id: teamId },
-      relations: ['members', 'members.user'],
+      relations: ["members", "members.user"],
     });
+
+    if (!team) {
+      throw new NotFoundException("Team not found");
+    }
+
+    return {
+      ...team,
+      memberCount: team.members?.filter((m) => m.isActive).length || 0,
+      totalMemberCount: team.members?.length || 0,
+    };
+  }
+
+  /**
+   * Get all tenant members available for team assignment
+   */
+  @Get("available-members/list")
+  async getAvailableMembersForTeam(
+    @Request() req: { user: { tenantId: string } },
+  ) {
+    const memberships = await this.tenantMembershipRepo.find({
+      where: { tenantId: req.user.tenantId },
+      relations: ["user"],
+    });
+
+    return memberships.map((m) => ({
+      userId: m.userId,
+      name: m.user?.name || "Unknown",
+      email: m.user?.email || "",
+      role: m.role,
+      avatarUrl: m.user?.avatarUrl,
+    }));
   }
 
   /**
@@ -92,6 +141,8 @@ export class TeamController {
     const team = this.teamRepo.create({
       ...dto,
       tenantId: req.user.tenantId,
+      isActive: true,
+      isDefault: false,
     });
 
     return this.teamRepo.save(team);
@@ -100,69 +151,205 @@ export class TeamController {
   /**
    * Update a team
    */
-  @Put(':teamId')
+  @Put(":teamId")
   async updateTeam(
-    @Param('teamId') teamId: string,
+    @Param("teamId") teamId: string,
     @Body() dto: Partial<CreateTeamDto>,
   ) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException("Team not found");
+    }
+
     await this.teamRepo.update(teamId, dto);
     return this.teamRepo.findOne({ where: { id: teamId } });
   }
 
   /**
-   * Delete a team
+   * Disable a team (soft delete)
    */
-  @Delete(':teamId')
-  async deleteTeam(@Param('teamId') teamId: string) {
+  @Patch(":teamId/disable")
+  async disableTeam(@Param("teamId") teamId: string) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException("Team not found");
+    }
+
+    if (team.isDefault) {
+      throw new ForbiddenException("Cannot disable the default team");
+    }
+
+    await this.teamRepo.update(teamId, { isActive: false });
+    return { success: true, message: "Team disabled" };
+  }
+
+  /**
+   * Enable a team
+   */
+  @Patch(":teamId/enable")
+  async enableTeam(@Param("teamId") teamId: string) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException("Team not found");
+    }
+
+    await this.teamRepo.update(teamId, { isActive: true });
+    return { success: true, message: "Team enabled" };
+  }
+
+  /**
+   * Delete a team (hard delete - only for non-default teams)
+   */
+  @Delete(":teamId")
+  async deleteTeam(@Param("teamId") teamId: string) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException("Team not found");
+    }
+
+    if (team.isDefault) {
+      throw new ForbiddenException("Cannot delete the default team");
+    }
+
     await this.teamRepo.delete(teamId);
     return { success: true };
   }
 
   /**
+   * Get members of a team
+   */
+  @Get(":teamId/members")
+  async getMembers(@Param("teamId") teamId: string) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException("Team not found");
+    }
+
+    const members = await this.memberRepo.find({
+      where: { teamId },
+      relations: ["user"],
+      order: { joinedAt: "DESC" },
+    });
+
+    return members.map((m) => ({
+      id: m.id,
+      userId: m.userId,
+      name: m.user?.name || "Unknown",
+      email: m.user?.email || "",
+      role: m.role,
+      isActive: m.isActive,
+      joinedAt: m.joinedAt,
+    }));
+  }
+
+  /**
    * Add a member to a team
    */
-  @Post(':teamId/members')
-  async addMember(
-    @Param('teamId') teamId: string,
-    @Body() dto: AddMemberDto,
-  ) {
+  @Post(":teamId/members")
+  async addMember(@Param("teamId") teamId: string, @Body() dto: AddMemberDto) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException("Team not found");
+    }
+
     let targetUserId = dto.userId;
 
     // Check if input is email (simple regex or includes @)
-    if (targetUserId.includes('@')) {
-        const user = await this.userRepo.findOne({ where: { email: targetUserId } });
-        if (!user) {
-            throw new NotFoundException(`User with email ${targetUserId} not found. Please invite them first from Settings > Team.`);
-        }
-        targetUserId = user.id;
+    if (targetUserId.includes("@")) {
+      const user = await this.userRepo.findOne({
+        where: { email: targetUserId },
+      });
+      if (!user) {
+        throw new NotFoundException(
+          `User with email ${targetUserId} not found. Please invite them first from Settings > Team.`,
+        );
+      }
+      targetUserId = user.id;
     }
 
-    // Check if already a member
+    // Check if already a member (including disabled)
     const existing = await this.memberRepo.findOne({
-        where: { teamId, userId: targetUserId }
+      where: { teamId, userId: targetUserId },
     });
-    
+
     if (existing) {
-        throw new BadRequestException('User is already a member of this team');
+      // If member exists but is disabled, re-enable them
+      if (!existing.isActive) {
+        await this.memberRepo.update(existing.id, {
+          isActive: true,
+          role: dto.role || existing.role,
+        });
+        return this.memberRepo.findOne({
+          where: { id: existing.id },
+          relations: ["user"],
+        });
+      }
+      throw new BadRequestException(
+        "User is already an active member of this team",
+      );
     }
 
     const member = this.memberRepo.create({
       teamId,
       userId: targetUserId,
-      role: dto.role || TeamRole.MEMBER,
+      role: dto.role || TeamRole.AGENT,
+      isActive: true,
     });
 
-    return this.memberRepo.save(member);
+    const saved = await this.memberRepo.save(member);
+    return this.memberRepo.findOne({
+      where: { id: saved.id },
+      relations: ["user"],
+    });
   }
 
   /**
-   * Remove a member from a team
+   * Disable a member from a team (soft remove)
    */
-  @Delete(':teamId/members/:userId')
-  async removeMember(
-    @Param('teamId') teamId: string,
-    @Param('userId') userId: string,
+  @Patch(":teamId/members/:userId/disable")
+  async disableMember(
+    @Param("teamId") teamId: string,
+    @Param("userId") userId: string,
   ) {
+    const member = await this.memberRepo.findOne({ where: { teamId, userId } });
+    if (!member) {
+      throw new NotFoundException("Member not found in this team");
+    }
+
+    await this.memberRepo.update(member.id, { isActive: false });
+    return { success: true, message: "Member disabled from team" };
+  }
+
+  /**
+   * Enable a member in a team
+   */
+  @Patch(":teamId/members/:userId/enable")
+  async enableMember(
+    @Param("teamId") teamId: string,
+    @Param("userId") userId: string,
+  ) {
+    const member = await this.memberRepo.findOne({ where: { teamId, userId } });
+    if (!member) {
+      throw new NotFoundException("Member not found in this team");
+    }
+
+    await this.memberRepo.update(member.id, { isActive: true });
+    return { success: true, message: "Member enabled in team" };
+  }
+
+  /**
+   * Remove a member from a team (hard delete - use disable instead for most cases)
+   */
+  @Delete(":teamId/members/:userId")
+  async removeMember(
+    @Param("teamId") teamId: string,
+    @Param("userId") userId: string,
+  ) {
+    const member = await this.memberRepo.findOne({ where: { teamId, userId } });
+    if (!member) {
+      throw new NotFoundException("Member not found in this team");
+    }
+
     await this.memberRepo.delete({ teamId, userId });
     return { success: true };
   }
@@ -170,13 +357,21 @@ export class TeamController {
   /**
    * Update a member's role
    */
-  @Put(':teamId/members/:userId')
+  @Put(":teamId/members/:userId")
   async updateMemberRole(
-    @Param('teamId') teamId: string,
-    @Param('userId') userId: string,
+    @Param("teamId") teamId: string,
+    @Param("userId") userId: string,
     @Body() dto: { role: TeamRole },
   ) {
+    const member = await this.memberRepo.findOne({ where: { teamId, userId } });
+    if (!member) {
+      throw new NotFoundException("Member not found in this team");
+    }
+
     await this.memberRepo.update({ teamId, userId }, { role: dto.role });
-    return this.memberRepo.findOne({ where: { teamId, userId } });
+    return this.memberRepo.findOne({
+      where: { teamId, userId },
+      relations: ["user"],
+    });
   }
 }

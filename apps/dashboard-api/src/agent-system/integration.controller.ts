@@ -57,7 +57,7 @@ export class IntegrationController {
       const messageContent = dto.handoverMessage || 'Connecting you to an agent...';
       
       // Async send (fire and forget to not block api latency)
-      this.whatsappService.sendMessage(dto.contactId, messageContent)
+      this.whatsappService.sendMessage(tenantId, dto.contactId, messageContent)
         .catch(err => console.error('Failed to send handover message:', err));
 
       await this.inboxService.addMessage({

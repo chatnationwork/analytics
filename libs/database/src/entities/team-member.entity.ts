@@ -1,4 +1,3 @@
-
 import {
   Entity,
   Column,
@@ -7,48 +6,52 @@ import {
   JoinColumn,
   CreateDateColumn,
   Index,
-} from 'typeorm';
-import { UserEntity } from './user.entity';
-import { TeamEntity } from './team.entity';
+} from "typeorm";
+import { UserEntity } from "./user.entity";
+import { TeamEntity } from "./team.entity";
 
 export enum TeamRole {
-  MANAGER = 'manager',
-  AGENT = 'agent',
+  MANAGER = "manager",
+  AGENT = "agent",
   // Deprecated/Legacy
-  MEMBER = 'member', 
-  LEADER = 'leader',
-  ADMIN = 'admin',
-  SUB_ADMIN = 'sub_admin',
-  VIEWER = 'viewer',
+  MEMBER = "member",
+  LEADER = "leader",
+  ADMIN = "admin",
+  SUB_ADMIN = "sub_admin",
+  VIEWER = "viewer",
 }
 
-@Entity('team_members')
-@Index(['teamId', 'userId'], { unique: true })
+@Entity("team_members")
+@Index(["teamId", "userId"], { unique: true })
 export class TeamMemberEntity {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column('uuid')
+  @Column("uuid")
   teamId: string;
 
-  @ManyToOne(() => TeamEntity, (team) => team.members, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'teamId' })
+  @ManyToOne(() => TeamEntity, (team) => team.members, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "teamId" })
   team: TeamEntity;
 
-  @Column('uuid')
+  @Column("uuid")
   userId: string;
 
   @ManyToOne(() => UserEntity)
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: "userId" })
   user: UserEntity;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: TeamRole,
     default: TeamRole.MEMBER,
   })
   role: TeamRole;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  /** Whether this member is active in the team (false = disabled) */
+  @Column({ default: true })
+  isActive: boolean;
+
+  @CreateDateColumn({ type: "timestamptz" })
   joinedAt: Date;
 }

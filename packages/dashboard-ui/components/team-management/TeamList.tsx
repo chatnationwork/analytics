@@ -11,13 +11,26 @@ interface TeamListProps {
   onTeamUpdated: () => void;
 }
 
+import { ManageTeamDialog } from "./ManageTeamDialog";
+
+interface TeamListProps {
+  teams: Team[];
+  onTeamUpdated: () => void;
+}
+
 export function TeamList({ teams, onTeamUpdated }: TeamListProps) {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [isManageOpen, setIsManageOpen] = useState(false);
 
   const handleAddMember = (team: Team) => {
     setSelectedTeam(team);
     setIsAddMemberOpen(true);
+  };
+
+  const handleManageTeam = (team: Team) => {
+    setSelectedTeam(team);
+    setIsManageOpen(true);
   };
 
   return (
@@ -26,8 +39,8 @@ export function TeamList({ teams, onTeamUpdated }: TeamListProps) {
         <Card key={team.id} className="group hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xl font-bold">{team.name}</CardTitle>
-            <Button variant="ghost" size="icon" className="h-4 w-4">
-              <MoreVertical className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={() => handleManageTeam(team)}>
+               Manage
             </Button>
           </CardHeader>
           <CardContent>
@@ -52,13 +65,22 @@ export function TeamList({ teams, onTeamUpdated }: TeamListProps) {
       ))}
 
       {selectedTeam && (
-          <AddMemberDialog 
-              open={isAddMemberOpen} 
-              onOpenChange={setIsAddMemberOpen} 
-              teamId={selectedTeam.id}
-              teamName={selectedTeam.name}
-              onSuccess={onTeamUpdated}
-          />
+          <>
+            <AddMemberDialog 
+                open={isAddMemberOpen} 
+                onOpenChange={setIsAddMemberOpen} 
+                teamId={selectedTeam.id}
+                teamName={selectedTeam.name}
+                onSuccess={onTeamUpdated}
+            />
+            <ManageTeamDialog 
+                open={isManageOpen} 
+                onOpenChange={setIsManageOpen} 
+                teamId={selectedTeam.id}
+                teamName={selectedTeam.name}
+                onSuccess={onTeamUpdated}
+            />
+          </>
       )}
     </>
   );

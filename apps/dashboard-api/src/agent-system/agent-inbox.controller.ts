@@ -126,7 +126,7 @@ export class AgentInboxController {
     // Send via WhatsApp
     // Note: We only support TEXT messages for now via this internal API
     if (dto.type === "text" || !dto.type) {
-      await this.whatsappService.sendMessage(session.contactId, dto.content);
+      await this.whatsappService.sendMessage(req.user.tenantId, session.contactId, dto.content);
     }
 
     return this.inboxService.addMessage({

@@ -77,6 +77,7 @@ export class CrmIntegrationsService {
       apiUrl: dto.apiUrl.trim().replace(/\/$/, ''), // Remove trailing slash and whitespace
       apiKeyEncrypted,
       isActive: true,
+      config: dto.config || null,
     });
 
     this.logger.log(`Created CRM integration: ${integration.id} for tenant ${tenantId}`);
@@ -107,6 +108,7 @@ export class CrmIntegrationsService {
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.apiUrl !== undefined) updateData.apiUrl = dto.apiUrl.trim().replace(/\/$/, '');
     if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
+    if (dto.config !== undefined) updateData.config = dto.config;
     
     // Re-encrypt if API key is being updated
     if (dto.apiKey !== undefined) {
@@ -226,6 +228,26 @@ export class CrmIntegrationsService {
   }
 
   /**
+   * Get the active CRM integration for a tenant with DECRYPTED api key.
+   * INTERNAL USE ONLY.
+   */
+  async getActiveIntegration(tenantId: string) {
+    const integrations = await this.crmIntegrationRepository.findActiveByTenantId(tenantId);
+    const integration = integrations[0];
+
+    if (!integration) {
+      return null;
+    }
+
+    const apiKey = this.cryptoService.decrypt(integration.apiKeyEncrypted).trim();
+
+    return {
+      ...integration,
+      apiKey, // Decrypted key
+    };
+  }
+
+  /**
    * Convert entity to response DTO (hide sensitive data).
    */
   private toResponseDto(entity: {
@@ -233,6 +255,7 @@ export class CrmIntegrationsService {
     name: string;
     apiUrl: string;
     isActive: boolean;
+    config: Record<string, any> | null;
     lastConnectedAt: Date | null;
     lastError: string | null;
     createdAt: Date;
@@ -242,6 +265,7 @@ export class CrmIntegrationsService {
       name: entity.name,
       apiUrl: entity.apiUrl,
       isActive: entity.isActive,
+      config: entity.config,
       lastConnectedAt: entity.lastConnectedAt?.toISOString() ?? null,
       lastError: entity.lastError,
       createdAt: entity.createdAt.toISOString(),
