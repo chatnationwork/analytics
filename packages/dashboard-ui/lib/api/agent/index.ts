@@ -184,3 +184,49 @@ export const agentApi = {
     });
   },
 };
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  isSystem: boolean;
+  tenantId?: string;
+  permissions: string[];
+}
+
+export const roleApi = {
+  getRoles: async (tenantId?: string) => {
+    return fetchWithAuth<Role[]>("/settings/roles", {
+      headers: tenantId ? { 'x-tenant-id': tenantId } : {}
+    });
+  },
+
+  getPermissions: async (tenantId?: string) => {
+    return fetchWithAuth<string[]>("/settings/roles/permissions", {
+      headers: tenantId ? { 'x-tenant-id': tenantId } : {}
+    });
+  },
+
+  createRole: async (data: { name: string; description?: string; permissions: string[] }, tenantId?: string) => {
+    return fetchWithAuth<Role>("/settings/roles", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: tenantId ? { 'x-tenant-id': tenantId } : {}
+    });
+  },
+
+  updateRole: async (id: string, data: { name?: string; description?: string; permissions?: string[] }, tenantId?: string) => {
+    return fetchWithAuth<Role>(`/settings/roles/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+      headers: tenantId ? { 'x-tenant-id': tenantId } : {}
+    });
+  },
+
+  deleteRole: async (id: string, tenantId?: string) => {
+    return fetchWithAuth(`/settings/roles/${id}`, {
+      method: "DELETE",
+      headers: tenantId ? { 'x-tenant-id': tenantId } : {}
+    });
+  },
+};

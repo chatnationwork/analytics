@@ -5,11 +5,12 @@ import { CrmSettings } from '@/components/settings/CrmSettings';
 import { ApiKeySettings } from '@/components/settings/ApiKeySettings';
 import { TeamManagement } from '@/components/settings/team-management';
 import { SessionSettings } from '@/components/settings/SessionSettings';
+import { RolesSettings } from '@/components/settings/RolesSettings';
 import { fetchWithAuth } from '@/lib/api';
 import { usePermission } from '@/components/auth/PermissionContext';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'api-keys' | 'crm' | 'team' | 'session'>('api-keys');
+  const [activeTab, setActiveTab] = useState<'api-keys' | 'crm' | 'team' | 'session' | 'roles'>('api-keys');
   const [tenantId, setTenantId] = useState<string>('');
   
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function SettingsPage() {
     { id: 'crm' as const, label: 'CRM Integrations', permission: 'settings.manage' },
     { id: 'team' as const, label: 'Team', permission: 'teams.manage' },
     { id: 'session' as const, label: 'Session', permission: 'settings.manage' },
+    { id: 'roles' as const, label: 'Roles & Permissions', permission: 'settings.manage' },
   ];
 
   const tabs = allTabs.filter(tab => !tab.permission || can(tab.permission));
@@ -60,7 +62,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="border-b border-border">
-        <nav className="-mb-px flex gap-6">
+        <nav className="-mb-px flex gap-6 overflow-x-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -97,6 +99,11 @@ export default function SettingsPage() {
         {activeTab === 'session' && (
           <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
             <SessionSettings tenantId={tenantId} />
+          </div>
+        )}
+        {activeTab === 'roles' && (
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+            <RolesSettings tenantId={tenantId} />
           </div>
         )}
       </div>
