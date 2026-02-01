@@ -27,8 +27,8 @@ import {
 } from 'typeorm';
 import { UserEntity } from './user.entity';
 import { TenantEntity } from './tenant.entity';
+import { RoleEntity } from './role.entity';
 
-/** Available membership roles */
 /** Available membership roles */
 export type MembershipRole = 'super_admin' | 'admin' | 'auditor' | 'member';
 
@@ -64,4 +64,14 @@ export class TenantMembershipEntity {
   @ManyToOne(() => TenantEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenantId' })
   tenant: TenantEntity;
+
+
+
+  // New RBAC Link
+  @Column({ nullable: true })
+  roleId: string;
+
+  @ManyToOne(() => RoleEntity, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'roleId' })
+  roleRef: RoleEntity;
 }

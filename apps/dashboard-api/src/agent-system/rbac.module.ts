@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { RolePermissionEntity } from '@lib/database';
+import { RoleEntity, TenantMembershipEntity } from '@lib/database';
 import { RbacService } from './rbac.service';
+import { RoleController } from './role.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RolePermissionEntity]),
+    TypeOrmModule.forFeature([RoleEntity, TenantMembershipEntity]),
   ],
+  controllers: [RoleController],
   providers: [RbacService],
   exports: [RbacService],
 })

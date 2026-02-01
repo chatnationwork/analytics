@@ -1,15 +1,15 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { RolePermissionEntity, Permission, TeamRole } from '@lib/database';
+import { RoleEntity, Permission, TeamRole } from '@lib/database';
 
 @Injectable()
 export class RbacService implements OnModuleInit {
   private readonly logger = new Logger(RbacService.name);
 
   constructor(
-    @InjectRepository(RolePermissionEntity)
-    private readonly rolePermissionRepo: Repository<RolePermissionEntity>,
+    @InjectRepository(RoleEntity)
+    private readonly roleRepo: Repository<RoleEntity>,
   ) {}
 
   async onModuleInit() {
@@ -17,14 +17,11 @@ export class RbacService implements OnModuleInit {
   }
 
   /**
-   * Seed default permissions for defined roles if they don't exist.
+   * Seed default permissions into RoleEntity.
    */
   private async seedDefaultPermissions() {
-    this.logger.log('Seeding default RBAC permissions...');
+    this.logger.log('Seeding default RBAC roles...');
     
-    // Define default permissions mapping
-    // Note: We are defining both Global and Team roles here for simplicity in the permissions table.
-    // The application logic will check against the correct context (Tenant vs Team).
     const defaults: Record<string, Permission[]> = {
       // --- Global Roles ---
       'super_admin': Object.values(Permission), // Full access
@@ -40,7 +37,7 @@ export class RbacService implements OnModuleInit {
         Permission.ANALYTICS_VIEW,
         Permission.AUDIT_VIEW,
       ],
-      'member': [], // No global permissions (Agent System only)
+      'member': [],
 
       // --- Team Roles ---
       [TeamRole.MANAGER]: [
@@ -52,55 +49,80 @@ export class RbacService implements OnModuleInit {
       ],
       [TeamRole.AGENT]: [
         Permission.SESSION_VIEW,
-        Permission.SESSION_MANAGE, // Reply/Resolve
+        Permission.SESSION_MANAGE,
       ],
-      
-      // Legacy mappings (optional, for backward compat if needed)
-      // [TeamRole.MEMBER]: [Permission.SESSION_VIEW, Permission.SESSION_MANAGE],
     };
 
-    for (const [role, permissions] of Object.entries(defaults)) {
-      for (const permission of permissions) {
-        // Skip if permission is not in the Enum (safety check)
-        if (!Object.values(Permission).includes(permission)) {
-            this.logger.warn(`Skipping unknown permission: ${permission} for role ${role}`);
-            continue;
-        }
-
-        const exists = await this.rolePermissionRepo.findOne({
-          where: { role, permission },
+    for (const [roleName, permissions] of Object.entries(defaults)) {
+        // Find existing role by name (system roles usually)
+        // Ideally we should match by isSystem too, but name is unique identifier for fallback
+        let role = await this.roleRepo.findOne({
+            where: { name: roleName, isSystem: true }
         });
 
-        if (!exists) {
-            await this.rolePermissionRepo.save({
-                role,
-                permission,
+        if (!role) {
+            // Create if missing
+            this.logger.log(`Creating system role: ${roleName}`);
+            role = this.roleRepo.create({
+                name: roleName,
+                isSystem: true,
+                description: `System role: ${roleName}`,
+                permissions: permissions as string[],
             });
+            await this.roleRepo.save(role);
+        } else {
+            // Optional: Update permissions for system roles to match code updates?
+            // "those too will be configurable" -> User might have edited them.
+            // If user edited system role permissions, we shouldn't overwrite them blindly.
+            // But if we add NEW permissions to the code, how do they get it?
+            // MVP: Assuming system roles are fixed definitions for now, OR we only seed if missing.
+            // User requested: "default roles we create with permissions, those too will be configurable".
+            // So we should NOT overwrite if exists.
         }
-      }
     }
     
-    this.logger.log('RBAC permissions seeded.');
+    this.logger.log('RBAC roles seeded.');
   }
 
   /**
    * Check if a role has a specific permission.
-   * Checks database for dynamic permissions.
+   * If tenantId is provided, checks for tenant-specific role override first.
    */
-  async hasPermission(role: string, permission: Permission): Promise<boolean> {
-    const count = await this.rolePermissionRepo.count({
-        where: { role, permission }
-    });
-    return count > 0;
+  async hasPermission(roleName: string, permission: Permission, tenantId?: string): Promise<boolean> {
+    let role: RoleEntity | null = null;
+
+    // 1. Try to find tenant-specific override if context provided
+    if (tenantId) {
+        role = await this.roleRepo.findOne({ where: { name: roleName, tenantId } });
+    }
+
+    // 2. Fallback to system role
+    if (!role) {
+        role = await this.roleRepo.findOne({ where: { name: roleName, isSystem: true } });
+    }
+    
+    if (!role) {
+        return false;
+    }
+
+    // 3. Check JSON array
+    return role.permissions.includes(permission);
   }
 
   /**
    * Get all permissions for a specific role.
    */
-  async getPermissionsForRole(role: string): Promise<string[]> {
-      const perms = await this.rolePermissionRepo.find({
-          where: { role }
-      });
-      return perms.map(p => p.permission);
+  async getPermissionsForRole(roleName: string): Promise<string[]> {
+      const role = await this.roleRepo.findOne({ where: { name: roleName } });
+      if (!role) return [];
+      return role.permissions;
+  }
+  
+  /**
+   * Helper to get Role ID by name (for strict FK usage)
+   */
+  async getRoleIdByName(roleName: string): Promise<string | null> {
+      const role = await this.roleRepo.findOne({ where: { name: roleName } });
+      return role ? role.id : null;
   }
 }

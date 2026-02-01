@@ -53,10 +53,10 @@ import { ResolutionEntity } from './entities/resolution.entity';
 import { ShiftEntity } from './entities/shift.entity';
 import { AssignmentConfigEntity } from './entities/assignment-config.entity';
 import { RolePermissionEntity } from './entities/role-permission.entity';
+import { RoleEntity } from './entities/role.entity';
 import { EventRepository } from './repositories/event.repository';
 import { SessionRepository } from './repositories/session.repository';
 import { ProjectRepository } from './repositories/project.repository';
-
 import { UserRepository } from './repositories/user.repository';
 import { TenantRepository } from './repositories/tenant.repository';
 import { CrmIntegrationRepository } from './repositories/crm-integration.repository';
@@ -86,6 +86,7 @@ const entities = [
   ShiftEntity,
   AssignmentConfigEntity,
   RolePermissionEntity,
+  RoleEntity,
 ];
 
 

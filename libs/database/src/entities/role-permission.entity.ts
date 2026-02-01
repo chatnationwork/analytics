@@ -7,22 +7,8 @@ import {
   Index,
 } from 'typeorm';
 
-export enum Permission {
-  // Global Permissions
-  ANALYTICS_VIEW = 'analytics.view',
-  ANALYTICS_EXPORT = 'analytics.export',
-  SETTINGS_MANAGE = 'settings.manage',
-  USERS_MANAGE = 'users.manage',
-  TEAMS_MANAGE = 'teams.manage',
-  AUDIT_VIEW = 'audit.view',
-
-  // Team Permissions (Scoped)
-  TEAM_SETTINGS = 'team.settings',
-  TEAM_ANALYTICS = 'team.analytics',
-  SESSION_VIEW = 'session.view',
-  SESSION_MANAGE = 'session.manage',
-  AGENT_ASSIGN = 'agent.assign',
-}
+import { Permission } from './role.entity';
+export { Permission };
 
 @Entity('role_permissions')
 @Index(['role', 'permission'], { unique: true })

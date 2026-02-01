@@ -42,3 +42,4 @@ export * from './crm-integration.entity';
 export * from './api-key.entity';
 export * from './invitation.entity';
 export * from './role-permission.entity';
+export * from './role.entity';
