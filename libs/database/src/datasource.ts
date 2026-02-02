@@ -1,7 +1,6 @@
-
-import { DataSource } from 'typeorm';
-import * as dotenv from 'dotenv';
-import { expand } from 'dotenv-expand';
+import { DataSource } from "typeorm";
+import * as dotenv from "dotenv";
+import { expand } from "dotenv-expand";
 import {
   UserEntity,
   EventEntity,
@@ -22,19 +21,20 @@ import {
   ShiftEntity,
   AssignmentConfigEntity,
   RolePermissionEntity,
-} from './entities';
+  RoleEntity,
+} from "./entities";
 
 // Load environment variables
-const env = dotenv.config({ path: '.env' });
+const env = dotenv.config({ path: ".env" });
 expand(env);
 
 export const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_DATABASE || 'analytics',
+  type: "postgres",
+  host: process.env.DB_HOST || "localhost",
+  port: parseInt(process.env.DB_PORT || "5432", 10),
+  username: process.env.DB_USERNAME || "postgres",
+  password: process.env.DB_PASSWORD || "postgres",
+  database: process.env.DB_DATABASE || "analytics",
   entities: [
     UserEntity,
     EventEntity,
@@ -55,7 +55,8 @@ export const AppDataSource = new DataSource({
     ShiftEntity,
     AssignmentConfigEntity,
     RolePermissionEntity,
+    RoleEntity,
   ],
-  migrations: ['libs/database/src/migrations/*.ts'],
+  migrations: ["libs/database/src/migrations/*.ts"],
   synchronize: false,
 });
