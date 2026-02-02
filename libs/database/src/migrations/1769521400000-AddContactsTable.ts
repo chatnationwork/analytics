@@ -17,10 +17,10 @@ export class AddContactsTable1769521400000 implements MigrationInterface {
           CONSTRAINT "PK_contacts_tenant_contact" PRIMARY KEY ("tenantId", "contactId")
         )
       `);
-      await queryRunner.query(
-        `CREATE INDEX "IDX_contacts_tenant_lastSeen" ON "contacts" ("tenantId", "lastSeen")`,
-      );
     }
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_contacts_tenant_lastSeen" ON "contacts" ("tenantId", "lastSeen")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
