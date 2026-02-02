@@ -44,6 +44,7 @@ const navGroups = [
     items: [
       { href: "/agent-inbox", label: "Inbox", icon: Inbox },
       { href: "/contacts", label: "Contacts", icon: Contact },
+      { href: "/agent-status", label: "Agent Status", icon: Users },
       { href: "/agent-analytics", label: "Agent Analytics", icon: BarChart2 },
       { href: "/team-management", label: "Teams", icon: Users },
     ],
