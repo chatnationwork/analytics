@@ -39,6 +39,24 @@ export class TeamEntity {
     priority: string[]; // e.g. ['active_chats', 'total_assignments']
   } | null;
 
+  /**
+   * Wrap-up report config for agents when resolving a chat.
+   * When enabled, agents see this team's wrap-up form (configurable fields); mandatory requires filling before resolve.
+   */
+  @Column("jsonb", { nullable: true })
+  wrapUpReport: {
+    enabled: boolean;
+    mandatory: boolean;
+    fields?: Array<{
+      id: string;
+      type: "select" | "text" | "textarea";
+      label: string;
+      required: boolean;
+      placeholder?: string;
+      options?: Array<{ value: string; label: string }>;
+    }>;
+  } | null;
+
   /** Whether this team is active (false = disabled) */
   @Column({ default: true })
   isActive: boolean;

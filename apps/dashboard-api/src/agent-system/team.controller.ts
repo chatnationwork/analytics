@@ -51,6 +51,18 @@ interface CreateTeamDto {
   routingConfig?: {
     priority: string[];
   };
+  wrapUpReport?: {
+    enabled: boolean;
+    mandatory: boolean;
+    fields?: Array<{
+      id: string;
+      type: "select" | "text" | "textarea";
+      label: string;
+      required: boolean;
+      placeholder?: string;
+      options?: Array<{ value: string; label: string }>;
+    }>;
+  } | null;
 }
 
 /**

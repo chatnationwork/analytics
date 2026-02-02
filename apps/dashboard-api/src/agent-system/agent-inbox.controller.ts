@@ -37,12 +37,15 @@ interface SendMessageDto {
 }
 
 /**
- * DTO for resolving a session
+ * DTO for resolving a session.
+ * Use category/notes for legacy/default form, or wrapUpData when team uses custom wrap-up fields.
  */
 interface ResolveSessionDto {
-  category: string;
+  category?: string;
   notes?: string;
   outcome?: string;
+  /** Dynamic field values (field id -> value) when team uses custom wrap-up fields */
+  wrapUpData?: Record<string, string>;
 }
 
 /**
@@ -126,7 +129,11 @@ export class AgentInboxController {
     // Send via WhatsApp
     // Note: We only support TEXT messages for now via this internal API
     if (dto.type === "text" || !dto.type) {
-      await this.whatsappService.sendMessage(req.user.tenantId, session.contactId, dto.content);
+      await this.whatsappService.sendMessage(
+        req.user.tenantId,
+        session.contactId,
+        dto.content,
+      );
     }
 
     return this.inboxService.addMessage({
@@ -164,6 +171,7 @@ export class AgentInboxController {
       category: dto.category,
       notes: dto.notes,
       outcome: dto.outcome,
+      wrapUpData: dto.wrapUpData,
     });
   }
 

@@ -17,7 +17,13 @@ import { ChatWindow } from "@/components/agent-inbox/ChatWindow";
 import { MessageInput } from "@/components/agent-inbox/MessageInput";
 import { ResolveDialog } from "@/components/agent-inbox/ResolveDialog";
 import { TransferDialog } from "@/components/agent-inbox/TransferDialog";
-import { agentApi, InboxSession, Message, InboxFilter } from "@/lib/api/agent";
+import {
+  agentApi,
+  InboxSession,
+  Message,
+  InboxFilter,
+  TeamWrapUpReport,
+} from "@/lib/api/agent";
 import { authClient } from "@/lib/auth-client";
 
 const FILTER_TABS: {
@@ -46,6 +52,9 @@ export default function AgentInboxPage() {
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [resolveWrapUpConfig, setResolveWrapUpConfig] = useState<
+    TeamWrapUpReport | null | undefined
+  >(undefined);
 
   // Fetch current user ID on mount
   useEffect(() => {
@@ -136,9 +145,10 @@ export default function AgentInboxPage() {
   };
 
   const handleResolveSession = async (data: {
-    category: string;
+    category?: string;
     notes?: string;
     outcome?: string;
+    wrapUpData?: Record<string, string>;
   }) => {
     if (!selectedSessionId) return;
 
@@ -287,7 +297,21 @@ export default function AgentInboxPage() {
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => setShowResolveDialog(true)}
+                      onClick={async () => {
+                        if (selectedSession?.assignedTeamId) {
+                          try {
+                            const team = await agentApi.getTeam(
+                              selectedSession.assignedTeamId,
+                            );
+                            setResolveWrapUpConfig(team.wrapUpReport ?? null);
+                          } catch {
+                            setResolveWrapUpConfig(null);
+                          }
+                        } else {
+                          setResolveWrapUpConfig(null);
+                        }
+                        setShowResolveDialog(true);
+                      }}
                       className="gap-1.5 bg-green-600 hover:bg-green-700"
                     >
                       <CheckCircle className="h-4 w-4" />
@@ -321,6 +345,7 @@ export default function AgentInboxPage() {
         onClose={() => setShowResolveDialog(false)}
         onResolve={handleResolveSession}
         contactName={selectedSession?.contactName || selectedSession?.contactId}
+        wrapUpConfig={resolveWrapUpConfig}
       />
 
       {/* Transfer Dialog */}

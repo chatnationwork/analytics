@@ -1,9 +1,8 @@
-
-const API_BASE_URL = ''; // Relative path for proxy
+const API_BASE_URL = ""; // Relative path for proxy
 
 const getHeaders = () => {
   return {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
 };
 
@@ -11,6 +10,10 @@ export interface CrmIntegration {
   id: string;
   name: string;
   apiUrl: string;
+  /** Link to this CRM's webview base pages (for sending users to webview) */
+  webLink: string | null;
+  /** CSAT survey link sent when chat is resolved. If not set, uses webLink + '/csat'. */
+  csatLink: string | null;
   isActive: boolean;
   config: Record<string, any> | null;
   lastConnectedAt: string | null;
@@ -22,7 +25,7 @@ export interface ApiKey {
   id: string;
   name: string;
   keyPrefix: string;
-  type: 'write' | 'read';
+  type: "write" | "read";
   isActive: boolean;
   lastUsedAt: string | null;
   createdAt: string;
@@ -34,36 +37,51 @@ export const settingsApi = {
     const res = await fetch(`${API_BASE_URL}/api/dashboard/crm-integrations`, {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to fetch CRM integrations');
+    if (!res.ok) throw new Error("Failed to fetch CRM integrations");
     const json = await res.json();
     return json.data;
   },
 
-  async createCrmIntegration(data: { name: string; apiUrl: string; apiKey: string; config?: Record<string, any> }): Promise<CrmIntegration> {
+  async createCrmIntegration(data: {
+    name: string;
+    apiUrl: string;
+    apiKey: string;
+    webLink?: string;
+    csatLink?: string;
+    config?: Record<string, any>;
+  }): Promise<CrmIntegration> {
     const res = await fetch(`${API_BASE_URL}/api/dashboard/crm-integrations`, {
-      method: 'POST',
+      method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to create CRM integration');
+    if (!res.ok) throw new Error("Failed to create CRM integration");
     const json = await res.json();
     return json.data;
   },
 
   async deleteCrmIntegration(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/api/dashboard/crm-integrations/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to delete CRM integration');
+    const res = await fetch(
+      `${API_BASE_URL}/api/dashboard/crm-integrations/${id}`,
+      {
+        method: "DELETE",
+        headers: getHeaders(),
+      },
+    );
+    if (!res.ok) throw new Error("Failed to delete CRM integration");
   },
 
-  async testCrmConnection(id: string): Promise<{ success: boolean; message: string }> {
-    const res = await fetch(`${API_BASE_URL}/api/dashboard/crm-integrations/${id}/test`, {
-      method: 'POST',
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to test connection');
+  async testCrmConnection(
+    id: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(
+      `${API_BASE_URL}/api/dashboard/crm-integrations/${id}/test`,
+      {
+        method: "POST",
+        headers: getHeaders(),
+      },
+    );
+    if (!res.ok) throw new Error("Failed to test connection");
     const json = await res.json();
     return json.data;
   },
@@ -73,27 +91,30 @@ export const settingsApi = {
     const res = await fetch(`${API_BASE_URL}/api/dashboard/api-keys`, {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to fetch API keys');
+    if (!res.ok) throw new Error("Failed to fetch API keys");
     const json = await res.json();
     return json.data;
   },
 
-  async generateApiKey(data: { name: string; type: 'write' | 'read' }): Promise<{ id: string; key: string }> {
+  async generateApiKey(data: {
+    name: string;
+    type: "write" | "read";
+  }): Promise<{ id: string; key: string }> {
     const res = await fetch(`${API_BASE_URL}/api/dashboard/api-keys`, {
-      method: 'POST',
+      method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to generate API key');
+    if (!res.ok) throw new Error("Failed to generate API key");
     const json = await res.json();
     return json.data;
   },
 
   async revokeApiKey(id: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/api/dashboard/api-keys/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to revoke API key');
+    if (!res.ok) throw new Error("Failed to revoke API key");
   },
 };

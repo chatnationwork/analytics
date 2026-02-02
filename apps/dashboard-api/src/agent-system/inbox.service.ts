@@ -22,10 +22,12 @@ import {
   MessageDirection,
   MessageType,
   ResolutionEntity,
+  TeamEntity,
   EventRepository,
   CreateEventDto,
 } from "@lib/database";
 import { randomUUID } from "crypto";
+import { WhatsappService } from "../whatsapp/whatsapp.service";
 
 /**
  * Filter types for inbox queries
@@ -65,7 +67,10 @@ export class InboxService {
     private readonly messageRepo: Repository<MessageEntity>,
     @InjectRepository(ResolutionEntity)
     private readonly resolutionRepo: Repository<ResolutionEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepo: Repository<TeamEntity>,
     private readonly eventRepository: EventRepository,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   /**
@@ -337,14 +342,16 @@ export class InboxService {
 
   /**
    * Mark a session as resolved and create a Resolution record.
+   * When the session's team has wrap-up enabled, use wrapUpData (custom fields). Otherwise use category/notes (default form).
    */
   async resolveSession(
     sessionId: string,
     agentId: string,
     data: {
-      category: string;
+      category?: string;
       notes?: string;
       outcome?: string;
+      wrapUpData?: Record<string, string>;
     },
   ): Promise<InboxSessionEntity> {
     const session = await this.getSession(sessionId);
@@ -354,13 +361,79 @@ export class InboxService {
       throw new BadRequestException("You are not assigned to this session");
     }
 
+    let team: TeamEntity | null = null;
+    if (session.assignedTeamId) {
+      team = await this.teamRepo.findOne({
+        where: { id: session.assignedTeamId },
+      });
+    }
+
+    const wrapUp = team?.wrapUpReport as
+      | {
+          enabled: boolean;
+          mandatory: boolean;
+          fields?: Array<{
+            id: string;
+            type: string;
+            label: string;
+            required: boolean;
+            options?: Array<{ value: string; label: string }>;
+          }>;
+        }
+      | null
+      | undefined;
+
+    const useTeamWrapUp = wrapUp?.enabled === true;
+    const fields = Array.isArray(wrapUp?.fields) ? wrapUp.fields! : [];
+
+    let category: string;
+    let notes: string | undefined;
+    let formData: Record<string, string | number | boolean> | null = null;
+
+    if (useTeamWrapUp && data.wrapUpData !== undefined) {
+      // Team wrap-up form: validate required fields and store formData
+      for (const field of fields) {
+        if (field.required) {
+          const val = data.wrapUpData[field.id];
+          if (val === undefined || String(val).trim() === "") {
+            throw new BadRequestException(
+              `Wrap-up field "${field.label}" is required.`,
+            );
+          }
+        }
+      }
+      if (wrapUp.mandatory && Object.keys(data.wrapUpData).length === 0) {
+        throw new BadRequestException(
+          "Wrap-up report is required for this team. Please fill the form before resolving.",
+        );
+      }
+      formData = data.wrapUpData as Record<string, string | number | boolean>;
+      const firstSelect = fields.find((f) => f.type === "select");
+      const firstTextarea = fields.find((f) => f.type === "textarea");
+      category =
+        (firstSelect && data.wrapUpData[firstSelect.id]
+          ? String(data.wrapUpData[firstSelect.id]).trim()
+          : "") || "custom";
+      notes = firstTextarea
+        ? (data.wrapUpData[firstTextarea.id] as string)?.trim() || undefined
+        : undefined;
+    } else {
+      // Default form (no team wrap-up): category/notes from dto
+      category =
+        data.category && String(data.category).trim() !== ""
+          ? data.category.trim()
+          : "skipped";
+      notes = data.notes?.trim() || undefined;
+    }
+
     // Create Resolution record
     const resolution = this.resolutionRepo.create({
       sessionId,
-      category: data.category,
-      notes: data.notes,
+      category,
+      notes,
       outcome: data.outcome || "resolved",
       resolvedByAgentId: agentId,
+      formData,
     });
     await this.resolutionRepo.save(resolution);
 
@@ -373,6 +446,23 @@ export class InboxService {
       await this.fireResolutionEvent(savedSession, agentId, resolution);
     } catch (error) {
       this.logger.error(`Failed to fire resolution event: ${error.message}`);
+    }
+
+    // Send CSAT CTA link to the user (fire-and-forget; don't fail resolve if send fails)
+    try {
+      const result = await this.whatsappService.sendCsatCtaMessage(
+        savedSession.tenantId,
+        savedSession.contactId,
+      );
+      if (!result.success) {
+        this.logger.warn(
+          `CSAT CTA not sent for session ${sessionId}: ${result.error}`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send CSAT CTA for session ${sessionId}: ${(error as Error).message}`,
+      );
     }
 
     this.logger.log(`Session ${sessionId} resolved by agent ${agentId}`);

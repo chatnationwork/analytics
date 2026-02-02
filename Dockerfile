@@ -41,12 +41,19 @@ COPY package*.json ./
 CMD ["node", "dist/apps/processor/main.js"]
 
 # =============================================================================
-# Dashboard API
+# Dashboard API (runs migrations on startup, then starts the app)
 # =============================================================================
 FROM base AS dashboard-api
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Full node_modules so we have ts-node for migrations
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY package*.json ./
+# Source for datasource + migrations (needed for npm run db:migrate)
+COPY --from=builder /app/libs/database ./libs/database
+COPY --from=builder /app/libs/common ./libs/common
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/scripts/docker-dashboard-api-entrypoint.sh ./scripts/
+RUN chmod +x ./scripts/docker-dashboard-api-entrypoint.sh
 EXPOSE 3001
-CMD ["node", "dist/apps/dashboard-api/main.js"]
+ENTRYPOINT ["./scripts/docker-dashboard-api-entrypoint.sh"]

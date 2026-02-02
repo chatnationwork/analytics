@@ -2,7 +2,7 @@
  * =============================================================================
  * CRM INTEGRATIONS SERVICE
  * =============================================================================
- * 
+ *
  * Business logic for CRM integration management.
  * Handles CRUD operations and connection testing.
  */
@@ -12,16 +12,16 @@ import {
   NotFoundException,
   Logger,
   ForbiddenException,
-} from '@nestjs/common';
-import { CrmIntegrationRepository, TenantRepository } from '@lib/database';
-import { CrmApi } from '@lib/crm-api';
-import { CryptoService } from './crypto.service';
+} from "@nestjs/common";
+import { CrmIntegrationRepository, TenantRepository } from "@lib/database";
+import { CrmApi } from "@lib/crm-api";
+import { CryptoService } from "./crypto.service";
 import {
   CreateCrmIntegrationDto,
   UpdateCrmIntegrationDto,
   CrmIntegrationResponseDto,
   TestConnectionResponseDto,
-} from './dto';
+} from "./dto";
 
 @Injectable()
 export class CrmIntegrationsService {
@@ -36,8 +36,11 @@ export class CrmIntegrationsService {
   /**
    * List all CRM integrations for a tenant.
    */
-  async listIntegrations(tenantId: string): Promise<CrmIntegrationResponseDto[]> {
-    const integrations = await this.crmIntegrationRepository.findByTenantId(tenantId);
+  async listIntegrations(
+    tenantId: string,
+  ): Promise<CrmIntegrationResponseDto[]> {
+    const integrations =
+      await this.crmIntegrationRepository.findByTenantId(tenantId);
     return integrations.map(this.toResponseDto);
   }
 
@@ -49,13 +52,13 @@ export class CrmIntegrationsService {
     tenantId: string,
   ): Promise<CrmIntegrationResponseDto> {
     const integration = await this.crmIntegrationRepository.findById(id);
-    
+
     if (!integration) {
-      throw new NotFoundException('CRM integration not found');
+      throw new NotFoundException("CRM integration not found");
     }
 
     if (integration.tenantId !== tenantId) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException("Access denied");
     }
 
     return this.toResponseDto(integration);
@@ -74,13 +77,17 @@ export class CrmIntegrationsService {
     const integration = await this.crmIntegrationRepository.create({
       tenantId,
       name: dto.name,
-      apiUrl: dto.apiUrl.trim().replace(/\/$/, ''), // Remove trailing slash and whitespace
+      apiUrl: dto.apiUrl.trim().replace(/\/$/, ""),
+      webLink: dto.webLink?.trim() || null,
+      csatLink: dto.csatLink?.trim() || null,
       apiKeyEncrypted,
       isActive: true,
       config: dto.config || null,
     });
 
-    this.logger.log(`Created CRM integration: ${integration.id} for tenant ${tenantId}`);
+    this.logger.log(
+      `Created CRM integration: ${integration.id} for tenant ${tenantId}`,
+    );
 
     return this.toResponseDto(integration);
   }
@@ -94,29 +101,34 @@ export class CrmIntegrationsService {
     dto: UpdateCrmIntegrationDto,
   ): Promise<CrmIntegrationResponseDto> {
     const existing = await this.crmIntegrationRepository.findById(id);
-    
+
     if (!existing) {
-      throw new NotFoundException('CRM integration not found');
+      throw new NotFoundException("CRM integration not found");
     }
 
     if (existing.tenantId !== tenantId) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException("Access denied");
     }
 
     const updateData: Record<string, unknown> = {};
-    
+
     if (dto.name !== undefined) updateData.name = dto.name;
-    if (dto.apiUrl !== undefined) updateData.apiUrl = dto.apiUrl.trim().replace(/\/$/, '');
+    if (dto.apiUrl !== undefined)
+      updateData.apiUrl = dto.apiUrl.trim().replace(/\/$/, "");
+    if (dto.webLink !== undefined)
+      updateData.webLink = dto.webLink?.trim() || null;
+    if (dto.csatLink !== undefined)
+      updateData.csatLink = dto.csatLink?.trim() || null;
     if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
     if (dto.config !== undefined) updateData.config = dto.config;
-    
+
     // Re-encrypt if API key is being updated
     if (dto.apiKey !== undefined) {
       updateData.apiKeyEncrypted = this.cryptoService.encrypt(dto.apiKey);
     }
 
     const updated = await this.crmIntegrationRepository.update(id, updateData);
-    
+
     this.logger.log(`Updated CRM integration: ${id}`);
 
     return this.toResponseDto(updated!);
@@ -127,17 +139,17 @@ export class CrmIntegrationsService {
    */
   async deleteIntegration(id: string, tenantId: string): Promise<void> {
     const existing = await this.crmIntegrationRepository.findById(id);
-    
+
     if (!existing) {
-      throw new NotFoundException('CRM integration not found');
+      throw new NotFoundException("CRM integration not found");
     }
 
     if (existing.tenantId !== tenantId) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException("Access denied");
     }
 
     await this.crmIntegrationRepository.delete(id);
-    
+
     this.logger.log(`Deleted CRM integration: ${id}`);
   }
 
@@ -149,13 +161,13 @@ export class CrmIntegrationsService {
     tenantId: string,
   ): Promise<TestConnectionResponseDto> {
     const integration = await this.crmIntegrationRepository.findById(id);
-    
+
     if (!integration) {
-      throw new NotFoundException('CRM integration not found');
+      throw new NotFoundException("CRM integration not found");
     }
 
     if (integration.tenantId !== tenantId) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException("Access denied");
     }
 
     try {
@@ -177,12 +189,13 @@ export class CrmIntegrationsService {
 
       return {
         success: true,
-        message: 'Connection successful',
+        message: "Connection successful",
         contactCount: result.success ? result.pagination?.total : undefined,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+
       // Record the error
       await this.crmIntegrationRepository.markError(id, errorMessage);
 
@@ -197,17 +210,21 @@ export class CrmIntegrationsService {
    * Get a configured CRM client for a tenant.
    * Used by other services to make CRM API calls.
    */
-  async getClientForTenant(tenantId: string, integrationId?: string): Promise<CrmApi | null> {
+  async getClientForTenant(
+    tenantId: string,
+    integrationId?: string,
+  ): Promise<CrmApi | null> {
     let integration;
-    
+
     if (integrationId) {
       integration = await this.crmIntegrationRepository.findById(integrationId);
       if (integration?.tenantId !== tenantId) {
-        throw new ForbiddenException('Access denied');
+        throw new ForbiddenException("Access denied");
       }
     } else {
       // Get the first active integration
-      const integrations = await this.crmIntegrationRepository.findActiveByTenantId(tenantId);
+      const integrations =
+        await this.crmIntegrationRepository.findActiveByTenantId(tenantId);
       integration = integrations[0];
     }
 
@@ -215,10 +232,14 @@ export class CrmIntegrationsService {
       return null;
     }
 
-    const apiKey = this.cryptoService.decrypt(integration.apiKeyEncrypted).trim();
+    const apiKey = this.cryptoService
+      .decrypt(integration.apiKeyEncrypted)
+      .trim();
 
     this.logger.log(`Initializing CRM client for tenant ${tenantId}`);
-    this.logger.debug(`CRM Key for ${integration.name}: ${apiKey.substring(0, 5)}... (Length: ${apiKey.length})`);
+    this.logger.debug(
+      `CRM Key for ${integration.name}: ${apiKey.substring(0, 5)}... (Length: ${apiKey.length})`,
+    );
 
     return new CrmApi({
       baseUrl: integration.apiUrl,
@@ -232,14 +253,17 @@ export class CrmIntegrationsService {
    * INTERNAL USE ONLY.
    */
   async getActiveIntegration(tenantId: string) {
-    const integrations = await this.crmIntegrationRepository.findActiveByTenantId(tenantId);
+    const integrations =
+      await this.crmIntegrationRepository.findActiveByTenantId(tenantId);
     const integration = integrations[0];
 
     if (!integration) {
       return null;
     }
 
-    const apiKey = this.cryptoService.decrypt(integration.apiKeyEncrypted).trim();
+    const apiKey = this.cryptoService
+      .decrypt(integration.apiKeyEncrypted)
+      .trim();
 
     return {
       ...integration,
@@ -254,6 +278,8 @@ export class CrmIntegrationsService {
     id: string;
     name: string;
     apiUrl: string;
+    webLink: string | null;
+    csatLink: string | null;
     isActive: boolean;
     config: Record<string, any> | null;
     lastConnectedAt: Date | null;
@@ -264,6 +290,8 @@ export class CrmIntegrationsService {
       id: entity.id,
       name: entity.name,
       apiUrl: entity.apiUrl,
+      webLink: entity.webLink ?? null,
+      csatLink: entity.csatLink ?? null,
       isActive: entity.isActive,
       config: entity.config,
       lastConnectedAt: entity.lastConnectedAt?.toISOString() ?? null,
