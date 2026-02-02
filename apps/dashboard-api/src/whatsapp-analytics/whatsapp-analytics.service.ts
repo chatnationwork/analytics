@@ -1,43 +1,76 @@
-import { Injectable } from '@nestjs/common';
-import { EventRepository } from '@lib/database';
+import { Injectable } from "@nestjs/common";
+import { EventRepository, ContactRepository } from "@lib/database";
 
 @Injectable()
 export class WhatsappAnalyticsService {
-  constructor(private readonly eventRepository: EventRepository) {}
+  constructor(
+    private readonly eventRepository: EventRepository,
+    private readonly contactRepository: ContactRepository,
+  ) {}
 
   async getStats(tenantId: string, startDate?: Date, endDate?: Date) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return this.eventRepository.getWhatsappStats(tenantId, start, end);
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const [eventStats, totalContacts, newContactsInPeriod] = await Promise.all([
+      this.eventRepository.getWhatsappStats(tenantId, start, end),
+      this.contactRepository.getTotalCount(tenantId),
+      this.contactRepository.getNewContactsInPeriod(tenantId, start, end),
+    ]);
+    return {
+      ...eventStats,
+      uniqueContacts: totalContacts,
+      newContacts: newContactsInPeriod,
+    };
   }
 
   async getVolumeByHour(tenantId: string, startDate?: Date, endDate?: Date) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     return this.eventRepository.getWhatsappVolumeByHour(tenantId, start, end);
   }
 
   async getHeatmap(tenantId: string, startDate?: Date, endDate?: Date) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     return this.eventRepository.getWhatsappHeatmap(tenantId, start, end);
   }
 
-  async getAgentPerformance(tenantId: string, startDate?: Date, endDate?: Date) {
+  async getAgentPerformance(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const results = await this.eventRepository.getWhatsappAgentPerformance(tenantId, start, end);
-    return results.map(r => ({
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const results = await this.eventRepository.getWhatsappAgentPerformance(
+      tenantId,
+      start,
+      end,
+    );
+    return results.map((r) => ({
       agentId: r.agent_id,
       chatCount: parseInt(r.chat_count, 10) || 0,
     }));
   }
 
-  async getCountryBreakdown(tenantId: string, startDate?: Date, endDate?: Date) {
+  async getCountryBreakdown(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const results = await this.eventRepository.getWhatsappCountryBreakdown(tenantId, start, end);
-    return results.map(r => ({
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const results = await this.eventRepository.getWhatsappCountryBreakdown(
+      tenantId,
+      start,
+      end,
+    );
+    return results.map((r) => ({
       countryCode: r.country_code,
       count: parseInt(r.count, 10) || 0,
     }));
@@ -45,26 +78,42 @@ export class WhatsappAnalyticsService {
 
   async getResponseTime(tenantId: string, startDate?: Date, endDate?: Date) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     return this.eventRepository.getWhatsappResponseTime(tenantId, start, end);
   }
 
   async getFunnel(tenantId: string, startDate?: Date, endDate?: Date) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     return this.eventRepository.getWhatsappFunnel(tenantId, start, end);
   }
 
-  async getResolutionTimeStats(tenantId: string, startDate?: Date, endDate?: Date) {
+  async getResolutionTimeStats(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     return this.eventRepository.getResolutionTimeStats(tenantId, start, end);
   }
 
-  async getConversationLength(tenantId: string, startDate?: Date, endDate?: Date) {
+  async getConversationLength(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const end = endDate || new Date();
-    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return this.eventRepository.getConversationLengthDistribution(tenantId, start, end);
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return this.eventRepository.getConversationLengthDistribution(
+      tenantId,
+      start,
+      end,
+    );
   }
 
   // =============================================================================
@@ -72,16 +121,16 @@ export class WhatsappAnalyticsService {
   // =============================================================================
 
   private calculateStartDate(
-    granularity: 'day' | 'week' | 'month',
+    granularity: "day" | "week" | "month",
     periods: number,
   ): Date {
     const now = new Date();
     switch (granularity) {
-      case 'day':
+      case "day":
         return new Date(now.getTime() - periods * 24 * 60 * 60 * 1000);
-      case 'week':
+      case "week":
         return new Date(now.getTime() - periods * 7 * 24 * 60 * 60 * 1000);
-      case 'month':
+      case "month":
         const monthsAgo = new Date(now);
         monthsAgo.setMonth(monthsAgo.getMonth() - periods);
         return monthsAgo;
@@ -90,7 +139,7 @@ export class WhatsappAnalyticsService {
 
   async getMessageVolumeTrend(
     tenantId: string,
-    granularity: 'day' | 'week' | 'month' = 'day',
+    granularity: "day" | "week" | "month" = "day",
     periods: number = 30,
   ) {
     const endDate = new Date();
@@ -103,8 +152,14 @@ export class WhatsappAnalyticsService {
       granularity,
     );
 
-    const totalReceived = data.reduce((sum: number, d: { received: number }) => sum + d.received, 0);
-    const totalSent = data.reduce((sum: number, d: { sent: number }) => sum + d.sent, 0);
+    const totalReceived = data.reduce(
+      (sum: number, d: { received: number }) => sum + d.received,
+      0,
+    );
+    const totalSent = data.reduce(
+      (sum: number, d: { sent: number }) => sum + d.sent,
+      0,
+    );
 
     return {
       data,
@@ -121,7 +176,7 @@ export class WhatsappAnalyticsService {
 
   async getResponseTimeTrend(
     tenantId: string,
-    granularity: 'day' | 'week' | 'month' = 'day',
+    granularity: "day" | "week" | "month" = "day",
     periods: number = 30,
   ) {
     const endDate = new Date();
@@ -135,16 +190,26 @@ export class WhatsappAnalyticsService {
     );
 
     // Calculate overall median from the data
-    const allResponseTimes = data.filter((d: { medianMinutes: number }) => d.medianMinutes > 0);
-    const overallMedian = allResponseTimes.length > 0
-      ? allResponseTimes.reduce((sum: number, d: { medianMinutes: number }) => sum + d.medianMinutes, 0) / allResponseTimes.length
-      : 0;
+    const allResponseTimes = data.filter(
+      (d: { medianMinutes: number }) => d.medianMinutes > 0,
+    );
+    const overallMedian =
+      allResponseTimes.length > 0
+        ? allResponseTimes.reduce(
+            (sum: number, d: { medianMinutes: number }) =>
+              sum + d.medianMinutes,
+            0,
+          ) / allResponseTimes.length
+        : 0;
 
     return {
       data,
       summary: {
         overallMedianMinutes: Math.round(overallMedian * 10) / 10,
-        totalResponses: data.reduce((sum: number, d: { responseCount: number }) => sum + d.responseCount, 0),
+        totalResponses: data.reduce(
+          (sum: number, d: { responseCount: number }) => sum + d.responseCount,
+          0,
+        ),
         targetMinutes: 5, // SLA target
       },
       granularity,
@@ -155,7 +220,7 @@ export class WhatsappAnalyticsService {
 
   async getReadRateTrend(
     tenantId: string,
-    granularity: 'day' | 'week' | 'month' = 'day',
+    granularity: "day" | "week" | "month" = "day",
     periods: number = 30,
   ) {
     const endDate = new Date();
@@ -168,15 +233,22 @@ export class WhatsappAnalyticsService {
       granularity,
     );
 
-    const totalSent = data.reduce((sum: number, d: { sent: number }) => sum + d.sent, 0);
-    const totalRead = data.reduce((sum: number, d: { readCount: number }) => sum + d.readCount, 0);
+    const totalSent = data.reduce(
+      (sum: number, d: { sent: number }) => sum + d.sent,
+      0,
+    );
+    const totalRead = data.reduce(
+      (sum: number, d: { readCount: number }) => sum + d.readCount,
+      0,
+    );
 
     return {
       data,
       summary: {
         totalSent,
         totalRead,
-        overallReadRate: totalSent > 0 ? Math.round((totalRead / totalSent) * 1000) / 10 : 0,
+        overallReadRate:
+          totalSent > 0 ? Math.round((totalRead / totalSent) * 1000) / 10 : 0,
       },
       granularity,
       startDate,
@@ -186,35 +258,42 @@ export class WhatsappAnalyticsService {
 
   async getNewContactsTrend(
     tenantId: string,
-    granularity: 'day' | 'week' | 'month' = 'day',
+    granularity: "day" | "week" | "month" = "day",
     periods: number = 30,
   ) {
     const endDate = new Date();
     const startDate = this.calculateStartDate(granularity, periods);
 
-    const data = await this.eventRepository.getWhatsappNewContactsTrend(
+    const data = await this.contactRepository.getNewContactsTrend(
       tenantId,
       startDate,
       endDate,
       granularity,
     );
 
-    const totalNewContacts = data.reduce((sum: number, d: { newContacts: number }) => sum + d.newContacts, 0);
+    const totalNewContacts = data.reduce(
+      (sum: number, d: { newContacts: number }) => sum + d.newContacts,
+      0,
+    );
 
     // Get previous period for comparison
     const previousEndDate = startDate;
     const previousStartDate = this.calculateStartDate(granularity, periods * 2);
-    const previousData = await this.eventRepository.getWhatsappNewContactsTrend(
+    const previousData = await this.contactRepository.getNewContactsTrend(
       tenantId,
       previousStartDate,
       previousEndDate,
       granularity,
     );
-    const previousTotal = previousData.reduce((sum: number, d: { newContacts: number }) => sum + d.newContacts, 0);
+    const previousTotal = previousData.reduce(
+      (sum: number, d: { newContacts: number }) => sum + d.newContacts,
+      0,
+    );
 
-    const percentChange = previousTotal > 0
-      ? ((totalNewContacts - previousTotal) / previousTotal) * 100
-      : 0;
+    const percentChange =
+      previousTotal > 0
+        ? ((totalNewContacts - previousTotal) / previousTotal) * 100
+        : 0;
 
     return {
       data,
@@ -228,5 +307,27 @@ export class WhatsappAnalyticsService {
       endDate,
     };
   }
-}
 
+  async getContacts(tenantId: string, page: number = 1, limit: number = 20) {
+    const {
+      data,
+      total,
+      page: p,
+      limit: l,
+    } = await this.contactRepository.getList(tenantId, page, limit);
+    return {
+      data: data.map((c) => ({
+        contact_id: c.contactId,
+        name: c.name ?? null,
+        first_seen:
+          c.firstSeen instanceof Date ? c.firstSeen.toISOString() : c.firstSeen,
+        last_seen:
+          c.lastSeen instanceof Date ? c.lastSeen.toISOString() : c.lastSeen,
+        message_count: c.messageCount,
+      })),
+      total,
+      page: p,
+      limit: l,
+    };
+  }
+}

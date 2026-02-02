@@ -2,16 +2,16 @@
  * =============================================================================
  * ENTITIES BARREL EXPORT
  * =============================================================================
- * 
+ *
  * WHAT IS AN ENTITY?
  * -----------------
  * In TypeORM, an Entity is a class that maps to a database table.
  * Each property maps to a column.
- * 
+ *
  * Entity class → Database table
  * Property → Column
  * Instance → Row
- * 
+ *
  * DECORATORS USED:
  * ---------------
  * @Entity('table_name'): Marks class as an entity, defines table name
@@ -23,23 +23,24 @@
  * @Index(): Create database index for faster queries
  */
 
-export * from './event.entity';
-export * from './session.entity';
-export * from './identity.entity';
-export * from './project.entity';
-export * from './user.entity';
-export * from './agent-profile.entity';
-export * from './team.entity';
-export * from './team-member.entity';
-export * from './inbox-session.entity';
-export * from './message.entity';
-export * from './resolution.entity';
-export * from './shift.entity';
-export * from './assignment-config.entity';
-export * from './tenant.entity';
-export * from './tenant-membership.entity';
-export * from './crm-integration.entity';
-export * from './api-key.entity';
-export * from './invitation.entity';
-export * from './role-permission.entity';
-export * from './role.entity';
+export * from "./event.entity";
+export * from "./session.entity";
+export * from "./identity.entity";
+export * from "./project.entity";
+export * from "./user.entity";
+export * from "./agent-profile.entity";
+export * from "./team.entity";
+export * from "./team-member.entity";
+export * from "./inbox-session.entity";
+export * from "./message.entity";
+export * from "./resolution.entity";
+export * from "./shift.entity";
+export * from "./assignment-config.entity";
+export * from "./tenant.entity";
+export * from "./tenant-membership.entity";
+export * from "./crm-integration.entity";
+export * from "./api-key.entity";
+export * from "./invitation.entity";
+export * from "./role-permission.entity";
+export * from "./role.entity";
+export * from "./contact.entity";

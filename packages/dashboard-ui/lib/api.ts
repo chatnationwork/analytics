@@ -71,7 +71,7 @@ function scheduleAuthRedirect(reason: LogoutReason): void {
   if (typeof window === "undefined") return;
 
   // Dispatch event for UI to handle (e.g. show modal)
-  window.dispatchEvent(new CustomEvent('auth:expired', { detail: { reason } }));
+  window.dispatchEvent(new CustomEvent("auth:expired", { detail: { reason } }));
 
   // Mark that we're redirecting (prevents repeated calls if multiple 401s occur)
   sessionStorage.setItem("auth_redirect_time", Date.now().toString());
@@ -115,6 +115,38 @@ export async function fetchWithAuth<T = any>(
 
   const json = await res.json();
   return json.data;
+}
+
+/**
+ * Same as fetchWithAuth but returns the full response body (not only json.data).
+ * Use for endpoints that return pagination or multiple top-level fields.
+ */
+export async function fetchWithAuthFull<T = unknown>(
+  url: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}/api/dashboard${url}`, {
+    ...options,
+    headers: {
+      ...getHeaders(),
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    if (res.status === 401 && shouldRedirectOn401()) {
+      const reason: LogoutReason = errorData.message
+        ?.toLowerCase?.()
+        .includes("revoked")
+        ? "revoked"
+        : "expired";
+      scheduleAuthRedirect(reason);
+    }
+    throw new Error(errorData.message || `Failed to fetch ${url}`);
+  }
+
+  return res.json();
 }
 
 export const api = {

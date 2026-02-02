@@ -1,17 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 import {
   InboxSessionEntity,
   MessageEntity,
   SessionStatus,
   MessageDirection,
   MessageType,
-  ProjectEntity, 
-  AgentProfileEntity
-} from '@lib/database';
-import { CaptureEventDto } from '@lib/events';
-import { Project } from '@lib/common';
+  ContactRepository,
+} from "@lib/database";
+import { CaptureEventDto } from "@lib/events";
+import { Project } from "@lib/common";
 
 @Injectable()
 export class MessageStorageService {
@@ -22,6 +21,7 @@ export class MessageStorageService {
     private readonly sessionRepo: Repository<InboxSessionEntity>,
     @InjectRepository(MessageEntity)
     private readonly messageRepo: Repository<MessageEntity>,
+    private readonly contactRepo: ContactRepository,
   ) {}
 
   /**
@@ -29,7 +29,10 @@ export class MessageStorageService {
    * Only handles 'message.received' and 'message.sent'.
    */
   async storeEvent(event: CaptureEventDto, project: Project): Promise<void> {
-    if (event.event_name !== 'message.received' && event.event_name !== 'message.sent') {
+    if (
+      event.event_name !== "message.received" &&
+      event.event_name !== "message.sent"
+    ) {
       return;
     }
 
@@ -37,8 +40,10 @@ export class MessageStorageService {
       const tenantId = project.tenantId;
       const contactId = event.user_id; // Phone number
       const properties = event.properties as Record<string, any>;
-      
-      this.logger.debug(`Storing message event: ${event.event_name} for ${contactId}`);
+
+      this.logger.debug(
+        `Storing message event: ${event.event_name} for ${contactId}`,
+      );
 
       // 1. Get or Create Session
       let session = await this.sessionRepo.findOne({
@@ -46,7 +51,7 @@ export class MessageStorageService {
           { tenantId, contactId, status: SessionStatus.ASSIGNED },
           { tenantId, contactId, status: SessionStatus.UNASSIGNED },
         ],
-        order: { lastMessageAt: 'DESC' },
+        order: { lastMessageAt: "DESC" },
       });
 
       if (!session) {
@@ -54,39 +59,64 @@ export class MessageStorageService {
           tenantId,
           contactId,
           status: SessionStatus.UNASSIGNED,
-          channel: (event.context as any)?.channel || 'whatsapp',
+          channel: (event.context as any)?.channel || "whatsapp",
           lastMessageAt: new Date(),
         });
         session = await this.sessionRepo.save(session);
       } else {
-          // Update timestamp
-          await this.sessionRepo.update(session.id, { lastMessageAt: new Date() });
+        // Update timestamp
+        await this.sessionRepo.update(session.id, {
+          lastMessageAt: new Date(),
+        });
+      }
+
+      // Upsert contact when we receive a message (creates or updates contacts table)
+      if (event.event_name === "message.received" && contactId) {
+        const name = (properties?.name ??
+          properties?.profileName ??
+          (event.context as any)?.name) as string | undefined;
+        await this.contactRepo.upsertFromMessageReceived(
+          tenantId,
+          contactId,
+          new Date(),
+          name || undefined,
+        );
       }
 
       // 2. Create Message
-      const direction = event.event_name === 'message.received' 
-        ? MessageDirection.INBOUND 
-        : MessageDirection.OUTBOUND;
+      const direction =
+        event.event_name === "message.received"
+          ? MessageDirection.INBOUND
+          : MessageDirection.OUTBOUND;
 
-      const messageType = (properties.contentType || properties.type || 'text') as MessageType;
-      
+      const messageType = (properties.contentType ||
+        properties.type ||
+        "text") as MessageType;
+
       const message = this.messageRepo.create({
         sessionId: session.id,
         tenantId,
         externalId: properties.messageId as string,
         direction,
-        type: Object.values(MessageType).includes(messageType) ? messageType : MessageType.TEXT,
+        type: Object.values(MessageType).includes(messageType)
+          ? messageType
+          : MessageType.TEXT,
         content: properties.text || properties.content || properties.caption, // Adapting to various payload shapes
         metadata: properties,
-        senderId: direction === MessageDirection.OUTBOUND ? properties.agentId : undefined,
+        senderId:
+          direction === MessageDirection.OUTBOUND
+            ? properties.agentId
+            : undefined,
       });
 
       await this.messageRepo.save(message);
-      
-      this.logger.log(`Stored message ${message.id} for session ${session.id}`);
 
+      this.logger.log(`Stored message ${message.id} for session ${session.id}`);
     } catch (error) {
-      this.logger.error(`Failed to store message event: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to store message event: ${error.message}`,
+        error.stack,
+      );
       // We do not throw, as analytics collection should proceed even if storage fails
     }
   }

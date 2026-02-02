@@ -1122,6 +1122,70 @@ export class EventRepository {
   }
 
   /**
+   * Get paginated list of WhatsApp contacts from events.
+   * A contact is a distinct userId/externalId that has sent message.received events.
+   */
+  async getWhatsappContactsList(
+    tenantId: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{
+    data: Array<{
+      contact_id: string;
+      name: string | null;
+      first_seen: string;
+      last_seen: string;
+      message_count: number;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const offset = (page - 1) * limit;
+
+    const countResult = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT COALESCE("userId", "externalId")) as total
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'message.received'
+        AND COALESCE("userId", "externalId") IS NOT NULL
+      `,
+      [tenantId],
+    );
+    const total = parseInt(countResult[0]?.total, 10) || 0;
+
+    const rows = await this.repo.query(
+      `
+      SELECT
+        COALESCE("userId", "externalId") as contact_id,
+        (array_agg(properties->>'name' ORDER BY timestamp DESC))[1] as name,
+        MIN(timestamp)::text as first_seen,
+        MAX(timestamp)::text as last_seen,
+        COUNT(*)::int as message_count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'message.received'
+        AND COALESCE("userId", "externalId") IS NOT NULL
+      GROUP BY COALESCE("userId", "externalId")
+      ORDER BY MAX(timestamp) DESC
+      LIMIT $2 OFFSET $3
+      `,
+      [tenantId, limit, offset],
+    );
+
+    const data = rows.map((r: any) => ({
+      contact_id: r.contact_id,
+      name: r.name || null,
+      first_seen: r.first_seen,
+      last_seen: r.last_seen,
+      message_count: parseInt(r.message_count, 10) || 0,
+    }));
+
+    return { data, total, page, limit };
+  }
+
+  /**
    * Get WhatsApp delivery funnel trend over time.
    */
   async getWhatsappFunnelTrend(

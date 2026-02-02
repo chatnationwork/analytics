@@ -17,6 +17,7 @@ import {
   Inbox,
   BarChart2,
   Users,
+  Contact,
   BookOpen,
   Settings,
 } from "lucide-react";
@@ -42,6 +43,7 @@ const navGroups = [
     title: "Agent System",
     items: [
       { href: "/agent-inbox", label: "Inbox", icon: Inbox },
+      { href: "/contacts", label: "Contacts", icon: Contact },
       { href: "/agent-analytics", label: "Agent Analytics", icon: BarChart2 },
       { href: "/team-management", label: "Teams", icon: Users },
     ],

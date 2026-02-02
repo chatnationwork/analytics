@@ -22,6 +22,7 @@ import {
   AssignmentConfigEntity,
   RolePermissionEntity,
   RoleEntity,
+  ContactEntity,
 } from "./entities";
 
 // Load environment variables
@@ -56,6 +57,7 @@ export const AppDataSource = new DataSource({
     AssignmentConfigEntity,
     RolePermissionEntity,
     RoleEntity,
+    ContactEntity,
   ],
   migrations: ["libs/database/src/migrations/*.ts"],
   synchronize: false,
