@@ -44,3 +44,4 @@ export * from "./invitation.entity";
 export * from "./role-permission.entity";
 export * from "./role.entity";
 export * from "./contact.entity";
+export * from "./agent-session.entity";

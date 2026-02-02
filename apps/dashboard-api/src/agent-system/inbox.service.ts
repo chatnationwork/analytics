@@ -281,6 +281,7 @@ export class InboxService {
 
     session.assignedAgentId = agentId;
     session.status = SessionStatus.ASSIGNED;
+    session.assignedAt = new Date();
 
     const savedSession = await this.sessionRepo.save(session);
 

@@ -1,4 +1,3 @@
-
 import {
   Entity,
   Column,
@@ -8,22 +7,22 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
-} from 'typeorm';
-import { UserEntity } from './user.entity';
-import { AgentProfileEntity } from './agent-profile.entity';
-import { TeamEntity } from './team.entity';
+} from "typeorm";
+import { UserEntity } from "./user.entity";
+import { AgentProfileEntity } from "./agent-profile.entity";
+import { TeamEntity } from "./team.entity";
 
 export enum SessionStatus {
-  UNASSIGNED = 'unassigned',
-  ASSIGNED = 'assigned',
-  RESOLVED = 'resolved',
+  UNASSIGNED = "unassigned",
+  ASSIGNED = "assigned",
+  RESOLVED = "resolved",
 }
 
-@Entity('inbox_sessions')
-@Index(['tenantId', 'status'])
-@Index(['assignedAgentId'])
+@Entity("inbox_sessions")
+@Index(["tenantId", "status"])
+@Index(["assignedAgentId"])
 export class InboxSessionEntity {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
   @Column({ length: 50 })
@@ -37,42 +36,46 @@ export class InboxSessionEntity {
   contactName: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: SessionStatus,
     default: SessionStatus.UNASSIGNED,
   })
   status: SessionStatus;
 
   /** The channel (e.g., 'whatsapp') */
-  @Column({ default: 'whatsapp' })
+  @Column({ default: "whatsapp" })
   channel: string;
 
-  @Column('uuid', { nullable: true })
+  @Column("uuid", { nullable: true })
   assignedAgentId: string;
 
-  @ManyToOne(() => UserEntity) 
-  @JoinColumn({ name: 'assignedAgentId' })
+  /** When this session was assigned to the current agent (for agent session metrics) */
+  @Column({ type: "timestamptz", nullable: true })
+  assignedAt: Date;
+
+  @ManyToOne(() => UserEntity)
+  @JoinColumn({ name: "assignedAgentId" })
   assignedAgent: UserEntity;
 
-  @Column('uuid', { nullable: true })
+  @Column("uuid", { nullable: true })
   assignedTeamId: string;
 
   @ManyToOne(() => TeamEntity)
-  @JoinColumn({ name: 'assignedTeamId' })
+  @JoinColumn({ name: "assignedTeamId" })
   assignedTeam: TeamEntity;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: "int", default: 0 })
   priority: number; // Higher is more urgent
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: "jsonb", nullable: true })
   context: Record<string, any>; // e.g. intent, bot handoff data
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   lastMessageAt: Date;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 }

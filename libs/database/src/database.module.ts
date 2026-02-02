@@ -55,6 +55,7 @@ import { AssignmentConfigEntity } from "./entities/assignment-config.entity";
 import { RolePermissionEntity } from "./entities/role-permission.entity";
 import { RoleEntity } from "./entities/role.entity";
 import { ContactEntity } from "./entities/contact.entity";
+import { AgentSessionEntity } from "./entities/agent-session.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -63,6 +64,7 @@ import { TenantRepository } from "./repositories/tenant.repository";
 import { CrmIntegrationRepository } from "./repositories/crm-integration.repository";
 import { ApiKeyRepository } from "./repositories/api-key.repository";
 import { ContactRepository } from "./repositories/contact.repository";
+import { AgentSessionRepository } from "./repositories/agent-session.repository";
 
 /**
  * All entities that map to database tables.
@@ -90,6 +92,7 @@ const entities = [
   RolePermissionEntity,
   RoleEntity,
   ContactEntity,
+  AgentSessionEntity,
 ];
 
 /**
@@ -105,6 +108,7 @@ const repositories = [
   CrmIntegrationRepository,
   ApiKeyRepository,
   ContactRepository,
+  AgentSessionRepository,
 ];
 
 /**

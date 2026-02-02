@@ -17,6 +17,7 @@ import {
   MessageEntity,
   ResolutionEntity,
   AgentProfileEntity,
+  AgentSessionEntity,
   TeamEntity,
   TeamMemberEntity,
   ShiftEntity,
@@ -33,6 +34,9 @@ import { RbacModule } from "./rbac.module";
 import { AgentInboxController } from "./agent-inbox.controller";
 import { TeamController } from "./team.controller";
 import { IntegrationController } from "./integration.controller";
+import { PresenceService } from "./presence.service";
+import { AgentStatusService } from "./agent-status.service";
+import { AgentStatusController } from "./agent-status.controller";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { ApiKeysModule } from "../api-keys/api-keys.module";
 
@@ -53,10 +57,27 @@ import { ApiKeysModule } from "../api-keys/api-keys.module";
       AssignmentConfigEntity,
       UserEntity,
       TenantMembershipEntity,
+      AgentSessionEntity,
     ]),
   ],
-  controllers: [AgentInboxController, TeamController, IntegrationController],
-  providers: [InboxService, AssignmentService],
-  exports: [InboxService, AssignmentService, RbacModule],
+  controllers: [
+    AgentInboxController,
+    TeamController,
+    IntegrationController,
+    AgentStatusController,
+  ],
+  providers: [
+    InboxService,
+    AssignmentService,
+    PresenceService,
+    AgentStatusService,
+  ],
+  exports: [
+    InboxService,
+    AssignmentService,
+    PresenceService,
+    AgentStatusService,
+    RbacModule,
+  ],
 })
 export class AgentSystemModule {}

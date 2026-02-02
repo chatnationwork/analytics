@@ -7,9 +7,9 @@
  * Supports multiple strategies: Round Robin, Load Balanced, Manual/Queue.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 import {
   InboxSessionEntity,
   SessionStatus,
@@ -21,11 +21,17 @@ import {
   TenantMembershipEntity,
   MembershipRole,
   MessageDirection,
-} from '@lib/database';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
-import { InboxService } from './inbox.service';
+} from "@lib/database";
+import { WhatsappService } from "../whatsapp/whatsapp.service";
+import { InboxService } from "./inbox.service";
 
-export type AssignmentStrategy = 'round_robin' | 'least_active' | 'least_assigned' | 'hybrid' | 'load_balanced' | 'manual';
+export type AssignmentStrategy =
+  | "round_robin"
+  | "least_active"
+  | "least_assigned"
+  | "hybrid"
+  | "load_balanced"
+  | "manual";
 
 /**
  * Context for the round-robin strategy.
@@ -41,9 +47,9 @@ interface AgentMetrics {
 }
 
 interface AgentDetail {
-    id: string;
-    name: string;
-    createdAt: Date;
+  id: string;
+  name: string;
+  createdAt: Date;
 }
 
 /**
@@ -89,16 +95,19 @@ export class AssignmentService {
     );
 
     switch (strategy) {
-      case 'round_robin':
+      case "round_robin":
         return this.assignRoundRobin(session);
-      case 'load_balanced': // Legacy alias
-      case 'least_active':
+      case "load_balanced": // Legacy alias
+      case "least_active":
         return this.assignLeastActive(session);
-      case 'least_assigned':
+      case "least_assigned":
         return this.assignLeastAssigned(session);
-      case 'hybrid':
-        return this.assignHybrid(session, config?.priority || ['least_active', 'least_assigned']);
-      case 'manual':
+      case "hybrid":
+        return this.assignHybrid(
+          session,
+          config?.priority || ["least_active", "least_assigned"],
+        );
+      case "manual":
         // Manual strategy means agents pick from queue, no auto-assignment
         return null;
       default:
@@ -118,9 +127,9 @@ export class AssignmentService {
     if (teamId) {
       const team = await this.teamRepo.findOne({ where: { id: teamId } });
       if (team) {
-        return { 
-            strategy: team.routingStrategy as AssignmentStrategy,
-            config: team.routingConfig
+        return {
+          strategy: team.routingStrategy as AssignmentStrategy,
+          config: team.routingConfig,
         };
       }
     }
@@ -130,114 +139,132 @@ export class AssignmentService {
       where: { tenantId, teamId: undefined, enabled: true },
     });
 
-    return { strategy: (tenantConfig?.strategy as AssignmentStrategy) || 'round_robin' };
+    return {
+      strategy: (tenantConfig?.strategy as AssignmentStrategy) || "round_robin",
+    };
   }
 
   /**
    * Gets the assignment strategy (backward compatibility helper)
    */
-  private async getStrategy(tenantId: string, teamId?: string): Promise<AssignmentStrategy> {
-      const { strategy } = await this.getStrategyWithType(tenantId, teamId);
-      return strategy;
+  private async getStrategy(
+    tenantId: string,
+    teamId?: string,
+  ): Promise<AssignmentStrategy> {
+    const { strategy } = await this.getStrategyWithType(tenantId, teamId);
+    return strategy;
   }
 
   /**
    * Helper to fetch metrics for a list of agents
    */
-  private async getAgentMetrics(agentIds: string[], timeWindow?: string): Promise<Map<string, AgentMetrics>> {
-      const metrics = new Map<string, AgentMetrics>();
-      
-      let startDate: Date | undefined;
-      const now = new Date();
-      
-      if (timeWindow) {
-          switch (timeWindow) {
-              case 'shift': 
-                  // Approximate "current shift" as last 12 hours for MVP
-                  startDate = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-                  break;
-              case 'day':
-                  startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                  break;
-              case 'week':
-                  const day = now.getDay();
-                  const diff = now.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
-                  startDate = new Date(now.setDate(diff));
-                  startDate.setHours(0,0,0,0);
-                  break;
-              case 'month':
-                  startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-                  break;
-              case 'all_time':
-              default:
-                  startDate = undefined;
-          }
+  private async getAgentMetrics(
+    agentIds: string[],
+    timeWindow?: string,
+  ): Promise<Map<string, AgentMetrics>> {
+    const metrics = new Map<string, AgentMetrics>();
+
+    let startDate: Date | undefined;
+    const now = new Date();
+
+    if (timeWindow) {
+      switch (timeWindow) {
+        case "shift":
+          // Approximate "current shift" as last 12 hours for MVP
+          startDate = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+          break;
+        case "day":
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+          );
+          break;
+        case "week":
+          const day = now.getDay();
+          const diff = now.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+          startDate = new Date(now.setDate(diff));
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case "all_time":
+        default:
+          startDate = undefined;
+      }
+    }
+
+    for (const agentId of agentIds) {
+      // Initialize
+      metrics.set(agentId, { activeCount: 0, totalCount: 0 });
+
+      // Count Active (OPEN/ASSIGNED) - Always real-time
+      const active = await this.sessionRepo.count({
+        where: {
+          assignedAgentId: agentId,
+          status: SessionStatus.ASSIGNED,
+        },
+      });
+
+      // Count Total (Historical)
+      const totalQuery = this.sessionRepo
+        .createQueryBuilder("session")
+        .where("session.assignedAgentId = :agentId", { agentId });
+
+      if (startDate) {
+        totalQuery.andWhere("session.assignedAt >= :startDate", { startDate });
       }
 
-      for (const agentId of agentIds) {
-          // Initialize
-          metrics.set(agentId, { activeCount: 0, totalCount: 0 });
+      const total = await totalQuery.getCount();
 
-          // Count Active (OPEN/ASSIGNED) - Always real-time
-          const active = await this.sessionRepo.count({
-              where: {
-                  assignedAgentId: agentId,
-                  status: SessionStatus.ASSIGNED
-              }
-          });
-
-          // Count Total (Historical)
-          const totalQuery = this.sessionRepo.createQueryBuilder('session')
-              .where('session.assignedAgentId = :agentId', { agentId });
-              
-          if (startDate) {
-              totalQuery.andWhere('session.assignedAt >= :startDate', { startDate });
-          }
-
-          const total = await totalQuery.getCount();
-          
-          metrics.set(agentId, { activeCount: active, totalCount: total });
-      }
-      return metrics;
+      metrics.set(agentId, { activeCount: active, totalCount: total });
+    }
+    return metrics;
   }
 
   /**
    * Helper to fetch details for sorting
    */
   private async getAgentDetails(agentIds: string[]): Promise<AgentDetail[]> {
-      // We look in UserEntity via Member/Profile?
-      // Since `getAvailableAgents` returns userId, we can query UserEntity.
-      // But we don't have UserRepo injected? We have MemberRepo.
-      if (agentIds.length === 0) return [];
+    // We look in UserEntity via Member/Profile?
+    // Since `getAvailableAgents` returns userId, we can query UserEntity.
+    // But we don't have UserRepo injected? We have MemberRepo.
+    if (agentIds.length === 0) return [];
 
-      const members = await this.memberRepo.createQueryBuilder('member')
-          .leftJoinAndSelect('member.user', 'user')
-          .where('member.userId IN (:...ids)', { ids: agentIds })
-          .getMany();
-      
-      const details: AgentDetail[] = [];
-      const seen = new Set<string>();
+    const members = await this.memberRepo
+      .createQueryBuilder("member")
+      .leftJoinAndSelect("member.user", "user")
+      .where("member.userId IN (:...ids)", { ids: agentIds })
+      .getMany();
 
-      // Also check tenant memberships if they are not team members (admins/etc)
-      // This is a bit tricky if they aren't in `memberRepo` (team members).
-      // For MVP, if they are assignable, they are likely team members or we'll miss their name sort.
-      // Fallback to ID for sorting if name not found.
-      
-      for (const m of members) {
-          if (m.user) {
-              details.push({ id: m.userId, name: m.user.name, createdAt: m.user.createdAt });
-              seen.add(m.userId);
-          }
+    const details: AgentDetail[] = [];
+    const seen = new Set<string>();
+
+    // Also check tenant memberships if they are not team members (admins/etc)
+    // This is a bit tricky if they aren't in `memberRepo` (team members).
+    // For MVP, if they are assignable, they are likely team members or we'll miss their name sort.
+    // Fallback to ID for sorting if name not found.
+
+    for (const m of members) {
+      if (m.user) {
+        details.push({
+          id: m.userId,
+          name: m.user.name,
+          createdAt: m.user.createdAt,
+        });
+        seen.add(m.userId);
       }
-      
-      // If any missing (super admins not in team?), add placeholders
-      for (const id of agentIds) {
-          if (!seen.has(id)) {
-               details.push({ id, name: id, createdAt: new Date(0) });
-          }
+    }
+
+    // If any missing (super admins not in team?), add placeholders
+    for (const id of agentIds) {
+      if (!seen.has(id)) {
+        details.push({ id, name: id, createdAt: new Date(0) });
       }
-      
-      return details;
+    }
+
+    return details;
   }
 
   /**
@@ -246,7 +273,7 @@ export class AssignmentService {
    * 2. Check General Members (Role: MEMBER)
    * 3. Check Admins
    * 4. Check Super Admins
-   * 
+   *
    * Ignores "Online" status and Capacity for now (MVP).
    */
   private async getAvailableAgents(
@@ -257,40 +284,50 @@ export class AssignmentService {
     const config = await this.configRepo.findOne({
       where: { tenantId, teamId: undefined, enabled: true },
     });
-    
+
     // Default Waterfall Settings
     const waterfall = config?.settings?.waterfall || {
-       levels: ['team', 'member', 'admin', 'super_admin'],
-       enabled: true
+      levels: ["team", "member", "admin", "super_admin"],
+      enabled: true,
     };
-    
+
     // Ordered levels to check
-    const levelsToCheck = waterfall.levels || ['team', 'member', 'admin', 'super_admin'];
+    const levelsToCheck = waterfall.levels || [
+      "team",
+      "member",
+      "admin",
+      "super_admin",
+    ];
 
     for (const level of levelsToCheck) {
-        let foundIds: string[] = [];
+      let foundIds: string[] = [];
 
-        if (level === 'team' && teamId) {
-             const teamMembers = await this.memberRepo.find({ where: { teamId }, select: ['userId'] });
-             foundIds = teamMembers.map(m => m.userId);
-             if (foundIds.length > 0) this.logger.log(`Found ${foundIds.length} agents in Team ${teamId}`);
-        } else if (level !== 'team') {
-             // Treat level as role
-             const role = level as MembershipRole; 
-             const members = await this.tenantMembershipRepo.find({
-                 where: { tenantId, role },
-                 select: ['userId']
-             });
-             foundIds = members.map(m => m.userId);
-             if (foundIds.length > 0) this.logger.log(`Found ${foundIds.length} users with role ${role}`);
-        }
+      if (level === "team" && teamId) {
+        const teamMembers = await this.memberRepo.find({
+          where: { teamId },
+          select: ["userId"],
+        });
+        foundIds = teamMembers.map((m) => m.userId);
+        if (foundIds.length > 0)
+          this.logger.log(`Found ${foundIds.length} agents in Team ${teamId}`);
+      } else if (level !== "team") {
+        // Treat level as role
+        const role = level as MembershipRole;
+        const members = await this.tenantMembershipRepo.find({
+          where: { tenantId, role },
+          select: ["userId"],
+        });
+        foundIds = members.map((m) => m.userId);
+        if (foundIds.length > 0)
+          this.logger.log(`Found ${foundIds.length} users with role ${role}`);
+      }
 
-        if (foundIds.length > 0) {
-            return foundIds;
-        }
+      if (foundIds.length > 0) {
+        return foundIds;
+      }
     }
 
-    this.logger.warn('No agents found in configurable waterfall');
+    this.logger.warn("No agents found in configurable waterfall");
     return [];
   }
 
@@ -301,46 +338,49 @@ export class AssignmentService {
     session: InboxSessionEntity,
   ): Promise<InboxSessionEntity | null> {
     const contextKey = session.assignedTeamId || session.tenantId;
-    const { config } = await this.getStrategyWithType(session.tenantId, session.assignedTeamId);
-    
+    const { config } = await this.getStrategyWithType(
+      session.tenantId,
+      session.assignedTeamId,
+    );
+
     const agentIds = await this.getAvailableAgents(
       session.tenantId,
       session.assignedTeamId || undefined,
     );
 
     if (agentIds.length === 0) {
-      this.logger.warn('No available agents for round-robin assignment');
+      this.logger.warn("No available agents for round-robin assignment");
       return null;
     }
 
     // SORTING Logic
     // Default: 'name' (Alphabetical) as per user request? User said "name, order of date added".
     // Default config should probably be 'name'.
-    const sortBy = config?.sortBy || 'name'; // 'name' | 'created_at' | 'random'
+    const sortBy = config?.sortBy || "name"; // 'name' | 'created_at' | 'random'
 
-    if (sortBy === 'random') {
-        // shuffle
-        // To maintain "Round Robin" ring with random sort, the ring changes every time? 
-        // No, Round Robin implies a STABLE ring. 
-        // "Random" usually means "Random Assignment", not RR.
-        // If "Round Robin based on Random", it means we randomize the order ONCE? No.
-        // Let's assume 'random' effectively means Random Assignment.
-        // But for RR consistency, we should stick to a stable field.
-        // If sorting by ID, it's stable.
-        agentIds.sort();
+    if (sortBy === "random") {
+      // shuffle
+      // To maintain "Round Robin" ring with random sort, the ring changes every time?
+      // No, Round Robin implies a STABLE ring.
+      // "Random" usually means "Random Assignment", not RR.
+      // If "Round Robin based on Random", it means we randomize the order ONCE? No.
+      // Let's assume 'random' effectively means Random Assignment.
+      // But for RR consistency, we should stick to a stable field.
+      // If sorting by ID, it's stable.
+      agentIds.sort();
     } else {
-        const details = await this.getAgentDetails(agentIds);
-        agentIds.sort((a, b) => {
-            const detailA = details.find(d => d.id === a);
-            const detailB = details.find(d => d.id === b);
-            if (!detailA || !detailB) return 0;
+      const details = await this.getAgentDetails(agentIds);
+      agentIds.sort((a, b) => {
+        const detailA = details.find((d) => d.id === a);
+        const detailB = details.find((d) => d.id === b);
+        if (!detailA || !detailB) return 0;
 
-            if (sortBy === 'created_at') {
-                return detailA.createdAt.getTime() - detailB.createdAt.getTime();
-            }
-            // Default name
-            return detailA.name.localeCompare(detailB.name);
-        });
+        if (sortBy === "created_at") {
+          return detailA.createdAt.getTime() - detailB.createdAt.getTime();
+        }
+        // Default name
+        return detailA.name.localeCompare(detailB.name);
+      });
     }
 
     const lastIndex = this.roundRobinContext[contextKey] ?? -1;
@@ -351,6 +391,7 @@ export class AssignmentService {
 
     session.assignedAgentId = selectedAgentId;
     session.status = SessionStatus.ASSIGNED;
+    session.assignedAt = new Date();
 
     return this.sessionRepo.save(session);
   }
@@ -369,18 +410,20 @@ export class AssignmentService {
     if (agentIds.length === 0) return null;
 
     const metrics = await this.getAgentMetrics(agentIds);
-    
+
     // Sort by active count ASC, then Round Robin (index) -> actually simple sort is active ASC
     // For tie-breaking to Round Robin, we need to defer to RR logic if min values are equal.
-    
+
     // Find min active count
     let minActive = Infinity;
-    metrics.forEach(m => {
-        if (m.activeCount < minActive) minActive = m.activeCount;
+    metrics.forEach((m) => {
+      if (m.activeCount < minActive) minActive = m.activeCount;
     });
 
     // Get candidates with minActive
-    const candidates = agentIds.filter(id => metrics.get(id)?.activeCount === minActive);
+    const candidates = agentIds.filter(
+      (id) => metrics.get(id)?.activeCount === minActive,
+    );
 
     // Pick one from candidates using Round Robin
     return this.pickRoundRobinFromCandidates(session, candidates);
@@ -392,8 +435,11 @@ export class AssignmentService {
   private async assignLeastAssigned(
     session: InboxSessionEntity,
   ): Promise<InboxSessionEntity | null> {
-    const { config } = await this.getStrategyWithType(session.tenantId, session.assignedTeamId);
-    const timeWindow = config?.timeWindow || 'all_time';
+    const { config } = await this.getStrategyWithType(
+      session.tenantId,
+      session.assignedTeamId,
+    );
+    const timeWindow = config?.timeWindow || "all_time";
 
     const agentIds = await this.getAvailableAgents(
       session.tenantId,
@@ -403,13 +449,15 @@ export class AssignmentService {
     if (agentIds.length === 0) return null;
 
     const metrics = await this.getAgentMetrics(agentIds, timeWindow);
-    
+
     let minTotal = Infinity;
-    metrics.forEach(m => {
-        if (m.totalCount < minTotal) minTotal = m.totalCount;
+    metrics.forEach((m) => {
+      if (m.totalCount < minTotal) minTotal = m.totalCount;
     });
 
-    const candidates = agentIds.filter(id => metrics.get(id)?.totalCount === minTotal);
+    const candidates = agentIds.filter(
+      (id) => metrics.get(id)?.totalCount === minTotal,
+    );
 
     return this.pickRoundRobinFromCandidates(session, candidates);
   }
@@ -420,86 +468,100 @@ export class AssignmentService {
    */
   private async assignHybrid(
     session: InboxSessionEntity,
-    priorities: string[]
+    priorities: string[],
   ): Promise<InboxSessionEntity | null> {
-      const agentIds = await this.getAvailableAgents(
-        session.tenantId,
-        session.assignedTeamId || undefined,
-      );
-  
-      if (agentIds.length === 0) return null;
-  
-      const metrics = await this.getAgentMetrics(agentIds);
-      
-      // Sort agents
-      agentIds.sort((a, b) => {
-          const metricA = metrics.get(a)!;
-          const metricB = metrics.get(b)!;
-          
-          for (const priority of priorities) {
-              if (priority === 'least_active') {
-                  if (metricA.activeCount !== metricB.activeCount) return metricA.activeCount - metricB.activeCount;
-              }
-              if (priority === 'least_assigned') {
-                  if (metricA.totalCount !== metricB.totalCount) return metricA.totalCount - metricB.totalCount;
-              }
-          }
-          return 0; // Tie
-      });
-  
-      // Find all top agents (first one + any ties)
-      const bestAgent = agentIds[0];
-      const metricBest = metrics.get(bestAgent)!;
-      
-      // Filter strictly for ties with the best agent
-      const candidates = agentIds.filter(id => {
-          const m = metrics.get(id)!;
-          // Must match match on ALL priorities
-          for (const priority of priorities) {
-            if (priority === 'least_active' && m.activeCount !== metricBest.activeCount) return false;
-            if (priority === 'least_assigned' && m.totalCount !== metricBest.totalCount) return false;
-          }
-          return true;
-      });
-  
-      return this.pickRoundRobinFromCandidates(session, candidates);
+    const agentIds = await this.getAvailableAgents(
+      session.tenantId,
+      session.assignedTeamId || undefined,
+    );
+
+    if (agentIds.length === 0) return null;
+
+    const metrics = await this.getAgentMetrics(agentIds);
+
+    // Sort agents
+    agentIds.sort((a, b) => {
+      const metricA = metrics.get(a)!;
+      const metricB = metrics.get(b)!;
+
+      for (const priority of priorities) {
+        if (priority === "least_active") {
+          if (metricA.activeCount !== metricB.activeCount)
+            return metricA.activeCount - metricB.activeCount;
+        }
+        if (priority === "least_assigned") {
+          if (metricA.totalCount !== metricB.totalCount)
+            return metricA.totalCount - metricB.totalCount;
+        }
+      }
+      return 0; // Tie
+    });
+
+    // Find all top agents (first one + any ties)
+    const bestAgent = agentIds[0];
+    const metricBest = metrics.get(bestAgent)!;
+
+    // Filter strictly for ties with the best agent
+    const candidates = agentIds.filter((id) => {
+      const m = metrics.get(id)!;
+      // Must match match on ALL priorities
+      for (const priority of priorities) {
+        if (
+          priority === "least_active" &&
+          m.activeCount !== metricBest.activeCount
+        )
+          return false;
+        if (
+          priority === "least_assigned" &&
+          m.totalCount !== metricBest.totalCount
+        )
+          return false;
+      }
+      return true;
+    });
+
+    return this.pickRoundRobinFromCandidates(session, candidates);
   }
 
   /**
    * Helper to perform Round Robin selection on a filtered subset of agents.
    * Used for tie-breaking.
    */
-  private async pickRoundRobinFromCandidates(session: InboxSessionEntity, candidates: string[]): Promise<InboxSessionEntity> {
-      // Sort candidates by ID for deterministic ring
-      candidates.sort();
+  private async pickRoundRobinFromCandidates(
+    session: InboxSessionEntity,
+    candidates: string[],
+  ): Promise<InboxSessionEntity> {
+    // Sort candidates by ID for deterministic ring
+    candidates.sort();
 
-      const contextKey = session.assignedTeamId || session.tenantId;
-      const lastIndex = this.roundRobinContext[contextKey] ?? -1;
-      
-      // We need to pick the "next" agent relative to the entire pool context, 
-      // OR just round robin within this candidate list?
-      // "When equal, default to round robin". 
-      // If we just RR within candidates, it works.
-      
-      // Simple local RR for candidates
-      // To prevent "starvation" or sticky assignment if candidates are always the same 2 people, 
-      // we need a persistent index for this group? 
-      // Or just rely on random? 
-      // User asked for "Round Robin". 
-      // Ideally we maintain the global pointer. 
-      // But candidates might change. 
-      // Let's just create a hash or increment a counter for the team to rotate through ties.
-      
-      const counter = this.roundRobinContext[contextKey] ?? 0;
-      const selectedId = candidates[counter % candidates.length];
-      
-      // Increment global counter
-      this.roundRobinContext[contextKey] = counter + 1;
-      
-      session.assignedAgentId = selectedId;
-      session.status = SessionStatus.ASSIGNED;
-      
-      return this.sessionRepo.save(session);
+    const contextKey = session.assignedTeamId || session.tenantId;
+    const lastIndex = this.roundRobinContext[contextKey] ?? -1;
+
+    // We need to pick the "next" agent relative to the entire pool context,
+    // OR just round robin within this candidate list?
+    // "When equal, default to round robin".
+    // If we just RR within candidates, it works.
+
+    // Simple local RR for candidates
+    // To prevent "starvation" or sticky assignment if candidates are always the same 2 people,
+    // we need a persistent index for this group?
+    // Or just rely on random?
+    // User asked for "Round Robin".
+    // Ideally we maintain the global pointer.
+    // But candidates might change.
+    // Let's just create a hash or increment a counter for the team to rotate through ties.
+
+    const counter = this.roundRobinContext[contextKey] ?? 0;
+    const selectedId = candidates[counter % candidates.length];
+
+    // Increment global counter
+    this.roundRobinContext[contextKey] = counter + 1;
+
+    session.assignedAgentId = selectedId;
+    session.status = SessionStatus.ASSIGNED;
+    session.assignedAt = new Date();
+
+    return this.sessionRepo.save(session);
   }
 
   /**
@@ -528,49 +590,54 @@ export class AssignmentService {
 
     // CHECK SCHEDULE AVAILABILITY
     if (teamId) {
-      const { isOpen, nextOpen, message } = await this.checkScheduleAvailability(teamId);
+      const { isOpen, nextOpen, message } =
+        await this.checkScheduleAvailability(teamId);
       if (!isOpen) {
-          this.logger.log(`Team ${teamId} is closed. Next open: ${nextOpen}`);
-          
-          let action = 'queue';
-          if (nextOpen) {
-              const diffMs = nextOpen.getTime() - Date.now();
-              const diffHours = diffMs / (1000 * 60 * 60);
-              if (diffHours > 24) {
-                  action = 'ooo';
-              }
-          } else {
-              action = 'ooo'; // No known next shift
-          }
+        this.logger.log(`Team ${teamId} is closed. Next open: ${nextOpen}`);
 
-          if (action === 'ooo') {
-               const oooMsg = message || "We are currently closed.";
-               try {
-                  await this.whatsappService.sendMessage(session.tenantId, session.contactId, oooMsg);
-                  await this.inboxService.addMessage({
-                      tenantId: session.tenantId,
-                      sessionId: session.id,
-                      contactId: session.contactId,
-                      direction: MessageDirection.OUTBOUND,
-                      content: oooMsg,
-                      senderId: undefined // system
-                  });
-               } catch (e) {
-                   this.logger.error("Failed to send OOO message", e);
-               }
-               return session; // Stop assignment
+        let action = "queue";
+        if (nextOpen) {
+          const diffMs = nextOpen.getTime() - Date.now();
+          const diffHours = diffMs / (1000 * 60 * 60);
+          if (diffHours > 24) {
+            action = "ooo";
           }
-           
-          // If 'queue', we just return the session without assigning.
-          return session; 
+        } else {
+          action = "ooo"; // No known next shift
+        }
+
+        if (action === "ooo") {
+          const oooMsg = message || "We are currently closed.";
+          try {
+            await this.whatsappService.sendMessage(
+              session.tenantId,
+              session.contactId,
+              oooMsg,
+            );
+            await this.inboxService.addMessage({
+              tenantId: session.tenantId,
+              sessionId: session.id,
+              contactId: session.contactId,
+              direction: MessageDirection.OUTBOUND,
+              content: oooMsg,
+              senderId: undefined, // system
+            });
+          } catch (e) {
+            this.logger.error("Failed to send OOO message", e);
+          }
+          return session; // Stop assignment
+        }
+
+        // If 'queue', we just return the session without assigning.
+        return session;
       }
     }
-    
+
     // Attempt auto-assignment
     const assigned = await this.assignSession(session);
 
     if (assigned) {
-        return assigned;
+      return assigned;
     }
 
     // --- NO AGENT AVAILABLE HANDLING ---
@@ -583,35 +650,43 @@ export class AssignmentService {
     // So YES, check schedule first.
 
     // Move logic up.
-    
+
     // 1. Fetch Config
     const config = await this.configRepo.findOne({
       where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
     });
 
     const waterfall = config?.settings?.waterfall;
-    const noAgentAction = waterfall?.noAgentAction || 'queue'; // 'queue' | 'reply'
+    const noAgentAction = waterfall?.noAgentAction || "queue"; // 'queue' | 'reply'
 
-    if (noAgentAction === 'reply') {
-        const messageText = waterfall?.noAgentMessage || 'All of our agents are currently busy. We will get back to you shortly.';
-        
-        try {
-            // Send WA message
-            await this.whatsappService.sendMessage(session.tenantId, session.contactId, messageText);
-            
-            // Record in Inbox
-            await this.inboxService.addMessage({
-                tenantId: session.tenantId,
-                sessionId: session.id,
-                contactId: session.contactId,
-                direction: MessageDirection.OUTBOUND,
-                content: messageText,
-                senderId: undefined // system
-            });
-            this.logger.log(`Sent no-agent fallback message to ${session.contactId}`);
-        } catch (e) {
-            this.logger.error('Failed to send no-agent fallback message', e);
-        }
+    if (noAgentAction === "reply") {
+      const messageText =
+        waterfall?.noAgentMessage ||
+        "All of our agents are currently busy. We will get back to you shortly.";
+
+      try {
+        // Send WA message
+        await this.whatsappService.sendMessage(
+          session.tenantId,
+          session.contactId,
+          messageText,
+        );
+
+        // Record in Inbox
+        await this.inboxService.addMessage({
+          tenantId: session.tenantId,
+          sessionId: session.id,
+          contactId: session.contactId,
+          direction: MessageDirection.OUTBOUND,
+          content: messageText,
+          senderId: undefined, // system
+        });
+        this.logger.log(
+          `Sent no-agent fallback message to ${session.contactId}`,
+        );
+      } catch (e) {
+        this.logger.error("Failed to send no-agent fallback message", e);
+      }
     }
 
     return session;
@@ -620,68 +695,81 @@ export class AssignmentService {
   /**
    * Checks if the team is currently available based on its schedule.
    */
-  async checkScheduleAvailability(teamId: string): Promise<{ isOpen: boolean; nextOpen?: Date; message?: string }> {
-      const team = await this.teamRepo.findOne({ where: { id: teamId } });
-      if (!team || !team.schedule || !team.schedule.enabled) {
-          return { isOpen: true }; // Default to open if no schedule
-      }
+  async checkScheduleAvailability(
+    teamId: string,
+  ): Promise<{ isOpen: boolean; nextOpen?: Date; message?: string }> {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team || !team.schedule || !team.schedule.enabled) {
+      return { isOpen: true }; // Default to open if no schedule
+    }
 
-      const { timezone, days, outOfOfficeMessage } = team.schedule;
-      
-      const now = new Date();
-      // Helper to get day/time in target zone
-      const getParts = (d: Date) => {
-          const options: Intl.DateTimeFormatOptions = { timeZone: timezone, weekday: 'long', hour: 'numeric', minute: 'numeric', hour12: false };
-          const formatter = new Intl.DateTimeFormat('en-US', options);
-          const parts = formatter.formatToParts(d);
-          const day = parts.find(p => p.type === 'weekday')?.value.toLowerCase() || '';
-          const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-          const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
-          return { day, h, m, mins: h * 60 + m };
+    const { timezone, days, outOfOfficeMessage } = team.schedule;
+
+    const now = new Date();
+    // Helper to get day/time in target zone
+    const getParts = (d: Date) => {
+      const options: Intl.DateTimeFormatOptions = {
+        timeZone: timezone,
+        weekday: "long",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
       };
+      const formatter = new Intl.DateTimeFormat("en-US", options);
+      const parts = formatter.formatToParts(d);
+      const day =
+        parts.find((p) => p.type === "weekday")?.value.toLowerCase() || "";
+      const h = parseInt(parts.find((p) => p.type === "hour")?.value || "0");
+      const m = parseInt(parts.find((p) => p.type === "minute")?.value || "0");
+      return { day, h, m, mins: h * 60 + m };
+    };
 
-      const current = getParts(now);
-      
-      // Check today's shifts
-      const dayShifts = days[current.day] || [];
-      for (const shift of dayShifts) {
-          const [startH, startM] = shift.start.split(':').map(Number);
-          const [endH, endM] = shift.end.split(':').map(Number);
-          const startMins = startH * 60 + startM;
-          const endMins = endH * 60 + endM;
+    const current = getParts(now);
 
-          if (current.mins >= startMins && current.mins < endMins) {
-              return { isOpen: true };
-          }
+    // Check today's shifts
+    const dayShifts = days[current.day] || [];
+    for (const shift of dayShifts) {
+      const [startH, startM] = shift.start.split(":").map(Number);
+      const [endH, endM] = shift.end.split(":").map(Number);
+      const startMins = startH * 60 + startM;
+      const endMins = endH * 60 + endM;
+
+      if (current.mins >= startMins && current.mins < endMins) {
+        return { isOpen: true };
       }
+    }
 
-      // Find next open slot
-      // Look up to 7 days ahead
-      for (let i = 0; i < 7; i++) {
-          // Construct date for "now + i days"
-          // Note: naive addition, simplified for MVP
-          const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
-          const p = getParts(d);
-          const shifts = days[p.day] || [];
-          
-          for (const shift of shifts) {
-               const [startH, startM] = shift.start.split(':').map(Number);
-               const startMins = startH * 60 + startM;
-               
-               // If it's today (i=0), shift must be in future
-               if (i === 0 && startMins <= current.mins) continue;
-               
-               // Found next shift
-               // Calculate minutes until that shift
-               // (i * 24h) + (shiftStartMins - currentMins)
-               // Only works correctly if timezone doesn't change offset in these days (mostly fine)
-               const minutesUntil = (i * 24 * 60) + (startMins - current.mins);
-               const nextOpenDate = new Date(now.getTime() + minutesUntil * 60 * 1000);
-               
-               return { isOpen: false, nextOpen: nextOpenDate, message: outOfOfficeMessage };
-          }
+    // Find next open slot
+    // Look up to 7 days ahead
+    for (let i = 0; i < 7; i++) {
+      // Construct date for "now + i days"
+      // Note: naive addition, simplified for MVP
+      const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+      const p = getParts(d);
+      const shifts = days[p.day] || [];
+
+      for (const shift of shifts) {
+        const [startH, startM] = shift.start.split(":").map(Number);
+        const startMins = startH * 60 + startM;
+
+        // If it's today (i=0), shift must be in future
+        if (i === 0 && startMins <= current.mins) continue;
+
+        // Found next shift
+        // Calculate minutes until that shift
+        // (i * 24h) + (shiftStartMins - currentMins)
+        // Only works correctly if timezone doesn't change offset in these days (mostly fine)
+        const minutesUntil = i * 24 * 60 + (startMins - current.mins);
+        const nextOpenDate = new Date(now.getTime() + minutesUntil * 60 * 1000);
+
+        return {
+          isOpen: false,
+          nextOpen: nextOpenDate,
+          message: outOfOfficeMessage,
+        };
       }
+    }
 
-      return { isOpen: false, message: outOfOfficeMessage };
+    return { isOpen: false, message: outOfOfficeMessage };
   }
 }

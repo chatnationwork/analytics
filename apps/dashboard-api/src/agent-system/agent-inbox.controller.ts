@@ -23,7 +23,7 @@ import {
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { InboxService, InboxFilter } from "./inbox.service";
 import { AssignmentService } from "./assignment.service";
-
+import { PresenceService } from "./presence.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { MessageDirection } from "@lib/database";
 
@@ -56,6 +56,11 @@ interface TransferSessionDto {
   reason?: string;
 }
 
+/** DTO for presence (go online/offline) */
+interface PresenceDto {
+  status: "online" | "offline";
+}
+
 /**
  * Controller for agent inbox operations.
  * All endpoints require authentication via JWT.
@@ -65,8 +70,8 @@ interface TransferSessionDto {
 export class AgentInboxController {
   constructor(
     private readonly inboxService: InboxService,
-
     private readonly assignmentService: AssignmentService,
+    private readonly presenceService: PresenceService,
     private readonly whatsappService: WhatsappService,
   ) {}
 
@@ -88,6 +93,20 @@ export class AgentInboxController {
       req.user.id,
       filter,
     );
+  }
+
+  /**
+   * Set agent presence (online/offline). Creates/ends agent_sessions and updates agent_profiles.status.
+   */
+  @Post("presence")
+  async setPresence(
+    @Request() req: { user: { id: string; tenantId: string } },
+    @Body() dto: PresenceDto,
+  ) {
+    if (dto.status === "online") {
+      return this.presenceService.goOnline(req.user.tenantId, req.user.id);
+    }
+    return this.presenceService.goOffline(req.user.tenantId, req.user.id);
   }
 
   /**

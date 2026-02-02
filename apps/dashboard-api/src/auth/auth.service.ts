@@ -2,7 +2,7 @@
  * =============================================================================
  * AUTH SERVICE
  * =============================================================================
- * 
+ *
  * Handles authentication business logic:
  * - User registration (signup)
  * - User login with JWT generation
@@ -14,14 +14,18 @@ import {
   ConflictException,
   UnauthorizedException,
   Logger,
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import { UserRepository, TenantRepository, TeamMemberEntity } from '@lib/database';
-import { RbacService } from '../agent-system/rbac.service';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { SignupDto, LoginDto, LoginResponseDto } from './dto';
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcrypt";
+import {
+  UserRepository,
+  TenantRepository,
+  TeamMemberEntity,
+} from "@lib/database";
+import { RbacService } from "../agent-system/rbac.service";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { SignupDto, LoginDto, LoginResponseDto } from "./dto";
 
 /** JWT payload structure */
 export interface JwtPayload {
@@ -38,8 +42,8 @@ export interface AuthUser {
   name: string;
   tenantId: string;
   permissions: {
-      global: string[];
-      team: Record<string, string[]>;
+    global: string[];
+    team: Record<string, string[]>;
   };
 }
 
@@ -65,16 +69,17 @@ export class AuthService {
     // Check if email already exists
     const existingUser = await this.userRepository.emailExists(dto.email);
     if (existingUser) {
-      throw new ConflictException('An account with this email already exists');
+      throw new ConflictException("An account with this email already exists");
     }
 
     // Generate slug from organization name if not provided
-    const slug = dto.organizationSlug ?? this.generateSlug(dto.organizationName);
+    const slug =
+      dto.organizationSlug ?? this.generateSlug(dto.organizationName);
 
     // Check if slug is available
     const slugExists = await this.tenantRepository.slugExists(slug);
     if (slugExists) {
-      throw new ConflictException('This organization slug is already taken');
+      throw new ConflictException("This organization slug is already taken");
     }
 
     // Hash password
@@ -109,13 +114,16 @@ export class AuthService {
     // Find user by email
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException("Invalid email or password");
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException("Invalid email or password");
     }
 
     // Update last login time
@@ -139,9 +147,9 @@ export class AuthService {
     const activeTenant = tenants[0]; // For now, simple multi-tenancy (first tenant)
 
     if (!activeTenant) {
-        // Should rarely happen as signup creates tenant
-        this.logger.warn(`User ${userId} has no tenants`);
-        return null;
+      // Should rarely happen as signup creates tenant
+      this.logger.warn(`User ${userId} has no tenants`);
+      return null;
     }
 
     const permissions = await this.getUserPermissions(user.id);
@@ -149,7 +157,7 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email,
-      name: user.name ?? '',
+      name: user.name ?? "",
       tenantId: activeTenant.id,
       permissions,
     };
@@ -161,16 +169,25 @@ export class AuthService {
   /**
    * Generate JWT and login response.
    */
-  private async generateLoginResponse(user: { id: string; email: string; name?: string | null }): Promise<LoginResponseDto> {
+  private async generateLoginResponse(user: {
+    id: string;
+    email: string;
+    name?: string | null;
+  }): Promise<LoginResponseDto> {
     // Determine expiration based on tenant settings
     const tenants = await this.tenantRepository.findByUserId(user.id);
     const activeTenant = tenants[0];
-    
-    // Default: 7 days in minutes
-    let maxDurationMinutes = 10080; 
 
-    if (activeTenant && activeTenant.settings && activeTenant.settings.session) {
-        maxDurationMinutes = activeTenant.settings.session.maxDurationMinutes || 10080;
+    // Default: 7 days in minutes
+    let maxDurationMinutes = 10080;
+
+    if (
+      activeTenant &&
+      activeTenant.settings &&
+      activeTenant.settings.session
+    ) {
+      maxDurationMinutes =
+        activeTenant.settings.session.maxDurationMinutes || 10080;
     }
 
     const payload: JwtPayload = {
@@ -179,10 +196,10 @@ export class AuthService {
     };
 
     // Sign with dynamic expiration
-    const accessToken = this.jwtService.sign(payload, { 
-        expiresIn: `${maxDurationMinutes}m` 
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: `${maxDurationMinutes}m`,
     });
-    
+
     // Calculate seconds for response
     const expiresIn = maxDurationMinutes * 60;
 
@@ -190,12 +207,12 @@ export class AuthService {
 
     return {
       accessToken,
-      tokenType: 'Bearer',
+      tokenType: "Bearer",
       expiresIn,
       user: {
         id: user.id,
         email: user.email,
-        name: user.name ?? '',
+        name: user.name ?? "",
         permissions,
       },
     };
@@ -204,26 +221,36 @@ export class AuthService {
   /**
    * Fetch permissions for a user.
    */
-  async getUserPermissions(userId: string): Promise<{ global: string[]; team: Record<string, string[]> }> {
+  async getUserPermissions(
+    userId: string,
+  ): Promise<{ global: string[]; team: Record<string, string[]> }> {
     // 1. Get Global Permissions
     const tenants = await this.tenantRepository.findByUserId(userId);
     const activeTenant = tenants[0];
     let globalPermissions: string[] = [];
-    
+
     if (activeTenant) {
-        const globalRole = await this.tenantRepository.getUserRole(userId, activeTenant.id);
-        if (globalRole) {
-            globalPermissions = await this.rbacService.getPermissionsForRole(globalRole);
-        }
+      const globalRole = await this.tenantRepository.getUserRole(
+        userId,
+        activeTenant.id,
+      );
+      if (globalRole) {
+        globalPermissions =
+          await this.rbacService.getPermissionsForRole(globalRole);
+      }
     }
 
     // 2. Get Team Permissions
-    const teamMemberships = await this.teamMemberRepo.find({ where: { userId } });
+    const teamMemberships = await this.teamMemberRepo.find({
+      where: { userId },
+    });
     const teamPermissions: Record<string, string[]> = {};
-    
+
     for (const membership of teamMemberships) {
-        const perms = await this.rbacService.getPermissionsForRole(membership.role);
-        teamPermissions[membership.teamId] = perms;
+      const perms = await this.rbacService.getPermissionsForRole(
+        membership.role,
+      );
+      teamPermissions[membership.teamId] = perms;
     }
 
     return { global: globalPermissions, team: teamPermissions };
@@ -235,8 +262,8 @@ export class AuthService {
   private generateSlug(name: string): string {
     return name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
       .substring(0, 50);
   }
 }
