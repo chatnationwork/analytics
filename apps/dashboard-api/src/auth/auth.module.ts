@@ -16,9 +16,11 @@ import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
 import { DatabaseModule } from "@lib/database";
 import { RbacModule } from "../agent-system/rbac.module";
+import { AuditModule } from "../audit/audit.module";
 
 @Module({
   imports: [
+    AuditModule,
     // Database access for user/tenant repositories
     DatabaseModule.forFeature(),
 

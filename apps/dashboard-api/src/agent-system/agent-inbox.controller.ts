@@ -18,6 +18,7 @@ import {
   Param,
   Query,
   Request,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -26,6 +27,8 @@ import { AssignmentService } from "./assignment.service";
 import { PresenceService } from "./presence.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { MessageDirection } from "@lib/database";
+import { AuditService, AuditActions } from "../audit/audit.service";
+import { getRequestContext, type RequestLike } from "../request-context";
 
 /**
  * DTO for sending a message as an agent
@@ -73,6 +76,7 @@ export class AgentInboxController {
     private readonly assignmentService: AssignmentService,
     private readonly presenceService: PresenceService,
     private readonly whatsappService: WhatsappService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -171,10 +175,25 @@ export class AgentInboxController {
    */
   @Post(":sessionId/accept")
   async acceptSession(
-    @Request() req: { user: { id: string } },
+    @Request() req: { user: { id: string; tenantId: string } },
     @Param("sessionId") sessionId: string,
+    @Req() expressReq: RequestLike,
   ) {
-    return this.inboxService.assignSession(sessionId, req.user.id);
+    const session = await this.inboxService.assignSession(
+      sessionId,
+      req.user.id,
+    );
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CHAT_SESSION_ASSIGNED,
+      resourceType: "session",
+      resourceId: sessionId,
+      details: { agentId: req.user.id },
+      requestContext: getRequestContext(expressReq),
+    });
+    return session;
   }
 
   /**
@@ -182,16 +201,32 @@ export class AgentInboxController {
    */
   @Put(":sessionId/resolve")
   async resolveSession(
-    @Request() req: { user: { id: string } },
+    @Request() req: { user: { id: string; tenantId: string } },
     @Param("sessionId") sessionId: string,
+    @Req() expressReq: RequestLike,
     @Body() dto: ResolveSessionDto,
   ) {
-    return this.inboxService.resolveSession(sessionId, req.user.id, {
-      category: dto.category,
-      notes: dto.notes,
-      outcome: dto.outcome,
-      wrapUpData: dto.wrapUpData,
+    const session = await this.inboxService.resolveSession(
+      sessionId,
+      req.user.id,
+      {
+        category: dto.category,
+        notes: dto.notes,
+        outcome: dto.outcome,
+        wrapUpData: dto.wrapUpData,
+      },
+    );
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CHAT_SESSION_RESOLVED,
+      resourceType: "session",
+      resourceId: sessionId,
+      details: { agentId: req.user.id },
+      requestContext: getRequestContext(expressReq),
     });
+    return session;
   }
 
   /**
@@ -199,16 +234,32 @@ export class AgentInboxController {
    */
   @Post(":sessionId/transfer")
   async transferSession(
-    @Request() req: { user: { id: string } },
+    @Request() req: { user: { id: string; tenantId: string } },
     @Param("sessionId") sessionId: string,
+    @Req() expressReq: RequestLike,
     @Body() dto: TransferSessionDto,
   ) {
-    return this.inboxService.transferSession(
+    const session = await this.inboxService.transferSession(
       sessionId,
       req.user.id,
       dto.targetAgentId,
       dto.reason,
     );
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CHAT_SESSION_TRANSFERRED,
+      resourceType: "session",
+      resourceId: sessionId,
+      details: {
+        fromAgentId: req.user.id,
+        toAgentId: dto.targetAgentId,
+        reason: dto.reason,
+      },
+      requestContext: getRequestContext(expressReq),
+    });
+    return session;
   }
 
   /**

@@ -39,12 +39,14 @@ import { AgentStatusService } from "./agent-status.service";
 import { AgentStatusController } from "./agent-status.controller";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { ApiKeysModule } from "../api-keys/api-keys.module";
+import { AuditModule } from "../audit/audit.module";
 
 @Module({
   imports: [
     RbacModule,
     ApiKeysModule,
     WhatsappModule,
+    AuditModule,
     DatabaseModule.forFeature(), // Provides EventRepository for analytics events
     TypeOrmModule.forFeature([
       InboxSessionEntity,

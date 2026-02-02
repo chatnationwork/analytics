@@ -2,20 +2,20 @@
  * =============================================================================
  * LOGIN DTO
  * =============================================================================
- * 
+ *
  * Data Transfer Object for user login.
  */
 
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength } from "class-validator";
 
 export class LoginDto {
   /** User's email address */
-  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @IsEmail({}, { message: "Please provide a valid email address" })
   email: string;
 
   /** User's password */
   @IsString()
-  @MinLength(1, { message: 'Password is required' })
+  @MinLength(1, { message: "Password is required" })
   password: string;
 }
 
@@ -27,7 +27,7 @@ export class LoginResponseDto {
   accessToken: string;
 
   /** Token type (always 'Bearer') */
-  tokenType: 'Bearer';
+  tokenType: "Bearer";
 
   /** Expiry time in seconds */
   expiresIn: number;
@@ -37,6 +37,7 @@ export class LoginResponseDto {
     id: string;
     email: string;
     name: string;
+    tenantId: string;
     permissions: {
       global: string[];
       team: Record<string, string[]>;

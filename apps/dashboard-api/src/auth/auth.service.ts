@@ -205,6 +205,8 @@ export class AuthService {
 
     const permissions = await this.getUserPermissions(user.id);
 
+    const tenantId = activeTenant?.id ?? "";
+
     return {
       accessToken,
       tokenType: "Bearer",
@@ -213,6 +215,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name ?? "",
+        tenantId,
         permissions,
       },
     };

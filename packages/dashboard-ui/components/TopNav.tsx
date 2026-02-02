@@ -20,6 +20,7 @@ import {
   Contact,
   BookOpen,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { usePermission } from "@/components/auth/PermissionContext";
@@ -37,6 +38,7 @@ const navGroups = [
       { href: "/whatsapp-analytics", label: "WhatsApp", icon: MessageCircle },
       { href: "/whatsapp", label: "CRM", icon: Briefcase },
       { href: "/events", label: "Events", icon: Activity },
+      { href: "/audit-logs", label: "Audit logs", icon: ShieldCheck },
     ],
   },
   {

@@ -56,6 +56,7 @@ import { RolePermissionEntity } from "./entities/role-permission.entity";
 import { RoleEntity } from "./entities/role.entity";
 import { ContactEntity } from "./entities/contact.entity";
 import { AgentSessionEntity } from "./entities/agent-session.entity";
+import { AuditLogEntity } from "./entities/audit-log.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -65,6 +66,7 @@ import { CrmIntegrationRepository } from "./repositories/crm-integration.reposit
 import { ApiKeyRepository } from "./repositories/api-key.repository";
 import { ContactRepository } from "./repositories/contact.repository";
 import { AgentSessionRepository } from "./repositories/agent-session.repository";
+import { AuditLogRepository } from "./repositories/audit-log.repository";
 
 /**
  * All entities that map to database tables.
@@ -93,6 +95,7 @@ const entities = [
   RoleEntity,
   ContactEntity,
   AgentSessionEntity,
+  AuditLogEntity,
 ];
 
 /**
@@ -109,6 +112,7 @@ const repositories = [
   ApiKeyRepository,
   ContactRepository,
   AgentSessionRepository,
+  AuditLogRepository,
 ];
 
 /**

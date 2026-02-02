@@ -19,6 +19,7 @@ import {
   Body,
   Param,
   Request,
+  Req,
   UseGuards,
   NotFoundException,
   BadRequestException,
@@ -34,6 +35,8 @@ import {
   UserEntity,
   TenantMembershipEntity,
 } from "@lib/database";
+import { AuditService, AuditActions } from "../audit/audit.service";
+import { getRequestContext, type RequestLike } from "../request-context";
 
 /**
  * DTO for creating a team
@@ -88,6 +91,7 @@ export class TeamController {
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(TenantMembershipEntity)
     private readonly tenantMembershipRepo: Repository<TenantMembershipEntity>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -156,7 +160,8 @@ export class TeamController {
    */
   @Post()
   async createTeam(
-    @Request() req: { user: { tenantId: string } },
+    @Request() req: { user: { id: string; tenantId: string } },
+    @Req() expressReq: RequestLike,
     @Body() dto: CreateTeamDto,
   ) {
     const team = this.teamRepo.create({
@@ -166,7 +171,18 @@ export class TeamController {
       isDefault: false,
     });
 
-    return this.teamRepo.save(team);
+    const saved = await this.teamRepo.save(team);
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CONFIG_TEAM_CREATED,
+      resourceType: "team",
+      resourceId: saved.id,
+      details: { name: saved.name },
+      requestContext: getRequestContext(expressReq),
+    });
+    return saved;
   }
 
   /**
@@ -174,7 +190,9 @@ export class TeamController {
    */
   @Put(":teamId")
   async updateTeam(
+    @Request() req: { user: { id: string; tenantId: string } },
     @Param("teamId") teamId: string,
+    @Req() expressReq: RequestLike,
     @Body() dto: Partial<CreateTeamDto>,
   ) {
     const team = await this.teamRepo.findOne({ where: { id: teamId } });
@@ -183,6 +201,16 @@ export class TeamController {
     }
 
     await this.teamRepo.update(teamId, dto);
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CONFIG_TEAM_UPDATED,
+      resourceType: "team",
+      resourceId: teamId,
+      details: { name: team.name },
+      requestContext: getRequestContext(expressReq),
+    });
     return this.teamRepo.findOne({ where: { id: teamId } });
   }
 
@@ -190,7 +218,11 @@ export class TeamController {
    * Disable a team (soft delete)
    */
   @Patch(":teamId/disable")
-  async disableTeam(@Param("teamId") teamId: string) {
+  async disableTeam(
+    @Request() req: { user: { id: string; tenantId: string } },
+    @Param("teamId") teamId: string,
+    @Req() expressReq: RequestLike,
+  ) {
     const team = await this.teamRepo.findOne({ where: { id: teamId } });
     if (!team) {
       throw new NotFoundException("Team not found");
@@ -201,6 +233,16 @@ export class TeamController {
     }
 
     await this.teamRepo.update(teamId, { isActive: false });
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CONFIG_TEAM_DISABLED,
+      resourceType: "team",
+      resourceId: teamId,
+      details: { name: team.name },
+      requestContext: getRequestContext(expressReq),
+    });
     return { success: true, message: "Team disabled" };
   }
 
@@ -208,13 +250,27 @@ export class TeamController {
    * Enable a team
    */
   @Patch(":teamId/enable")
-  async enableTeam(@Param("teamId") teamId: string) {
+  async enableTeam(
+    @Request() req: { user: { id: string; tenantId: string } },
+    @Param("teamId") teamId: string,
+    @Req() expressReq: RequestLike,
+  ) {
     const team = await this.teamRepo.findOne({ where: { id: teamId } });
     if (!team) {
       throw new NotFoundException("Team not found");
     }
 
     await this.teamRepo.update(teamId, { isActive: true });
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CONFIG_TEAM_ENABLED,
+      resourceType: "team",
+      resourceId: teamId,
+      details: { name: team.name },
+      requestContext: getRequestContext(expressReq),
+    });
     return { success: true, message: "Team enabled" };
   }
 
@@ -222,7 +278,11 @@ export class TeamController {
    * Delete a team (hard delete - only for non-default teams)
    */
   @Delete(":teamId")
-  async deleteTeam(@Param("teamId") teamId: string) {
+  async deleteTeam(
+    @Request() req: { user: { id: string; tenantId: string } },
+    @Param("teamId") teamId: string,
+    @Req() expressReq: RequestLike,
+  ) {
     const team = await this.teamRepo.findOne({ where: { id: teamId } });
     if (!team) {
       throw new NotFoundException("Team not found");
@@ -233,6 +293,16 @@ export class TeamController {
     }
 
     await this.teamRepo.delete(teamId);
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CONFIG_TEAM_DELETED,
+      resourceType: "team",
+      resourceId: teamId,
+      details: { name: team.name },
+      requestContext: getRequestContext(expressReq),
+    });
     return { success: true };
   }
 
