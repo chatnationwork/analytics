@@ -1,4 +1,3 @@
-
 import {
   Entity,
   Column,
@@ -7,33 +6,34 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
-} from 'typeorm';
-import { InboxSessionEntity } from './inbox-session.entity';
+} from "typeorm";
+import { InboxSessionEntity } from "./inbox-session.entity";
 
 export enum MessageDirection {
-  INBOUND = 'inbound',
-  OUTBOUND = 'outbound',
+  INBOUND = "inbound",
+  OUTBOUND = "outbound",
 }
 
 export enum MessageType {
-  TEXT = 'text',
-  IMAGE = 'image',
-  VIDEO = 'video',
-  AUDIO = 'audio',
-  DOCUMENT = 'document',
+  TEXT = "text",
+  IMAGE = "image",
+  VIDEO = "video",
+  AUDIO = "audio",
+  DOCUMENT = "document",
+  LOCATION = "location",
 }
 
-@Entity('messages')
-@Index(['sessionId', 'createdAt'])
+@Entity("messages")
+@Index(["sessionId", "createdAt"])
 export class MessageEntity {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column('uuid')
+  @Column("uuid")
   sessionId: string;
 
-  @ManyToOne(() => InboxSessionEntity, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'sessionId' })
+  @ManyToOne(() => InboxSessionEntity, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "sessionId" })
   session: InboxSessionEntity;
 
   @Column({ length: 50 })
@@ -44,27 +44,27 @@ export class MessageEntity {
   externalId: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: MessageDirection,
   })
   direction: MessageDirection;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: MessageType,
     default: MessageType.TEXT,
   })
   type: MessageType;
 
-  @Column('text', { nullable: true })
+  @Column("text", { nullable: true })
   content: string;
 
-  @Column('jsonb', { nullable: true })
+  @Column("jsonb", { nullable: true })
   metadata: Record<string, any>; // For media URLs, captions, etc.
 
-  @Column('uuid', { nullable: true })
+  @Column("uuid", { nullable: true })
   senderId: string; // If outbound, the agent's User ID
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 }

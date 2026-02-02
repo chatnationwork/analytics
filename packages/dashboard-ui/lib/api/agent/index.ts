@@ -58,9 +58,27 @@ export interface Message {
   id: string;
   sessionId: string;
   direction: "inbound" | "outbound";
-  type: "text" | "image" | "video" | "audio" | "document";
+  type: "text" | "image" | "video" | "audio" | "document" | "location";
   content?: string;
+  /** Media ID, filename, or location coords for non-text messages */
+  metadata?: Record<string, unknown>;
   createdAt: string;
+}
+
+/** Payload for sending a message (text, image, video, audio, document, location). */
+export interface SendMessagePayload {
+  /** Text body (type=text) or caption (image/video/document). Required for text. */
+  content?: string;
+  type?: "text" | "image" | "video" | "audio" | "document" | "location";
+  /** For image/video/audio/document: public URL from our media upload. */
+  media_url?: string;
+  /** For document: optional filename. */
+  filename?: string;
+  /** For location. */
+  latitude?: number | string;
+  longitude?: number | string;
+  name?: string;
+  address?: string;
 }
 
 export interface AvailableAgent {
@@ -77,6 +95,30 @@ export interface AvailableAgent {
  * - 'expired': Sessions with no activity for 24+ hours
  */
 export type InboxFilter = "all" | "pending" | "resolved" | "expired";
+
+const API_BASE =
+  typeof window !== "undefined" ? "" : (process.env.NEXT_PUBLIC_API_URL ?? "");
+
+/**
+ * Upload a file to our media server. Returns the public URL to use when sending media (e.g. in sendMessage).
+ */
+export async function uploadMedia(
+  file: File,
+): Promise<{ url: string; filename: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE}/api/dashboard/media/upload`, {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message ?? "Upload failed");
+  }
+  const json = await res.json();
+  return (json.data ?? json) as { url: string; filename: string };
+}
 
 export const agentApi = {
   /**
@@ -96,10 +138,17 @@ export const agentApi = {
     return fetchWithAuth(`/agent/inbox/${sessionId}`);
   },
 
-  sendMessage: async (sessionId: string, content: string) => {
+  /**
+   * Send a message. Pass a string (text) or full payload (image, video, audio, document, location).
+   */
+  sendMessage: async (
+    sessionId: string,
+    payload: string | SendMessagePayload,
+  ) => {
+    const body = typeof payload === "string" ? { content: payload } : payload;
     return fetchWithAuth(`/agent/inbox/${sessionId}/message`, {
       method: "POST",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(body),
     });
   },
 

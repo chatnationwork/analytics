@@ -179,6 +179,38 @@ export class EventRepository {
   }
 
   /**
+   * Get recent events for a tenant (live stream / polling).
+   * Optionally filter by event name.
+   *
+   * @param tenantId - Tenant to filter by
+   * @param startDate - Start of time window
+   * @param endDate - End of time window
+   * @param limit - Max events to return
+   * @param eventName - Optional event name filter
+   * @returns Events sorted by timestamp (newest first)
+   */
+  async findRecentByTenant(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    limit = 200,
+    eventName?: string,
+  ): Promise<EventEntity[]> {
+    const where: Record<string, unknown> = {
+      tenantId,
+      timestamp: Between(startDate, endDate),
+    };
+    if (eventName) {
+      where.eventName = eventName;
+    }
+    return this.repo.find({
+      where,
+      order: { timestamp: "DESC" },
+      take: limit,
+    });
+  }
+
+  /**
    * Count unique sessions for each event name.
    *
    * FUNNEL ANALYSIS:

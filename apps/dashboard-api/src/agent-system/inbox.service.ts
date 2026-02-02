@@ -12,8 +12,10 @@ import {
   NotFoundException,
   Logger,
   BadRequestException,
+  ConflictException,
 } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
+import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
+import { DataSource } from "typeorm";
 import { Repository, LessThan } from "typeorm";
 import {
   InboxSessionEntity,
@@ -71,6 +73,7 @@ export class InboxService {
     private readonly teamRepo: Repository<TeamEntity>,
     private readonly eventRepository: EventRepository,
     private readonly whatsappService: WhatsappService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -269,30 +272,59 @@ export class InboxService {
   }
 
   /**
-   * Assign a session to an agent.
-   * Fires an `agent.handoff` analytics event to track self-serve vs assisted journeys.
+   * Assign a session to an agent (lease-based: only one agent can accept).
+   * Uses a transaction with SELECT FOR UPDATE so concurrent accepts result in
+   * one success and one ConflictException ("already assigned").
+   * Fires an `agent.handoff` analytics event after commit.
    */
   async assignSession(
     sessionId: string,
     agentId: string,
   ): Promise<InboxSessionEntity> {
-    const session = await this.getSession(sessionId);
-    const wasUnassigned = session.status === SessionStatus.UNASSIGNED;
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    session.assignedAgentId = agentId;
-    session.status = SessionStatus.ASSIGNED;
-    session.assignedAt = new Date();
+    let savedSession: InboxSessionEntity;
 
-    const savedSession = await this.sessionRepo.save(session);
+    try {
+      const session = await queryRunner.manager
+        .getRepository(InboxSessionEntity)
+        .createQueryBuilder("s")
+        .setLock("pessimistic_write")
+        .where("s.id = :id", { id: sessionId })
+        .getOne();
 
-    // Fire agent.handoff event for analytics tracking
-    if (wasUnassigned) {
-      try {
-        await this.fireHandoffEvent(savedSession, agentId);
-      } catch (error) {
-        // Log but don't fail the assignment
-        this.logger.error(`Failed to fire handoff event: ${error.message}`);
+      if (!session) {
+        throw new NotFoundException("Session not found");
       }
+
+      if (session.status !== SessionStatus.UNASSIGNED) {
+        throw new ConflictException(
+          "This chat has already been assigned to another agent.",
+        );
+      }
+
+      session.assignedAgentId = agentId;
+      session.status = SessionStatus.ASSIGNED;
+      session.assignedAt = new Date();
+      savedSession = await queryRunner.manager
+        .getRepository(InboxSessionEntity)
+        .save(session);
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+
+    // Fire agent.handoff event after commit (do not hold lock during I/O)
+    try {
+      await this.fireHandoffEvent(savedSession, agentId);
+    } catch (error) {
+      this.logger.error(`Failed to fire handoff event: ${error.message}`);
     }
 
     return savedSession;

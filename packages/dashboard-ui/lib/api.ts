@@ -26,6 +26,19 @@ interface EventCount {
   count: number;
 }
 
+/** Row shape for live event stream (GET /events/recent) */
+export interface LiveEventRow {
+  eventId: string;
+  eventName: string;
+  eventType?: string;
+  timestamp: string;
+  sessionId: string;
+  userId?: string;
+  anonymousId?: string;
+  pagePath?: string;
+  properties?: Record<string, unknown>;
+}
+
 const getHeaders = () => {
   return {
     "Content-Type": "application/json",
@@ -235,6 +248,25 @@ export const api = {
     if (tenantId) params.set("tenantId", tenantId);
 
     return fetchWithAuth<string[]>(`/events/distinct?${params}`);
+  },
+
+  /**
+   * Get recent events for the live event stream (polling).
+   * Tenant is taken from auth; no need to pass.
+   */
+  async getRecentEvents(
+    sinceMinutes = 60,
+    limit = 200,
+    eventName?: string,
+  ): Promise<{ events: LiveEventRow[] }> {
+    const params = new URLSearchParams({
+      sinceMinutes: String(sinceMinutes),
+      limit: String(limit),
+    });
+    if (eventName) params.set("eventName", eventName);
+    return fetchWithAuth<{ events: LiveEventRow[] }>(
+      `/events/recent?${params}`,
+    );
   },
 
   /**

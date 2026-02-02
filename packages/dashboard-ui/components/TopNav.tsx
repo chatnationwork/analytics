@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -21,13 +22,29 @@ import {
   BookOpen,
   Settings,
   ShieldCheck,
+  Key,
+  Building2,
+  Clock,
+  Shield,
+  UserCircle,
 } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { usePermission } from "@/components/auth/PermissionContext";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
+const SIDEBAR_GROUPS_KEY = "sidebar-groups-open";
 
 const navGroups = [
+  {
+    title: "Inbox",
+    items: [
+      { href: "/agent-inbox", label: "Messages", icon: Inbox },
+      { href: "/contacts", label: "Contacts", icon: Contact },
+      { href: "/agent-status", label: "Agent Status", icon: Users },
+
+      { href: "/team-management", label: "Teams", icon: Users },
+    ],
+  },
   {
     title: "Analytics",
     items: [
@@ -37,40 +54,88 @@ const navGroups = [
       { href: "/journeys", label: "Self-Serve", icon: Zap },
       { href: "/whatsapp-analytics", label: "WhatsApp", icon: MessageCircle },
       { href: "/whatsapp", label: "CRM", icon: Briefcase },
-      { href: "/events", label: "Events", icon: Activity },
+      { href: "/agent-analytics", label: "Agent Analytics", icon: BarChart2 },
+      { href: "/events", label: "Live Events", icon: Activity },
       { href: "/audit-logs", label: "Audit logs", icon: ShieldCheck },
     ],
   },
+
   {
-    title: "Agent System",
+    title: "Settings",
     items: [
-      { href: "/agent-inbox", label: "Inbox", icon: Inbox },
-      { href: "/contacts", label: "Contacts", icon: Contact },
-      { href: "/agent-status", label: "Agent Status", icon: Users },
-      { href: "/agent-analytics", label: "Agent Analytics", icon: BarChart2 },
-      { href: "/team-management", label: "Teams", icon: Users },
+      { href: "/settings", label: "Settings", icon: Settings },
+      {
+        href: "/settings/api-keys",
+        label: "API Keys",
+        icon: Key,
+        permission: "settings.manage",
+      },
+      {
+        href: "/settings/crm",
+        label: "CRM Integrations",
+        icon: Building2,
+        permission: "settings.manage",
+      },
+      {
+        href: "/settings/people",
+        label: "People",
+        icon: UserCircle,
+        permission: "teams.manage",
+      },
+      {
+        href: "/settings/session",
+        label: "Session",
+        icon: Clock,
+        permission: "settings.manage",
+      },
+      {
+        href: "/settings/roles",
+        label: "Roles & Permissions",
+        icon: Shield,
+        permission: "settings.manage",
+      },
     ],
   },
   {
     title: "System",
-    items: [
-      { href: "/docs", label: "Docs", icon: BookOpen },
-      { href: "/settings", label: "Settings", icon: Settings },
-    ],
+    items: [{ href: "/docs", label: "Docs", icon: BookOpen }],
   },
 ];
 
+function loadGroupOpenState(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(SIDEBAR_GROUPS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, boolean>;
+      if (typeof parsed === "object" && parsed !== null) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+function saveGroupOpenState(state: Record<string, boolean>) {
+  try {
+    localStorage.setItem(SIDEBAR_GROUPS_KEY, JSON.stringify(state));
+  } catch {
+    // ignore
+  }
+}
+
+function getInitialCollapsed() {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+}
+
 export function TopNav() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(getInitialCollapsed);
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>(() =>
+    loadGroupOpenState(),
+  );
   const { can, isLoading } = usePermission();
-
-  useEffect(() => {
-    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-    if (stored !== null) {
-      setCollapsed(stored === "true");
-    }
-  }, []);
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -78,9 +143,21 @@ export function TopNav() {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
   };
 
+  const toggleGroup = (title: string) => {
+    setGroupOpen((prev) => {
+      const next = { ...prev, [title]: !prev[title] };
+      saveGroupOpenState(next);
+      return next;
+    });
+  };
+
+  const isGroupOpen = (title: string) => groupOpen[title] !== false;
+
   const filteredGroups = navGroups
     .map((group) => {
       const filteredItems = group.items.filter((item) => {
+        const permission = "permission" in item ? item.permission : undefined;
+        if (permission && !can(permission)) return false;
         if (item.label === "Teams" && !can("teams.manage")) return false;
         return true;
       });
@@ -150,52 +227,64 @@ export function TopNav() {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto">
-        <div className="space-y-6 px-3">
-          {filteredGroups.map((group) => (
-            <div key={group.title}>
-              {!collapsed && (
-                <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                  {group.title}
-                </h3>
-              )}
-              <div className="space-y-0.5">
-                {group.items.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    pathname.startsWith(item.href + "/");
-                  const Icon = item.icon;
-                  const linkContent = (
-                    <>
-                      <Icon
-                        className={`w-5 h-5 shrink-0 ${collapsed ? "mx-auto" : ""}`}
-                      />
-                      {!collapsed && (
-                        <span className="truncate">{item.label}</span>
-                      )}
-                    </>
-                  );
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      className={`
-                        flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${collapsed ? "justify-center" : ""}
-                        ${
-                          isActive
-                            ? "bg-accent text-foreground"
-                            : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                        }
-                      `}
-                    >
-                      {linkContent}
-                    </Link>
-                  );
-                })}
+        <div className="space-y-1 px-3">
+          {filteredGroups.map((group, index) => {
+            const open = collapsed ? true : isGroupOpen(group.title);
+            return (
+              <div key={group.title} className={index > 0 ? "mt-4" : ""}>
+                {!collapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.title)}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-md text-xs font-semibold uppercase tracking-wider text-foreground/90 bg-muted/60 border border-border/80 hover:bg-muted transition-colors"
+                  >
+                    <ChevronDown
+                      className={`w-4 h-4 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+                    />
+                    <span className="truncate">{group.title}</span>
+                  </button>
+                ) : null}
+                {collapsed || open ? (
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const isActive =
+                        pathname === item.href ||
+                        pathname.startsWith(item.href + "/");
+                      const Icon = item.icon;
+                      const linkContent = (
+                        <>
+                          <Icon
+                            className={`w-5 h-5 shrink-0 ${collapsed ? "mx-auto" : ""}`}
+                          />
+                          {!collapsed && (
+                            <span className="truncate">{item.label}</span>
+                          )}
+                        </>
+                      );
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          title={collapsed ? item.label : undefined}
+                          className={`
+                            flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                            ${collapsed ? "justify-center" : ""}
+                            ${
+                              isActive
+                                ? "bg-accent text-foreground"
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                            }
+                          `}
+                        >
+                          {linkContent}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </nav>
 

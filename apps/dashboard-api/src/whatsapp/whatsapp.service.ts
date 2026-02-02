@@ -2,6 +2,30 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { CrmIntegrationsService } from "../crm-integrations/crm-integrations.service";
 import { CampaignListResponse, ContactListResponse } from "@lib/crm-api";
 
+/** WhatsApp Cloud API message payload (sent to CRM endpoint). Media uses public URL (link). */
+export type WhatsAppSendPayload =
+  | { type: "text"; text: { body: string; preview_url?: boolean } }
+  | { type: "image"; image: { link: string; caption?: string } }
+  | { type: "video"; video: { link: string; caption?: string } }
+  | { type: "audio"; audio: { link: string } }
+  | {
+      type: "document";
+      document: {
+        link: string;
+        filename?: string;
+        caption?: string;
+      };
+    }
+  | {
+      type: "location";
+      location: {
+        latitude: string;
+        longitude: string;
+        name?: string;
+        address?: string;
+      };
+    };
+
 export interface WhatsappOverviewDto {
   totalContacts: number;
   totalCampaigns: number;
@@ -179,12 +203,13 @@ export class WhatsappService {
   }
 
   /**
-   * Send a WhatsApp message via Meta Cloud API (or Proxy)
+   * Send a WhatsApp message via CRM endpoint (WhatsApp Cloud API format).
+   * Accepts text (string) or full payload (image, video, audio, document, location).
    */
   async sendMessage(
     tenantId: string,
     to: string,
-    message: string,
+    message: string | WhatsAppSendPayload,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const integration = await this.crmService.getActiveIntegration(tenantId);
 
@@ -205,15 +230,16 @@ export class WhatsappService {
 
     const finalNumber = to.replace(/[^\d]/g, "");
 
+    const body: WhatsAppSendPayload =
+      typeof message === "string"
+        ? { type: "text", text: { body: message, preview_url: false } }
+        : message;
+
     const payload = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
       to: finalNumber,
-      type: "text",
-      text: {
-        preview_url: false,
-        body: message,
-      },
+      ...body,
     };
 
     try {

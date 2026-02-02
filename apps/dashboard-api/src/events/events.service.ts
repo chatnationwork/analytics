@@ -2,10 +2,10 @@
  * =============================================================================
  * EVENTS SERVICE
  * =============================================================================
- * 
+ *
  * Business logic for event queries.
  * An "event" represents a single action a user took (page view, button click, etc.)
- * 
+ *
  * EVENT TYPES IN ANALYTICS:
  * ------------------------
  * - page_view: User navigated to a page
@@ -15,8 +15,8 @@
  * - Custom events: Any event you define (return_filed, payment_initiated, etc.)
  */
 
-import { Injectable } from '@nestjs/common';
-import { EventRepository } from '@lib/database';
+import { Injectable } from "@nestjs/common";
+import { EventRepository } from "@lib/database";
 
 @Injectable()
 export class EventsService {
@@ -36,5 +36,27 @@ export class EventsService {
    */
   async getDistinctEventNames(tenantId: string): Promise<string[]> {
     return this.eventRepository.getDistinctEventNames(tenantId);
+  }
+
+  /**
+   * Get recent events for the live event stream (polling).
+   * Returns events in the last N minutes for the tenant, newest first.
+   */
+  async getRecentEvents(
+    tenantId: string,
+    sinceMinutes = 60,
+    limit = 200,
+    eventName?: string,
+  ) {
+    const endDate = new Date();
+    const startDate = new Date(endDate.getTime() - sinceMinutes * 60 * 1000);
+    const events = await this.eventRepository.findRecentByTenant(
+      tenantId,
+      startDate,
+      endDate,
+      limit,
+      eventName,
+    );
+    return { events };
   }
 }

@@ -25,18 +25,32 @@ import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { InboxService, InboxFilter } from "./inbox.service";
 import { AssignmentService } from "./assignment.service";
 import { PresenceService } from "./presence.service";
-import { WhatsappService } from "../whatsapp/whatsapp.service";
-import { MessageDirection } from "@lib/database";
+import {
+  WhatsappService,
+  WhatsAppSendPayload,
+} from "../whatsapp/whatsapp.service";
+import { MessageDirection, MessageType } from "@lib/database";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { getRequestContext, type RequestLike } from "../request-context";
 
 /**
- * DTO for sending a message as an agent
+ * DTO for sending a message as an agent.
+ * Supports text, image, video, audio, document, location (WhatsApp Cloud API format via CRM).
  */
 interface SendMessageDto {
-  content: string;
-  type?: "text" | "image" | "video" | "audio" | "document";
+  /** Text body (type=text) or caption (image/video/document) */
+  content?: string;
+  type?: "text" | "image" | "video" | "audio" | "document" | "location";
   metadata?: Record<string, unknown>;
+  /** For image/video/audio/document: public URL (upload to our server, use link for WhatsApp) */
+  media_url?: string;
+  /** For document: optional filename */
+  filename?: string;
+  /** For location */
+  latitude?: string | number;
+  longitude?: string | number;
+  name?: string;
+  address?: string;
 }
 
 /**
@@ -139,7 +153,8 @@ export class AgentInboxController {
   }
 
   /**
-   * Send a message in a session
+   * Send a message in a session (text, image, video, audio, document, location).
+   * Uses WhatsApp Cloud API format; request is sent to CRM endpoint.
    */
   @Post(":sessionId/message")
   async sendMessage(
@@ -149,25 +164,122 @@ export class AgentInboxController {
   ) {
     const session = await this.inboxService.getSession(sessionId);
 
-    // Send via WhatsApp
-    // Note: We only support TEXT messages for now via this internal API
-    if (dto.type === "text" || !dto.type) {
-      await this.whatsappService.sendMessage(
-        req.user.tenantId,
-        session.contactId,
-        dto.content,
-      );
-    }
+    const payload = this.buildWhatsAppPayload(dto);
+    await this.whatsappService.sendMessage(
+      req.user.tenantId,
+      session.contactId,
+      payload,
+    );
 
+    const { type, content, metadata } = this.messageDisplayFromDto(dto);
     return this.inboxService.addMessage({
       sessionId,
       tenantId: req.user.tenantId,
       contactId: session.contactId,
       direction: MessageDirection.OUTBOUND,
-      content: dto.content,
-      metadata: dto.metadata,
+      type,
+      content,
+      metadata: { ...dto.metadata, ...metadata },
       senderId: req.user.id,
     });
+  }
+
+  private buildWhatsAppPayload(dto: SendMessageDto): WhatsAppSendPayload {
+    const type = dto.type || "text";
+    const content = (dto.content ?? "").trim();
+
+    if (type === "text") {
+      return {
+        type: "text",
+        text: { body: content || "(empty)", preview_url: false },
+      };
+    }
+    if (type === "image" && dto.media_id) {
+      return {
+        type: "image",
+        image: { media_id: dto.media_id, caption: content || undefined },
+      };
+    }
+    if (type === "video" && dto.media_id) {
+      return {
+        type: "video",
+        video: { media_id: dto.media_id, caption: content || undefined },
+      };
+    }
+    if (type === "audio" && dto.media_id) {
+      return { type: "audio", audio: { media_id: dto.media_id } };
+    }
+    if (type === "document" && dto.media_id) {
+      return {
+        type: "document",
+        document: {
+          media_id: dto.media_id,
+          filename: dto.filename,
+          caption: content || undefined,
+        },
+      };
+    }
+    if (type === "location" && dto.latitude != null && dto.longitude != null) {
+      return {
+        type: "location",
+        location: {
+          latitude: String(dto.latitude),
+          longitude: String(dto.longitude),
+          name: dto.name,
+          address: dto.address,
+        },
+      };
+    }
+
+    return {
+      type: "text",
+      text: { body: content || "(empty)", preview_url: false },
+    };
+  }
+
+  private messageDisplayFromDto(dto: SendMessageDto): {
+    type: MessageType;
+    content: string;
+    metadata: Record<string, unknown>;
+  } {
+    const type = dto.type || "text";
+    const content = (dto.content ?? "").trim();
+    const metadata: Record<string, unknown> = {};
+
+    const msgType =
+      type === "text"
+        ? MessageType.TEXT
+        : type === "image"
+          ? MessageType.IMAGE
+          : type === "video"
+            ? MessageType.VIDEO
+            : type === "audio"
+              ? MessageType.AUDIO
+              : type === "document"
+                ? MessageType.DOCUMENT
+                : type === "location"
+                  ? MessageType.LOCATION
+                  : MessageType.TEXT;
+
+    if (type === "location") {
+      const name = dto.name || "Location";
+      const addr = dto.address ? ` – ${dto.address}` : "";
+      metadata.latitude = dto.latitude;
+      metadata.longitude = dto.longitude;
+      return { type: msgType, content: `${name}${addr}`, metadata };
+    }
+    if (
+      type === "image" ||
+      type === "video" ||
+      type === "audio" ||
+      type === "document"
+    ) {
+      if (dto.media_url) metadata.media_url = dto.media_url;
+      if (dto.filename) metadata.filename = dto.filename;
+      return { type: msgType, content: content || `[${type}]`, metadata };
+    }
+
+    return { type: msgType, content, metadata };
   }
 
   /**

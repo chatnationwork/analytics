@@ -23,16 +23,18 @@ import {
   Message,
   InboxFilter,
   TeamWrapUpReport,
+  type SendMessagePayload,
 } from "@/lib/api/agent";
 import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 const FILTER_TABS: {
   value: InboxFilter;
   label: string;
   icon: React.ReactNode;
 }[] = [
-  { value: "all", label: "All", icon: <Inbox className="h-4 w-4" /> },
-  { value: "pending", label: "Pending", icon: <Clock className="h-4 w-4" /> },
+  { value: "all", label: "Assigned", icon: <Inbox className="h-4 w-4" /> },
+  { value: "pending", label: "Active", icon: <Clock className="h-4 w-4" /> },
   {
     value: "resolved",
     label: "Resolved",
@@ -100,47 +102,75 @@ export default function AgentInboxPage() {
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (payload: string | SendMessagePayload) => {
     if (!selectedSessionId) return;
 
-    // Optimistic update
+    const body = typeof payload === "string" ? payload : payload;
+    const type = typeof body === "string" ? "text" : (body.type ?? "text");
+    const content =
+      typeof body === "string"
+        ? body
+        : (body.content ??
+          (body.type === "location" && body.name
+            ? body.name
+            : `[${body.type}]`));
+    const metadata: Record<string, unknown> =
+      typeof body === "string" ? {} : {};
+    if (typeof body === "object" && body.media_url)
+      metadata.media_url = body.media_url;
+    if (typeof body === "object" && body.filename)
+      metadata.filename = body.filename;
+    if (typeof body === "object" && body.latitude != null)
+      metadata.latitude = body.latitude;
+    if (typeof body === "object" && body.longitude != null)
+      metadata.longitude = body.longitude;
+    if (typeof body === "object" && body.address)
+      metadata.address = body.address;
+
     const tempId = `temp-${Date.now()}`;
-    const optimisiticMsg: Message = {
+    const optimisticMsg: Message = {
       id: tempId,
       sessionId: selectedSessionId,
       direction: "outbound",
-      type: "text",
-      content,
+      type,
+      content: typeof content === "string" ? content : "",
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       createdAt: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, optimisiticMsg]);
+    setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
-      const newMsg = await agentApi.sendMessage(selectedSessionId, content);
-      // Replace optimistic message
+      const newMsg = await agentApi.sendMessage(selectedSessionId, payload);
       setMessages((prev) => prev.map((m) => (m.id === tempId ? newMsg : m)));
     } catch (error) {
       console.error("Failed to send message:", error);
-      // Remove optimistic message on error?
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      alert("Failed to send message");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send message",
+      );
     }
   };
 
   const handleAcceptSession = async (sessionId: string) => {
     try {
       await agentApi.acceptSession(sessionId);
-      // Refresh inbox to update status
+      toast.success("Chat accepted");
       fetchInbox();
-      // Update local selected session status
       setSessions((prev) =>
         prev.map((s) =>
           s.id === sessionId ? { ...s, status: "assigned" as const } : s,
         ),
       );
     } catch (error) {
-      console.error("Failed to accept session", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to accept chat";
+      toast.error(message);
+      // Refresh so list reflects current state (e.g. chat taken by another agent)
+      fetchInbox();
+      if (selectedSessionId === sessionId) {
+        setSelectedSessionId(null);
+      }
     }
   };
 

@@ -28,7 +28,12 @@
 
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { appConfig, databaseConfig, authConfig } from "@lib/common";
+import {
+  appConfig,
+  databaseConfig,
+  authConfig,
+  mediaConfig,
+} from "@lib/common";
 import { DatabaseModule } from "@lib/database";
 import { OverviewModule } from "./overview/overview.module";
 import { FunnelModule } from "./funnel/funnel.module";
@@ -71,7 +76,7 @@ import { AuditModule } from "./audit/audit.module";
      */
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, authConfig],
+      load: [appConfig, databaseConfig, authConfig, mediaConfig],
     }),
 
     /**
@@ -104,6 +109,7 @@ import { AuditModule } from "./audit/audit.module";
     JourneysModule, // GET /api/dashboard/journeys/* (self-serve vs assisted)
     AgentInboxAnalyticsModule, // GET /api/dashboard/agent-inbox-analytics/*
     AuditModule, // GET /api/dashboard/audit-logs
+    MediaModule, // POST /api/dashboard/media/upload, GET /api/dashboard/media/:filename
   ],
 })
 export class DashboardModule {}

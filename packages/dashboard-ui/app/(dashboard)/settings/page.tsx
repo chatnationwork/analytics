@@ -1,111 +1,88 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { CrmSettings } from '@/components/settings/CrmSettings';
-import { ApiKeySettings } from '@/components/settings/ApiKeySettings';
-import { TeamManagement } from '@/components/settings/team-management';
-import { SessionSettings } from '@/components/settings/SessionSettings';
-import { RolesSettings } from '@/components/settings/RolesSettings';
-import { fetchWithAuth } from '@/lib/api';
-import { usePermission } from '@/components/auth/PermissionContext';
+import Link from "next/link";
+import { usePermission } from "@/components/auth/PermissionContext";
+import { Key, Building2, Users, Clock, Shield } from "lucide-react";
+
+const settingsSections = [
+  {
+    href: "/settings/api-keys",
+    label: "API Keys",
+    icon: Key,
+    permission: "settings.manage" as const,
+  },
+  {
+    href: "/settings/crm",
+    label: "CRM Integrations",
+    icon: Building2,
+    permission: "settings.manage" as const,
+  },
+  {
+    href: "/settings/people",
+    label: "People",
+    icon: Users,
+    permission: "teams.manage" as const,
+  },
+  {
+    href: "/settings/session",
+    label: "Session",
+    icon: Clock,
+    permission: "settings.manage" as const,
+  },
+  {
+    href: "/settings/roles",
+    label: "Roles & Permissions",
+    icon: Shield,
+    permission: "settings.manage" as const,
+  },
+];
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'api-keys' | 'crm' | 'team' | 'session' | 'roles'>('api-keys');
-  const [tenantId, setTenantId] = useState<string>('');
-  
-  useEffect(() => {
-      fetchWithAuth('/tenants/current')
-        .then(tenantData => {
-          if (tenantData?.tenantId) {
-            setTenantId(tenantData.tenantId);
-          } else {
-            console.error('Tenant response missing tenantId:', tenantData);
-          }
-        })
-        .catch(err => console.error('Failed to fetch tenant:', err.message));
-  }, []);
-
   const { can, isLoading } = usePermission();
-
-  const allTabs = [
-    { id: 'api-keys' as const, label: 'API Keys', permission: 'settings.manage' },
-    { id: 'crm' as const, label: 'CRM Integrations', permission: 'settings.manage' },
-    { id: 'team' as const, label: 'Team', permission: 'teams.manage' },
-    { id: 'session' as const, label: 'Session', permission: 'settings.manage' },
-    { id: 'roles' as const, label: 'Roles & Permissions', permission: 'settings.manage' },
-  ];
-
-  const tabs = allTabs.filter(tab => !tab.permission || can(tab.permission));
-
-  // Reset active tab if current one is hidden
-  useEffect(() => {
-    if (!isLoading && tabs.length > 0 && !tabs.find(t => t.id === activeTab)) {
-        setActiveTab(tabs[0].id);
-    }
-  }, [isLoading, tabs, activeTab]);
+  const sections = settingsSections.filter((s) => can(s.permission));
 
   if (isLoading) return null;
 
-  if (tabs.length === 0) {
-      return (
-          <div className="text-center py-12 text-muted-foreground">
-              You do not have access to any settings.
-          </div>
-      );
+  if (sections.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        You do not have access to any settings.
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Manage your workspace configuration</p>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Manage your workspace configuration
+        </p>
       </div>
 
-      <div className="border-b border-border">
-        <nav className="-mb-px flex gap-6 overflow-x-auto">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`
-                whitespace-nowrap py-3 border-b-2 font-medium text-sm transition-colors
-                ${activeTab === tab.id
-                  ? 'border-primary text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}
-              `}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <Link
+              key={section.href}
+              href={section.href}
+              className="flex items-center gap-4 rounded-xl border border-border bg-card p-6 shadow-sm transition-colors hover:bg-accent/50"
             >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      <div className="py-4">
-        {activeTab === 'api-keys' && (
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <ApiKeySettings tenantId={tenantId} />
-          </div>
-        )}
-        {activeTab === 'crm' && (
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <CrmSettings />
-          </div>
-        )}
-        {activeTab === 'team' && (
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <TeamManagement tenantId={tenantId} />
-          </div>
-        )}
-        {activeTab === 'session' && (
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <SessionSettings tenantId={tenantId} />
-          </div>
-        )}
-        {activeTab === 'roles' && (
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <RolesSettings tenantId={tenantId} />
-          </div>
-        )}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-medium text-foreground">{section.label}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {section.href === "/settings/people"
+                    ? "Members & invitations"
+                    : `Manage ${section.label.toLowerCase()}`}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
