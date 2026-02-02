@@ -51,6 +51,7 @@ import { TrendsModule } from "./trends/trends.module";
 import { JourneysModule } from "./journeys/journeys.module";
 import { AgentInboxAnalyticsModule } from "./agent-inbox-analytics/agent-inbox-analytics.module";
 import { AuditModule } from "./audit/audit.module";
+import { MediaModule } from "./media/media.module";
 
 /**
  * @Module() - Root module decorator

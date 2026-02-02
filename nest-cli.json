@@ -34,7 +34,8 @@
             "entryFile": "main",
             "sourceRoot": "apps/dashboard-api/src",
             "compilerOptions": {
-                "tsConfigPath": "apps/dashboard-api/tsconfig.app.json"
+                "tsConfigPath": "apps/dashboard-api/tsconfig.app.json",
+                "webpack": false
             }
         },
         "common": {

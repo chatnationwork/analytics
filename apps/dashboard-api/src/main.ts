@@ -30,7 +30,6 @@ import {
 } from "@nestjs/platform-fastify";
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import multipart from "@fastify/multipart";
 import { DashboardModule } from "./dashboard.module";
 import { HttpExceptionFilter, ResponseInterceptor } from "@lib/common";
 
@@ -64,6 +63,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>("app.dashboardApiPort", 3001);
 
+  const multipart = require("@fastify/multipart");
   await app
     .getHttpAdapter()
     .getInstance()

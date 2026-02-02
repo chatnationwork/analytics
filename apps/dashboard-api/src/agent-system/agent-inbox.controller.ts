@@ -194,26 +194,26 @@ export class AgentInboxController {
         text: { body: content || "(empty)", preview_url: false },
       };
     }
-    if (type === "image" && dto.media_id) {
+    if (type === "image" && dto.media_url) {
       return {
         type: "image",
-        image: { media_id: dto.media_id, caption: content || undefined },
+        image: { link: dto.media_url, caption: content || undefined },
       };
     }
-    if (type === "video" && dto.media_id) {
+    if (type === "video" && dto.media_url) {
       return {
         type: "video",
-        video: { media_id: dto.media_id, caption: content || undefined },
+        video: { link: dto.media_url, caption: content || undefined },
       };
     }
-    if (type === "audio" && dto.media_id) {
-      return { type: "audio", audio: { media_id: dto.media_id } };
+    if (type === "audio" && dto.media_url) {
+      return { type: "audio", audio: { link: dto.media_url } };
     }
-    if (type === "document" && dto.media_id) {
+    if (type === "document" && dto.media_url) {
       return {
         type: "document",
         document: {
-          media_id: dto.media_id,
+          link: dto.media_url,
           filename: dto.filename,
           caption: content || undefined,
         },
