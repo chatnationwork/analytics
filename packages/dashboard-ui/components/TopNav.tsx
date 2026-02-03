@@ -20,7 +20,6 @@ import {
   Users,
   Contact,
   BookOpen,
-  Settings,
   ShieldCheck,
   Key,
   Building2,
@@ -61,7 +60,6 @@ const navGroups = [
   {
     title: "Settings",
     items: [
-      { href: "/settings", label: "Settings", icon: Settings },
       {
         href: "/settings/api-keys",
         label: "API Keys",
@@ -154,7 +152,10 @@ export function TopNav() {
   const filteredGroups = navGroups
     .map((group) => {
       const filteredItems = group.items.filter((item) => {
-        const permission = "permission" in item ? item.permission : undefined;
+        const permission =
+          "permission" in item && typeof item.permission === "string"
+            ? item.permission
+            : undefined;
         if (permission && !can(permission)) return false;
         if (item.label === "Team Management" && !can("teams.manage"))
           return false;

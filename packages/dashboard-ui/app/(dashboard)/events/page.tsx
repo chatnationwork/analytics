@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,6 +18,15 @@ const SINCE_OPTIONS = [
   { value: "5", label: "Last 5 minutes" },
   { value: "15", label: "Last 15 minutes" },
   { value: "60", label: "Last 60 minutes" },
+];
+
+/** Common event names so the filter is useful even with no/empty API distinct list */
+const COMMON_EVENT_NAMES = [
+  "page_view",
+  "button_click",
+  "form_submit",
+  "identify",
+  "app_error",
 ];
 
 const POLL_INTERVAL_MS = 10_000;
@@ -92,6 +101,12 @@ export default function EventsPage() {
     queryFn: () => api.getDistinctEvents(tenant?.tenantId),
     enabled: !!tenant?.tenantId,
   });
+
+  const eventTypeOptions = useMemo(() => {
+    const fromApi = distinctNames ?? [];
+    const combined = [...new Set([...COMMON_EVENT_NAMES, ...fromApi])].sort();
+    return combined;
+  }, [distinctNames]);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["events-recent", sinceMinutes, limit, eventName],
@@ -177,7 +192,7 @@ export default function EventsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All types</SelectItem>
-                    {(distinctNames ?? []).map((name) => (
+                    {eventTypeOptions.map((name) => (
                       <SelectItem key={name} value={name}>
                         {name}
                       </SelectItem>
@@ -193,6 +208,16 @@ export default function EventsPage() {
                 {error instanceof Error
                   ? error.message
                   : "Failed to load events"}
+                {error instanceof Error &&
+                  (error.message.toLowerCase().includes("fetch") ||
+                    error.message.toLowerCase().includes("network")) && (
+                    <p className="mt-2 text-muted-foreground">
+                      Check that the API is reachable (
+                      {typeof window !== "undefined" &&
+                        (process.env.NEXT_PUBLIC_API_URL || "same origin")}
+                      ) and CORS allows your origin.
+                    </p>
+                  )}
               </div>
             )}
             {isLoading && (

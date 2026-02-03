@@ -100,6 +100,7 @@ export async function fetchWithAuth<T = any>(
 ): Promise<T> {
   const res = await fetch(`${API_BASE_URL}/api/dashboard${url}`, {
     ...options,
+    credentials: "include",
     headers: {
       ...getHeaders(),
       ...options.headers,
@@ -140,6 +141,7 @@ export async function fetchWithAuthFull<T = unknown>(
 ): Promise<T> {
   const res = await fetch(`${API_BASE_URL}/api/dashboard${url}`, {
     ...options,
+    credentials: "include",
     headers: {
       ...getHeaders(),
       ...options.headers,
