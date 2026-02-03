@@ -324,6 +324,50 @@ export const api = {
   },
 
   /**
+   * Get current user's 2FA status (masked phone).
+   */
+  async get2FaStatus(): Promise<{
+    twoFactorEnabled: boolean;
+    phone: string | null;
+  }> {
+    const res = await fetchWithAuthFull<{
+      data?: { twoFactorEnabled: boolean; phone: string | null };
+      twoFactorEnabled?: boolean;
+      phone?: string | null;
+    }>("/auth/2fa/status");
+    return (
+      res.data ?? {
+        twoFactorEnabled: !!res.twoFactorEnabled,
+        phone: res.phone ?? null,
+      }
+    );
+  },
+
+  /**
+   * Enable or disable 2FA and set phone. Phone required when enabling.
+   */
+  async update2Fa(body: {
+    twoFactorEnabled?: boolean;
+    phone?: string;
+  }): Promise<{ twoFactorEnabled: boolean; phone: string | null }> {
+    const res = await fetchWithAuthFull<{
+      data?: { twoFactorEnabled: boolean; phone: string | null };
+      twoFactorEnabled?: boolean;
+      phone?: string | null;
+    }>("/auth/2fa", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return (
+      res.data ?? {
+        twoFactorEnabled: !!res.twoFactorEnabled,
+        phone: res.phone ?? null,
+      }
+    );
+  },
+
+  /**
    * Update current tenant settings (merged with existing on backend).
    */
   async updateTenantSettings(

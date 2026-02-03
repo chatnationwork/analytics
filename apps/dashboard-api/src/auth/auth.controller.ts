@@ -13,6 +13,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   Req,
   UseGuards,
@@ -20,7 +21,14 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { AuthService, AuthUser } from "./auth.service";
-import { SignupDto, LoginDto, LoginResponseDto } from "./dto";
+import {
+  SignupDto,
+  LoginDto,
+  LoginResponseDto,
+  Verify2FaDto,
+  Update2FaDto,
+  Resend2FaDto,
+} from "./dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { CurrentUser } from "./current-user.decorator";
 import { AuditService, AuditActions } from "../audit/audit.service";
@@ -60,16 +68,18 @@ export class AuthController {
     const requestContext = getRequestContext(req);
     try {
       const response = await this.authService.login(dto);
-      await this.auditService.log({
-        tenantId: response.user.tenantId,
-        actorId: response.user.id,
-        actorType: "user",
-        action: AuditActions.AUTH_LOGIN,
-        resourceType: "user",
-        resourceId: response.user.id,
-        details: { email: response.user.email },
-        requestContext,
-      });
+      if (response.user) {
+        await this.auditService.log({
+          tenantId: response.user.tenantId,
+          actorId: response.user.id,
+          actorType: "user",
+          action: AuditActions.AUTH_LOGIN,
+          resourceType: "user",
+          resourceId: response.user.id,
+          details: { email: response.user.email },
+          requestContext,
+        });
+      }
       return response;
     } catch (err) {
       await this.auditService.log({
@@ -117,5 +127,70 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   verify(): { valid: true } {
     return { valid: true };
+  }
+
+  /**
+   * Resend 2FA code for the same login attempt. Invalidates the previous code.
+   */
+  @Post("2fa/resend")
+  @HttpCode(HttpStatus.OK)
+  async resend2Fa(@Body() dto: Resend2FaDto): Promise<{ success: boolean }> {
+    return this.authService.resendTwoFactorCode(dto);
+  }
+
+  /**
+   * Verify 2FA code and complete login. Returns JWT on success.
+   */
+  @Post("2fa/verify")
+  @HttpCode(HttpStatus.OK)
+  async verify2Fa(
+    @Body() dto: Verify2FaDto,
+    @Req()
+    req: {
+      headers?: Record<string, string | string[] | undefined>;
+      socket?: { remoteAddress?: string };
+      ip?: string;
+    },
+  ): Promise<LoginResponseDto> {
+    const requestContext = getRequestContext(req);
+    const response = await this.authService.verifyTwoFactor(dto);
+    if (response.user) {
+      await this.auditService.log({
+        tenantId: response.user.tenantId,
+        actorId: response.user.id,
+        actorType: "user",
+        action: AuditActions.AUTH_LOGIN,
+        resourceType: "user",
+        resourceId: response.user.id,
+        details: { email: response.user.email, via2Fa: true },
+        requestContext,
+      });
+    }
+    return response;
+  }
+
+  /**
+   * Get current user's 2FA status (masked phone).
+   */
+  @Get("2fa/status")
+  @UseGuards(JwtAuthGuard)
+  async get2FaStatus(@CurrentUser() user: AuthUser): Promise<{
+    twoFactorEnabled: boolean;
+    phone: string | null;
+  }> {
+    return this.authService.getTwoFactorStatus(user.id);
+  }
+
+  /**
+   * Enable or disable 2FA and set phone. Phone required when enabling.
+   */
+  @Patch("2fa")
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async update2Fa(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: Update2FaDto,
+  ): Promise<{ twoFactorEnabled: boolean; phone: string | null }> {
+    return this.authService.updateTwoFactor(user.id, dto);
   }
 }

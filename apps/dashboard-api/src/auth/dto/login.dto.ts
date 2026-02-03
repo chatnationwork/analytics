@@ -20,20 +20,20 @@ export class LoginDto {
 }
 
 /**
- * Response returned on successful login
+ * Response returned on successful login (or 2FA required).
  */
 export class LoginResponseDto {
-  /** JWT access token */
-  accessToken: string;
+  /** JWT access token (omitted when requiresTwoFactor is true) */
+  accessToken?: string;
 
   /** Token type (always 'Bearer') */
-  tokenType: "Bearer";
+  tokenType?: "Bearer";
 
   /** Expiry time in seconds */
-  expiresIn: number;
+  expiresIn?: number;
 
-  /** User information */
-  user: {
+  /** User information (omitted when requiresTwoFactor is true) */
+  user?: {
     id: string;
     email: string;
     name: string;
@@ -43,4 +43,10 @@ export class LoginResponseDto {
       team: Record<string, string[]>;
     };
   };
+
+  /** When true, client must submit twoFactorToken + code to POST /auth/2fa/verify */
+  requiresTwoFactor?: boolean;
+
+  /** One-time token to send with the 6-digit code in 2FA verify step */
+  twoFactorToken?: string;
 }

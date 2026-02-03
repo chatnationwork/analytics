@@ -57,6 +57,7 @@ import { RoleEntity } from "./entities/role.entity";
 import { ContactEntity } from "./entities/contact.entity";
 import { AgentSessionEntity } from "./entities/agent-session.entity";
 import { AuditLogEntity } from "./entities/audit-log.entity";
+import { TwoFaVerificationEntity } from "./entities/two-fa-verification.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -96,6 +97,7 @@ const entities = [
   ContactEntity,
   AgentSessionEntity,
   AuditLogEntity,
+  TwoFaVerificationEntity,
 ];
 
 /**

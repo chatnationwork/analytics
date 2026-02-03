@@ -2,11 +2,11 @@
  * =============================================================================
  * USER ENTITY
  * =============================================================================
- * 
+ *
  * Represents a user account in the analytics platform.
- * 
+ *
  * TABLE: users
- * 
+ *
  * AUTHENTICATION:
  * --------------
  * - Email-based authentication with bcrypt password hashing
@@ -20,15 +20,15 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-} from 'typeorm';
+} from "typeorm";
 
-@Entity('users')
+@Entity("users")
 export class UserEntity {
   /** Auto-generated user ID */
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  /** 
+  /**
    * User's email address.
    * Used for login and notifications.
    */
@@ -36,7 +36,7 @@ export class UserEntity {
   @Index()
   email: string;
 
-  /** 
+  /**
    * Bcrypt-hashed password.
    * Never stored or returned in plain text.
    */
@@ -56,14 +56,28 @@ export class UserEntity {
   avatarUrl: string;
 
   /** When the user was created */
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
   /** When the user was last updated */
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 
   /** Last login timestamp */
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   lastLoginAt: Date;
+
+  /**
+   * Whether two-factor authentication (WhatsApp code) is enabled.
+   * When true, login requires a code sent to phone via WhatsApp.
+   */
+  @Column({ default: false })
+  twoFactorEnabled: boolean;
+
+  /**
+   * Phone number for 2FA (WhatsApp). Stored as digits only (e.g. 254712345678).
+   * Required when twoFactorEnabled is true.
+   */
+  @Column({ type: "varchar", length: 20, nullable: true })
+  phone: string | null;
 }

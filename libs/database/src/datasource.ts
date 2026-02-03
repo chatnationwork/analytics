@@ -25,6 +25,7 @@ import {
   ContactEntity,
   AgentSessionEntity,
   AuditLogEntity,
+  TwoFaVerificationEntity,
 } from "./entities";
 
 // Load environment variables
@@ -62,6 +63,7 @@ export const AppDataSource = new DataSource({
     ContactEntity,
     AgentSessionEntity,
     AuditLogEntity,
+    TwoFaVerificationEntity,
   ],
   migrations: ["libs/database/src/migrations/*.ts"],
   synchronize: false,

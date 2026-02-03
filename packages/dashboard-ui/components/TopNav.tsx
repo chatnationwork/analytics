@@ -31,6 +31,7 @@ import {
   FileText,
   Star,
   List,
+  Lock,
 } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { usePermission } from "@/components/auth/PermissionContext";
@@ -104,6 +105,11 @@ const navGroups = [
         label: "Navigation labels",
         icon: List,
         permission: "settings.manage",
+      },
+      {
+        href: "/settings/security",
+        label: "Security",
+        icon: Lock,
       },
     ],
   },

@@ -11,22 +11,25 @@ import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { ConfigService } from "@nestjs/config";
+import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
 import { DatabaseModule } from "@lib/database";
+import { TwoFaVerificationEntity } from "@lib/database/entities/two-fa-verification.entity";
 import { RbacModule } from "../agent-system/rbac.module";
 import { AuditModule } from "../audit/audit.module";
 import { AgentSystemModule } from "../agent-system/agent-system.module";
+import { WhatsappModule } from "../whatsapp/whatsapp.module";
 
 @Module({
   imports: [
     AuditModule,
     AgentSystemModule,
-    // Database access for user/tenant repositories
+    WhatsappModule,
     DatabaseModule.forFeature(),
+    TypeOrmModule.forFeature([TwoFaVerificationEntity]),
 
-    // Passport for authentication strategies
     PassportModule.register({ defaultStrategy: "jwt" }),
 
     // JWT configuration

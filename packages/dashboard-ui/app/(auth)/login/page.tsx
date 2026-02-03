@@ -7,7 +7,7 @@ import * as z from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { toast } from "sonner";
-import { loginAction } from "./actions";
+import { loginAction, verify2FaAction, resend2FaAction } from "./actions";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 const loginSchema = z.object({
@@ -15,7 +15,15 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+const verify2FaSchema = z.object({
+  code: z
+    .string()
+    .length(6, "Enter the 6-digit code")
+    .regex(/^\d{6}$/, "Code must be 6 digits"),
+});
+
 type LoginFormData = z.infer<typeof loginSchema>;
+type Verify2FaFormData = z.infer<typeof verify2FaSchema>;
 
 /** Get user-friendly message for logout reason */
 function getReasonMessage(reason: string | null): string | null {
@@ -37,50 +45,185 @@ function LoginForm() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
 
-  // Get logout reason from URL params
   const reason = searchParams.get("reason");
   const reasonMessage = getReasonMessage(reason);
 
-  // Clear the auth redirect marker on login page load
   useEffect(() => {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("auth_redirect_time");
     }
   }, []);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => {
+      setResendCooldown((c) => (c <= 1 ? 0 : c - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
+
+  const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginFormData) => {
+  const verifyForm = useForm<Verify2FaFormData>({
+    resolver: zodResolver(verify2FaSchema),
+  });
+
+  const onLoginSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setError(null);
     try {
-      // Server Action (Cookie)
       const result = await loginAction(data.email, data.password);
 
-      if (!result.success || !result.token || !result.user) {
-        throw new Error(result.error || "Login failed");
+      if (result.requiresTwoFactor && result.twoFactorToken) {
+        setTwoFactorToken(result.twoFactorToken);
+        setResendCooldown(60);
+        toast.info("Enter the code sent to your WhatsApp");
+        return;
       }
 
-      // Update AuthProvider state with the user (includes permissions)
-      // This ensures navigation shows correct permissions immediately
-      login(result.token, result.user);
+      if (!result.success || !result.token || !result.user) {
+        throw new Error(result.error ?? "Login failed");
+      }
 
+      login(result.token, result.user);
       toast.success("Welcome back!");
       router.push("/overview");
-    } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const onVerifySubmit = async (data: Verify2FaFormData) => {
+    if (!twoFactorToken) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await verify2FaAction(twoFactorToken, data.code);
+
+      if (!result.success || !result.token || !result.user) {
+        throw new Error(result.error ?? "Invalid code");
+      }
+
+      login(result.token, result.user);
+      toast.success("Welcome back!");
+      router.push("/overview");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Invalid code";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (twoFactorToken) {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Two-factor authentication
+        </h2>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Enter the 6-digit code sent to your WhatsApp.
+        </p>
+
+        <form
+          onSubmit={verifyForm.handleSubmit(onVerifySubmit)}
+          className="mt-8 space-y-6"
+        >
+          {error && (
+            <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label
+              htmlFor="code"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Code
+            </label>
+            <div className="mt-1">
+              <input
+                id="code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="000000"
+                {...verifyForm.register("code")}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3 text-center text-lg tracking-widest"
+              />
+              {verifyForm.formState.errors.code && (
+                <p className="mt-1 text-sm text-red-600">
+                  {verifyForm.formState.errors.code.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+          >
+            {isLoading ? "Verifying..." : "Verify"}
+          </button>
+
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              disabled={resendCooldown > 0 || resending}
+              onClick={async () => {
+                if (!twoFactorToken) return;
+                setResending(true);
+                setError(null);
+                try {
+                  const result = await resend2FaAction(twoFactorToken);
+                  if (result.success) {
+                    setResendCooldown(60);
+                    toast.success("New code sent to your WhatsApp");
+                  } else {
+                    setError(result.error ?? "Could not resend");
+                    toast.error(result.error);
+                  }
+                } finally {
+                  setResending(false);
+                }
+              }}
+              className="text-sm text-[var(--primary)] hover:text-[var(--primary-dark)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resending
+                ? "Sending..."
+                : resendCooldown > 0
+                  ? `Resend code in ${resendCooldown}s`
+                  : "Resend code"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTwoFactorToken(null);
+                setError(null);
+              }}
+              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+              Back to sign in
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -97,7 +240,10 @@ function LoginForm() {
         </Link>
       </p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
+      <form
+        onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+        className="mt-8 space-y-6"
+      >
         {reasonMessage && (
           <div className="p-3 bg-amber-50 text-amber-700 rounded-md text-sm border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
             {reasonMessage}
@@ -121,12 +267,12 @@ function LoginForm() {
               <input
                 id="email"
                 type="email"
-                {...register("email")}
+                {...loginForm.register("email")}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3"
               />
-              {errors.email && (
+              {loginForm.formState.errors.email && (
                 <p className="mt-1 text-sm text-red-600">
-                  {errors.email.message}
+                  {loginForm.formState.errors.email.message}
                 </p>
               )}
             </div>
@@ -143,12 +289,12 @@ function LoginForm() {
               <input
                 id="password"
                 type="password"
-                {...register("password")}
+                {...loginForm.register("password")}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3"
               />
-              {errors.password && (
+              {loginForm.formState.errors.password && (
                 <p className="mt-1 text-sm text-red-600">
-                  {errors.password.message}
+                  {loginForm.formState.errors.password.message}
                 </p>
               )}
             </div>

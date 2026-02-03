@@ -377,4 +377,79 @@ export class WhatsappService {
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * Send 2FA code via WhatsApp template "2fa".
+   * Template has body (one text param = code) and optional button (one text param).
+   * Uses the tenant's first/active CRM integration credentials.
+   */
+  async sendTwoFactorCode(
+    tenantId: string,
+    to: string,
+    code: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const integration = await this.crmService.getActiveIntegration(tenantId);
+
+    if (!integration || !integration.config?.phoneNumberId) {
+      return {
+        success: false,
+        error: "WhatsApp not configured for this tenant",
+      };
+    }
+
+    const { phoneNumberId } = integration.config;
+    const token = integration.apiKey;
+    const baseUrl = (integration.apiUrl || "").replace(/\/$/, "");
+    const url = `${baseUrl}/api/meta/v21.0/${phoneNumberId}/messages`;
+    const finalNumber = to.replace(/[^\d]/g, "");
+
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: finalNumber,
+      type: "template",
+      template: {
+        language: { policy: "deterministic", code: "en" },
+        name: "2fa",
+        components: [
+          {
+            type: "body",
+            parameters: [{ type: "text", text: code }],
+          },
+          {
+            type: "button",
+            sub_type: "url",
+            index: 0,
+            parameters: [{ type: "text", text: code }],
+          },
+        ],
+      },
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Error sending 2FA template:", data);
+        return {
+          success: false,
+          error: data.error?.message || "Failed to send 2FA code via WhatsApp",
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Network Error sending 2FA code:", error);
+      return { success: false, error: error.message };
+    }
+  }
 }
