@@ -2,13 +2,13 @@
  * =============================================================================
  * EVENT PROCESSOR SERVICE
  * =============================================================================
- * 
+ *
  * The heart of the Processor worker.
  * Consumes events from Redis, enriches them, and saves to database.
- * 
+ *
  * PROCESSING PIPELINE:
  * -------------------
- * 
+ *
  *   Redis Queue     →    Processor    →    PostgreSQL
  *       │                    │                 │
  *   Raw events        Enriched events    Queryable data
@@ -17,17 +17,17 @@
  *                    │             │
  *                 GeoIP         User-Agent
  *                 Lookup         Parsing
- * 
+ *
  * DEDUPLICATION:
  * -------------
  * Network issues can cause the same event to be sent multiple times.
  * We use the message_id field to detect and skip duplicates.
- * 
+ *
  * BATCH PROCESSING:
  * ----------------
  * We process events in batches (default: 10 at a time) for efficiency.
  * Batch database inserts are much faster than individual inserts.
- * 
+ *
  * OOP PRINCIPLES:
  * --------------
  * - Single Responsibility: Only handles event processing
@@ -35,13 +35,24 @@
  * - Composition: Uses enricher services for specific tasks
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { EventConsumer, StreamMessage, QueuedEvent } from '@lib/queue';
-import { EventRepository, SessionRepository, CreateEventDto, SessionEntity, InboxSessionEntity, MessageEntity, SessionStatus, MessageDirection, MessageType } from '@lib/database';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { GeoipEnricher } from '../enrichers/geoip.enricher';
-import { UseragentEnricher } from '../enrichers/useragent.enricher';
+import { Injectable, Logger } from "@nestjs/common";
+import { EventConsumer, StreamMessage, QueuedEvent } from "@lib/queue";
+import {
+  EventRepository,
+  SessionRepository,
+  CreateEventDto,
+  SessionEntity,
+  InboxSessionEntity,
+  MessageEntity,
+  SessionStatus,
+  MessageDirection,
+  MessageType,
+  toCanonicalContactId,
+} from "@lib/database";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { GeoipEnricher } from "../enrichers/geoip.enricher";
+import { UseragentEnricher } from "../enrichers/useragent.enricher";
 
 @Injectable()
 export class EventProcessorService {
@@ -85,10 +96,10 @@ export class EventProcessorService {
     if (eventsToInsert.length > 0) {
       // Save events
       await this.eventRepository.saveBatch(eventsToInsert);
-      
+
       // Update sessions
       await this.processSessions(eventsToInsert);
-      
+
       // Sync to Agent System (Inbox)
       await this.syncToAgentSystem(eventsToInsert);
     }
@@ -102,7 +113,7 @@ export class EventProcessorService {
   private async processSessions(events: CreateEventDto[]): Promise<void> {
     // Group events by session ID to minimize DB calls
     const sessionsMap = new Map<string, CreateEventDto[]>();
-    
+
     for (const event of events) {
       if (event.sessionId) {
         if (!sessionsMap.has(event.sessionId)) {
@@ -117,15 +128,22 @@ export class EventProcessorService {
       try {
         await this.updateSession(sessionId, sessionEvents);
       } catch (err) {
-        this.logger.error(`Failed to update session ${sessionId}: ${err.message}`);
+        this.logger.error(
+          `Failed to update session ${sessionId}: ${err.message}`,
+        );
       }
     }
   }
 
-  private async updateSession(sessionId: string, events: CreateEventDto[]): Promise<void> {
+  private async updateSession(
+    sessionId: string,
+    events: CreateEventDto[],
+  ): Promise<void> {
     // Fetch existing session or create new
     let session = await this.sessionRepository.findById(sessionId);
-    const sortedEvents = events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const sortedEvents = events.sort(
+      (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+    );
     const firstEvent = sortedEvents[0];
     const lastEvent = sortedEvents[sortedEvents.length - 1];
 
@@ -141,15 +159,15 @@ export class EventProcessorService {
       session.eventCount = 0;
       session.pageCount = 0;
       session.durationSeconds = 0;
-      
+
       // Attribution (First Touch)
       session.entryPage = firstEvent.pagePath || null;
       session.referrer = firstEvent.pageReferrer || null;
-      
+
       // Device / Geo (from first event)
       session.deviceType = firstEvent.deviceType || null;
       session.countryCode = firstEvent.countryCode || null;
-      
+
       // UTM params (if present in first event properties)
       const props = firstEvent.properties || {};
       session.utmSource = (props.utm_source as string) || null;
@@ -163,7 +181,7 @@ export class EventProcessorService {
       if (lastEvent.timestamp > (session.endedAt || session.startedAt)) {
         session.endedAt = lastEvent.timestamp;
       }
-      
+
       // Update userId if identified later in session
       if (!session.userId && firstEvent.userId) {
         session.userId = firstEvent.userId;
@@ -172,16 +190,25 @@ export class EventProcessorService {
 
     // Update stats
     session.eventCount += events.length;
-    session.pageCount += events.filter(e => e.eventType === 'page' || e.eventName === 'page_view').length;
-    
+    session.pageCount += events.filter(
+      (e) => e.eventType === "page" || e.eventName === "page_view",
+    ).length;
+
     // Recalculate duration
     if (session.endedAt) {
-      session.durationSeconds = Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 1000);
+      session.durationSeconds = Math.round(
+        (session.endedAt.getTime() - session.startedAt.getTime()) / 1000,
+      );
     }
-    
+
     // Check for conversion
     if (!session.converted) {
-      const conversion = events.find(e => e.eventName === 'conversion' || e.eventName === 'purchase' || e.eventName === 'form_submit'); // Example conversion events
+      const conversion = events.find(
+        (e) =>
+          e.eventName === "conversion" ||
+          e.eventName === "purchase" ||
+          e.eventName === "form_submit",
+      ); // Example conversion events
       if (conversion) {
         session.converted = true;
         session.conversionEvent = conversion.eventName;
@@ -191,18 +218,22 @@ export class EventProcessorService {
     await this.sessionRepository.save(session);
   }
 
-
   /**
    * Syncs relevant events (messages) to the Agent System (Inbox).
    * This ensures the Agent UI sees messages in real-time.
    */
   private async syncToAgentSystem(events: CreateEventDto[]): Promise<void> {
     for (const event of events) {
-      if (event.eventName === 'messages received' || event.eventName === 'messages sent') {
+      if (
+        event.eventName === "messages received" ||
+        event.eventName === "messages sent"
+      ) {
         try {
           await this.processInboxMessage(event);
         } catch (err) {
-          this.logger.error(`Failed to sync message for event ${event.eventId}: ${err.message}`);
+          this.logger.error(
+            `Failed to sync message for event ${event.eventId}: ${err.message}`,
+          );
         }
       }
     }
@@ -210,43 +241,52 @@ export class EventProcessorService {
 
   private async processInboxMessage(event: CreateEventDto): Promise<void> {
     const props = event.properties || {};
-    const contactId = event.externalId; // This is the phone number from our enricher!
-    
+    const contactId = toCanonicalContactId(event.externalId); // Phone number, normalized to avoid duplicate contacts
+
     if (!contactId) {
-       this.logger.warn(`Skipping inbox sync for event ${event.eventId}: No externalId (contact phone) found.`);
-       return;
+      this.logger.warn(
+        `Skipping inbox sync for event ${event.eventId}: No externalId (contact phone) found.`,
+      );
+      return;
     }
 
     // Determine direction and content
-    const isInbound = event.eventName === 'messages received';
-    const direction = isInbound ? MessageDirection.INBOUND : MessageDirection.OUTBOUND;
-    
+    const isInbound = event.eventName === "messages received";
+    const direction = isInbound
+      ? MessageDirection.INBOUND
+      : MessageDirection.OUTBOUND;
+
     // Extract content
-    let content = '';
+    let content = "";
     let messageType = MessageType.TEXT;
-    
+
     if (props.text) {
-        if (typeof props.text === 'object') {
-           content = (props.text as any).body || JSON.stringify(props.text);
-        } else if (typeof props.text === 'string') {
-           // Try to parse if it looks like JSON
-           if (props.text.trim().startsWith('{')) {
-               try {
-                   const parsed = JSON.parse(props.text);
-                   content = parsed.body || props.text;
-               } catch {
-                   content = props.text;
-               }
-           } else {
-               content = props.text;
-           }
+      if (typeof props.text === "object") {
+        content = (props.text as any).body || JSON.stringify(props.text);
+      } else if (typeof props.text === "string") {
+        // Try to parse if it looks like JSON
+        if (props.text.trim().startsWith("{")) {
+          try {
+            const parsed = JSON.parse(props.text);
+            content = parsed.body || props.text;
+          } catch {
+            content = props.text;
+          }
+        } else {
+          content = props.text;
         }
-    } else if (props.type === 'template') {
-        messageType = MessageType.TEXT; // Metadata contains template info
-        content = `Template: ${(props.template as any)?.name}`;
-    } else if (props.type === 'image' || props.type === 'video' || props.type === 'document' || props.type === 'audio') {
-        messageType = props.type as MessageType;
-        content = `[${props.type.toUpperCase()}]`; // Placeholder for media
+      }
+    } else if (props.type === "template") {
+      messageType = MessageType.TEXT; // Metadata contains template info
+      content = `Template: ${(props.template as any)?.name}`;
+    } else if (
+      props.type === "image" ||
+      props.type === "video" ||
+      props.type === "document" ||
+      props.type === "audio"
+    ) {
+      messageType = props.type as MessageType;
+      content = `[${props.type.toUpperCase()}]`; // Placeholder for media
     }
 
     // Get or Create Session
@@ -255,52 +295,52 @@ export class EventProcessorService {
       where: {
         tenantId: event.tenantId,
         contactId,
-        status: SessionStatus.ASSIGNED // Prioritize existing assigned sessions
-      }
+        status: SessionStatus.ASSIGNED, // Prioritize existing assigned sessions
+      },
     });
 
     if (!session) {
-       session = await this.inboxSessionRepo.findOne({
+      session = await this.inboxSessionRepo.findOne({
         where: {
-           tenantId: event.tenantId,
-           contactId,
-           status: SessionStatus.UNASSIGNED
-        }
-       });
+          tenantId: event.tenantId,
+          contactId,
+          status: SessionStatus.UNASSIGNED,
+        },
+      });
     }
 
     if (!session) {
-        // Create new UNASSIGNED session
-        session = this.inboxSessionRepo.create({
-            tenantId: event.tenantId,
-            contactId,
-            contactName: (props.name as string) || contactId,
-            channel: 'whatsapp',
-            status: SessionStatus.UNASSIGNED,
-            context: {
-                source: 'webhook_sync'
-            },
-            lastMessageAt: event.timestamp
-        });
-        session = await this.inboxSessionRepo.save(session);
+      // Create new UNASSIGNED session
+      session = this.inboxSessionRepo.create({
+        tenantId: event.tenantId,
+        contactId,
+        contactName: (props.name as string) || contactId,
+        channel: "whatsapp",
+        status: SessionStatus.UNASSIGNED,
+        context: {
+          source: "webhook_sync",
+        },
+        lastMessageAt: event.timestamp,
+      });
+      session = await this.inboxSessionRepo.save(session);
     } else {
-        // Update last message time
-        await this.inboxSessionRepo.update(session.id, {
-            lastMessageAt: event.timestamp
-        });
+      // Update last message time
+      await this.inboxSessionRepo.update(session.id, {
+        lastMessageAt: event.timestamp,
+      });
     }
 
     // Create Message
     const message = this.messageRepo.create({
-        sessionId: session.id,
-        tenantId: event.tenantId,
-        externalId: (props.message_id as string) || event.messageId,
-        direction,
-        type: messageType,
-        content,
-        senderId: isInbound ? undefined : (event.userId || undefined), // If outbound, userId might be agent ID
-        metadata: props,
-        createdAt: event.timestamp
+      sessionId: session.id,
+      tenantId: event.tenantId,
+      externalId: (props.message_id as string) || event.messageId,
+      direction,
+      type: messageType,
+      content,
+      senderId: isInbound ? undefined : event.userId || undefined, // If outbound, userId might be agent ID
+      metadata: props,
+      createdAt: event.timestamp,
     });
 
     await this.messageRepo.save(message);
@@ -312,63 +352,67 @@ export class EventProcessorService {
     const context = event.context || {};
     const page = (context.page as any) || {};
     const userAgent = context.userAgent as string;
-    
+
     // Determine channel type from context (default to 'web' for backwards compatibility)
-    const channelType = (context.channel as string) || 'web';
-    const isWebChannel = channelType === 'web';
-    
+    const channelType = (context.channel as string) || "web";
+    const isWebChannel = channelType === "web";
+
     // Auto-fill externalId for WhatsApp if missing
     let externalId = (context as any).externalId;
-    
-    if (!externalId && channelType === 'whatsapp') {
-        const props = event.properties || {};
-        if (event.eventName === 'messages received') {
-            externalId = props.from;
-        } else if (event.eventName === 'messages sent') {
-            externalId = props.to;
-        }
+
+    if (!externalId && channelType === "whatsapp") {
+      const props = event.properties || {};
+      if (event.eventName === "messages received") {
+        externalId = props.from;
+      } else if (event.eventName === "messages sent") {
+        externalId = props.to;
+      }
     }
 
     // Run enrichers only for web channel (UA/GeoIP not applicable for WhatsApp)
-    const geo = isWebChannel ? this.geoipEnricher.enrich(event.ipAddress) : { countryCode: undefined, city: undefined };
-    const device = isWebChannel ? this.useragentEnricher.enrich(userAgent) : {
-      deviceType: undefined,
-      osName: undefined,
-      osVersion: undefined,
-      browserName: undefined,
-      browserVersion: undefined,
-    };
+    const geo = isWebChannel
+      ? this.geoipEnricher.enrich(event.ipAddress)
+      : { countryCode: undefined, city: undefined };
+    const device = isWebChannel
+      ? this.useragentEnricher.enrich(userAgent)
+      : {
+          deviceType: undefined,
+          osName: undefined,
+          osVersion: undefined,
+          browserName: undefined,
+          browserVersion: undefined,
+        };
 
     // Build the complete event object for database
     return {
       // IDs
       eventId: event.eventId,
       messageId: event.messageId,
-      
+
       // Tenant/Project
       tenantId: event.tenantId,
       projectId: event.projectId,
-      
+
       // Event info
       eventName: event.eventName,
       eventType: event.eventType,
       timestamp: new Date(event.timestamp),
-      
+
       // Identity
       anonymousId: event.anonymousId,
       userId: event.userId,
       sessionId: event.sessionId,
-      
+
       // Channel (from context or default to 'web')
       channelType,
       externalId,
-      
+
       // Page context (only relevant for web)
       pagePath: isWebChannel ? page.path : undefined,
       pageUrl: isWebChannel ? page.url : undefined,
       pageTitle: isWebChannel ? page.title : undefined,
       pageReferrer: isWebChannel ? page.referrer : undefined,
-      
+
       // Device info (from User-Agent enricher - web only)
       userAgent: isWebChannel ? userAgent : undefined,
       deviceType: device.deviceType,
@@ -376,17 +420,17 @@ export class EventProcessorService {
       osVersion: device.osVersion,
       browserName: device.browserName,
       browserVersion: device.browserVersion,
-      
+
       // Geo info (from GeoIP enricher - web only)
       ipAddress: isWebChannel ? event.ipAddress : undefined,
       countryCode: geo.countryCode,
       city: geo.city,
-      
+
       // Custom properties (WhatsApp events store their data here)
       properties: event.properties,
-      
+
       // SDK version
-      sdkVersion: ((context.library as any)?.version) || undefined,
+      sdkVersion: (context.library as any)?.version || undefined,
     };
   }
 }

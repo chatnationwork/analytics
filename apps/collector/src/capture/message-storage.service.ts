@@ -8,6 +8,7 @@ import {
   MessageDirection,
   MessageType,
   ContactRepository,
+  toCanonicalContactId,
 } from "@lib/database";
 import { CaptureEventDto } from "@lib/events";
 import { Project } from "@lib/common";
@@ -38,7 +39,7 @@ export class MessageStorageService {
 
     try {
       const tenantId = project.tenantId;
-      const contactId = event.user_id; // Phone number
+      const contactId = toCanonicalContactId(event.user_id); // Phone number, normalized to avoid duplicate contacts
       const properties = event.properties as Record<string, any>;
 
       this.logger.debug(
