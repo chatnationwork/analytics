@@ -36,17 +36,11 @@ const SIDEBAR_GROUPS_KEY = "sidebar-groups-open";
 
 const navGroups = [
   {
-    title: "Workspace",
+    title: "",
     items: [
-      { href: "/agent-inbox", label: "Agent Inbox", icon: Inbox },
+      { href: "/agent-inbox", label: "Inbox", icon: Inbox },
       { href: "/contacts", label: "Contacts", icon: Contact },
       { href: "/team-management", label: "Team Management", icon: Users },
-      {
-        href: "/team-management/agent-status",
-        label: "Agent Status",
-        icon: Users,
-        permission: "teams.manage",
-      },
     ],
   },
   {
@@ -54,7 +48,7 @@ const navGroups = [
     items: [
       { href: "/overview", label: "Overview", icon: LayoutDashboard },
       { href: "/funnel", label: "Funnels", icon: Filter },
-      { href: "/journey", label: "Journey", icon: Route },
+      { href: "/journey", label: "User Journeys", icon: Route },
       { href: "/journeys", label: "Self-Serve", icon: Zap },
       { href: "/whatsapp-analytics", label: "WhatsApp", icon: MessageCircle },
       { href: "/whatsapp", label: "CRM", icon: Briefcase },
@@ -236,8 +230,11 @@ export function TopNav() {
           {filteredGroups.map((group, index) => {
             const open = collapsed ? true : isGroupOpen(group.title);
             return (
-              <div key={group.title} className={index > 0 ? "mt-4" : ""}>
-                {!collapsed ? (
+              <div
+                key={group.title || `group-${index}`}
+                className={index > 0 ? "mt-4" : ""}
+              >
+                {group.title && !collapsed ? (
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.title)}
