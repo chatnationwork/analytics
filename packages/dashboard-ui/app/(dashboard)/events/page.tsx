@@ -111,6 +111,7 @@ export default function EventsPage() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["events-recent", sinceMinutes, limit, eventName],
     queryFn: () => api.getRecentEvents(sinceMinutes, limit, eventName),
+    enabled: typeof window !== "undefined" && !!tenant?.tenantId,
     refetchInterval: POLL_INTERVAL_MS,
   });
 

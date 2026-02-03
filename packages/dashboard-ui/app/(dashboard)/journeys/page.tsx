@@ -604,16 +604,7 @@ export default function JourneysPage() {
               </div>
             </div>
 
-            <p className="text-sm text-muted-foreground">
-              Agent performance metrics are in{" "}
-              <a
-                href="/agent-analytics"
-                className="text-primary hover:underline"
-              >
-                Agent Analytics
-              </a>
-              .
-            </p>
+       
           </>
         )}
       </div>

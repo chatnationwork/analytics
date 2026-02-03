@@ -338,9 +338,12 @@ export class InboxService {
 
   /**
    * Assign a session to an agent (lease-based: only one agent can accept).
-   * Uses a transaction with SELECT FOR UPDATE so concurrent accepts result in
-   * one success and one ConflictException ("already assigned").
-   * Fires an `agent.handoff` analytics event after commit.
+   * - If unassigned: assigns to the agent and fires `agent.handoff`.
+   * - If already assigned to another agent: treats accept as a takeover (transfer
+   *   from current agent to accepter), records it in context as a self-transfer
+   *   (reason: "takeover", isTakeover: true) and fires `chat.transferred`, so
+   *   the accepter becomes the owner and can resolve. Enables sys admins (or
+   *   any agent with visibility) to take over a chat and resolve it.
    */
   async assignSession(
     sessionId: string,
@@ -351,6 +354,9 @@ export class InboxService {
     await queryRunner.startTransaction();
 
     let savedSession: InboxSessionEntity;
+    let didTakeover = false;
+    let didAssignFromUnassigned = false;
+    let previousAgentId: string | null = null;
 
     try {
       const session = await queryRunner.manager
@@ -364,15 +370,36 @@ export class InboxService {
         throw new NotFoundException("Session not found");
       }
 
-      if (session.status !== SessionStatus.UNASSIGNED) {
-        throw new ConflictException(
-          "This chat has already been assigned to another agent.",
-        );
+      if (session.status === SessionStatus.RESOLVED) {
+        throw new BadRequestException("Cannot accept a resolved session");
       }
 
-      session.assignedAgentId = agentId;
-      session.status = SessionStatus.ASSIGNED;
-      session.assignedAt = new Date();
+      if (session.status === SessionStatus.UNASSIGNED) {
+        session.assignedAgentId = agentId;
+        session.status = SessionStatus.ASSIGNED;
+        session.assignedAt = new Date();
+        didAssignFromUnassigned = true;
+      } else if (session.assignedAgentId === agentId) {
+        // Already assigned to this agent; idempotent
+      } else {
+        // Already assigned to another agent: treat as takeover (transfer to accepter)
+        previousAgentId = session.assignedAgentId;
+        session.assignedAgentId = agentId;
+        session.assignedAt = new Date();
+        const context = (session.context as Record<string, unknown>) || {};
+        const transfers =
+          (context.transfers as Array<Record<string, unknown>>) || [];
+        transfers.push({
+          from: previousAgentId,
+          to: agentId,
+          reason: "takeover",
+          isTakeover: true,
+          timestamp: new Date().toISOString(),
+        });
+        session.context = { ...context, transfers };
+        didTakeover = true;
+      }
+
       savedSession = await queryRunner.manager
         .getRepository(InboxSessionEntity)
         .save(session);
@@ -385,11 +412,25 @@ export class InboxService {
       await queryRunner.release();
     }
 
-    // Fire agent.handoff event after commit (do not hold lock during I/O)
+    // Fire analytics event after commit (do not hold lock during I/O)
     try {
-      await this.fireHandoffEvent(savedSession, agentId);
+      if (didTakeover && previousAgentId) {
+        await this.fireTransferEvent(
+          savedSession,
+          previousAgentId,
+          agentId,
+          "takeover",
+        );
+        this.logger.log(
+          `Session ${sessionId} taken over from ${previousAgentId} by ${agentId}`,
+        );
+      } else if (didAssignFromUnassigned) {
+        await this.fireHandoffEvent(savedSession, agentId);
+      }
     } catch (error) {
-      this.logger.error(`Failed to fire handoff event: ${error.message}`);
+      this.logger.error(
+        `Failed to fire handoff/transfer event: ${error.message}`,
+      );
     }
 
     return savedSession;
@@ -663,6 +704,7 @@ export class InboxService {
 
   /**
    * Fire an analytics event when a session is transferred.
+   * When reason is "takeover", properties include isTakeover: true for analytics.
    */
   private async fireTransferEvent(
     session: InboxSessionEntity,
@@ -671,6 +713,7 @@ export class InboxService {
     reason?: string,
   ): Promise<void> {
     const eventId = randomUUID();
+    const isTakeover = reason === "takeover";
 
     const event: CreateEventDto = {
       eventId,
@@ -690,6 +733,7 @@ export class InboxService {
         fromAgentId,
         toAgentId,
         reason,
+        isTakeover,
         contactId: session.contactId,
         channel: session.channel,
       },

@@ -38,11 +38,6 @@ export default function WhatsAppAnalyticsPage() {
     queryFn: () => whatsappAnalyticsApi.getAgents(),
   });
 
-  const { data: countries } = useQuery({
-    queryKey: ["whatsapp-countries"],
-    queryFn: () => whatsappAnalyticsApi.getCountries(),
-  });
-
   const { data: responseTime } = useQuery({
     queryKey: ["whatsapp-response-time"],
     queryFn: () => whatsappAnalyticsApi.getResponseTime(),
@@ -217,21 +212,10 @@ export default function WhatsAppAnalyticsPage() {
         </p>
       </div>
 
-      {/* Message Funnel & Country Breakdown Row */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Message Funnel */}
-        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-          <h3 className="font-medium text-foreground mb-6">Message Funnel</h3>
-          <MessageFunnel data={funnel?.funnel ?? []} rates={funnel?.rates} />
-        </div>
-
-        {/* Country Breakdown */}
-        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-          <h3 className="font-medium text-foreground mb-6">
-            Traffic by Country
-          </h3>
-          <CountryTable data={countries ?? []} />
-        </div>
+      {/* Message Funnel */}
+      <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+        <h3 className="font-medium text-foreground mb-6">Message Funnel</h3>
+        <MessageFunnel data={funnel?.funnel ?? []} rates={funnel?.rates} />
       </div>
 
       {/* Note about data source */}
@@ -240,14 +224,6 @@ export default function WhatsAppAnalyticsPage() {
           <div className="text-blue-400 mt-0.5">ℹ️</div>
           <div>
             <div className="font-medium text-blue-400">About This Data</div>
-            <div className="text-sm text-gray-300 mt-1">
-              This page shows analytics from WhatsApp events sent to our
-              collector. For CRM-specific data (contacts, campaigns), visit{" "}
-              <a href="/whatsapp" className="text-blue-400 hover:underline">
-                WhatsApp CRM
-              </a>
-              .
-            </div>
           </div>
         </div>
       </div>
@@ -400,46 +376,6 @@ function MessageFunnel({
           </span>
         </div>
       )}
-    </div>
-  );
-}
-
-function CountryTable({
-  data,
-}: {
-  data: { countryCode: string; count: number }[];
-}) {
-  if (!data.length) {
-    return (
-      <div className="text-gray-500 text-sm text-center py-8">
-        No country data available
-      </div>
-    );
-  }
-
-  const total = data.reduce((acc, d) => acc + d.count, 0);
-
-  return (
-    <div className="space-y-2 max-h-64 overflow-y-auto">
-      {data.slice(0, 10).map((item, i) => (
-        <div
-          key={item.countryCode}
-          className="flex items-center gap-3 p-2 bg-muted/30 rounded"
-        >
-          <div className="w-6 text-center font-medium text-muted-foreground text-sm">
-            {i + 1}
-          </div>
-          <div className="flex-1 font-medium text-foreground">
-            {item.countryCode || "Unknown"}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {item.count.toLocaleString()}{" "}
-            <span className="text-muted-foreground/70">
-              ({((item.count / total) * 100).toFixed(1)}%)
-            </span>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
