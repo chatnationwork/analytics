@@ -1,11 +1,11 @@
-import { Controller, Post, Body, Request, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { HandoverAuthGuard } from '../auth/handover-auth.guard';
-import { InboxService } from './inbox.service';
+import { Controller, Post, Body, Request, UseGuards } from "@nestjs/common";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { HandoverAuthGuard } from "../auth/handover-auth.guard";
+import { InboxService } from "./inbox.service";
 
-import { AssignmentService } from './assignment.service';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
-import { MessageDirection } from '@lib/database';
+import { AssignmentService } from "./assignment.service";
+import { WhatsappService } from "../whatsapp/whatsapp.service";
+import { MessageDirection } from "@lib/database";
 
 interface HandoverDto {
   contactId: string;
@@ -18,7 +18,7 @@ interface HandoverDto {
   issue?: string;
 }
 
-@Controller('agent/integration')
+@Controller("agent/integration")
 @UseGuards(HandoverAuthGuard)
 export class IntegrationController {
   constructor(
@@ -31,7 +31,7 @@ export class IntegrationController {
    * Trigger a handover from the bot to the agent system.
    * Creates or updates a session and requests assignment.
    */
-  @Post('handover')
+  @Post("handover")
   async handover(@Request() req: any, @Body() dto: HandoverDto) {
     // Allow overriding tenantId if provided (e.g. for super-token bots), otherwise fallback to auth context
     const tenantId = dto.tenantId || req.user.tenantId;
@@ -46,34 +46,45 @@ export class IntegrationController {
       tenantId,
       dto.contactId,
       dto.name,
-      'whatsapp', // Default channel
+      "whatsapp", // Default channel
       context,
     );
 
-    // Send confirmation message if requested (default to true if not specified)
-    const shouldSendMessage = dto.sendHandoverMessage !== false;
-
-    if (shouldSendMessage) {
-      const messageContent = dto.handoverMessage || 'Connecting you to an agent...';
-      
-      // Async send (fire and forget to not block api latency)
-      this.whatsappService.sendMessage(tenantId, dto.contactId, messageContent)
-        .catch(err => console.error('Failed to send handover message:', err));
-
-      await this.inboxService.addMessage({
-        tenantId,
-        sessionId: session.id,
-        contactId: dto.contactId,
-        direction: MessageDirection.OUTBOUND,
-        content: messageContent,
-        senderId: undefined, // System message (or potentially the bot user if we had one)
-      });
-    }
-
-    return this.assignmentService.requestAssignment(
+    // Run assignment first so WhatsApp/confirmation message failures never block or prevent assignment
+    const result = await this.assignmentService.requestAssignment(
       session.id,
       dto.teamId,
       context,
     );
+
+    // Send confirmation message in background (best-effort; do not block or fail handover)
+    const shouldSendMessage = dto.sendHandoverMessage !== false;
+    if (shouldSendMessage) {
+      const messageContent =
+        dto.handoverMessage || "Connecting you to an agent...";
+      const sessionId = session.id;
+      Promise.all([
+        this.whatsappService.sendMessage(
+          tenantId,
+          dto.contactId,
+          messageContent,
+        ),
+        this.inboxService.addMessage({
+          tenantId,
+          sessionId,
+          contactId: dto.contactId,
+          direction: MessageDirection.OUTBOUND,
+          content: messageContent,
+          senderId: undefined,
+        }),
+      ]).catch((err) => {
+        console.error(
+          "Handover confirmation message failed (assignment already done):",
+          err?.message || err,
+        );
+      });
+    }
+
+    return result;
   }
 }

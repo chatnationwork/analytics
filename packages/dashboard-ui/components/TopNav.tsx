@@ -36,13 +36,17 @@ const SIDEBAR_GROUPS_KEY = "sidebar-groups-open";
 
 const navGroups = [
   {
-    title: "Inbox",
+    title: "Workspace",
     items: [
-      { href: "/agent-inbox", label: "Messages", icon: Inbox },
+      { href: "/agent-inbox", label: "Agent Inbox", icon: Inbox },
       { href: "/contacts", label: "Contacts", icon: Contact },
-      { href: "/agent-status", label: "Agent Status", icon: Users },
-
-      { href: "/team-management", label: "Teams", icon: Users },
+      { href: "/team-management", label: "Team Management", icon: Users },
+      {
+        href: "/team-management/agent-status",
+        label: "Agent Status",
+        icon: Users,
+        permission: "teams.manage",
+      },
     ],
   },
   {
@@ -158,7 +162,8 @@ export function TopNav() {
       const filteredItems = group.items.filter((item) => {
         const permission = "permission" in item ? item.permission : undefined;
         if (permission && !can(permission)) return false;
-        if (item.label === "Teams" && !can("teams.manage")) return false;
+        if (item.label === "Team Management" && !can("teams.manage"))
+          return false;
         return true;
       });
       if (filteredItems.length === 0) return null;

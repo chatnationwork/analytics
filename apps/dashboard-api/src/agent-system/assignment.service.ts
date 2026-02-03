@@ -111,13 +111,25 @@ export class AssignmentService {
         // Manual strategy means agents pick from queue, no auto-assignment
         return null;
       default:
-        this.logger.warn(`Unknown strategy: ${strategy}, defaulting to manual`);
-        return null;
+        this.logger.warn(
+          `Unknown strategy: ${strategy}, attempting round_robin so handover can still assign`,
+        );
+        return this.assignRoundRobin(session);
     }
   }
 
+  private static readonly VALID_STRATEGIES: AssignmentStrategy[] = [
+    "round_robin",
+    "least_active",
+    "least_assigned",
+    "hybrid",
+    "load_balanced",
+    "manual",
+  ];
+
   /**
    * Gets the assignment strategy and config for a team or tenant.
+   * When team exists, falsy or invalid strategy defaults to round_robin so handovers still get assigned.
    */
   private async getStrategyWithType(
     tenantId: string,
@@ -127,8 +139,18 @@ export class AssignmentService {
     if (teamId) {
       const team = await this.teamRepo.findOne({ where: { id: teamId } });
       if (team) {
+        const raw = team.routingStrategy as AssignmentStrategy;
+        const strategy =
+          raw && AssignmentService.VALID_STRATEGIES.includes(raw)
+            ? raw
+            : "round_robin";
+        if (raw && raw !== strategy) {
+          this.logger.warn(
+            `Team ${teamId} had invalid or missing routingStrategy "${raw}", using round_robin`,
+          );
+        }
         return {
-          strategy: team.routingStrategy as AssignmentStrategy,
+          strategy,
           config: team.routingConfig,
         };
       }
@@ -139,8 +161,15 @@ export class AssignmentService {
       where: { tenantId, teamId: undefined, enabled: true },
     });
 
+    const tenantStrategy =
+      (tenantConfig?.strategy as AssignmentStrategy) || "round_robin";
+    const strategy = AssignmentService.VALID_STRATEGIES.includes(tenantStrategy)
+      ? tenantStrategy
+      : "round_robin";
+
     return {
-      strategy: (tenantConfig?.strategy as AssignmentStrategy) || "round_robin",
+      strategy,
+      config: undefined,
     };
   }
 
@@ -324,6 +353,27 @@ export class AssignmentService {
 
       if (foundIds.length > 0) {
         return foundIds;
+      }
+    }
+
+    // When no teamId was sent: fallback to default team's members so handovers still get assigned
+    if (!teamId) {
+      const defaultTeam = await this.teamRepo.findOne({
+        where: { tenantId, isDefault: true },
+        select: ["id"],
+      });
+      if (defaultTeam) {
+        const teamMembers = await this.memberRepo.find({
+          where: { teamId: defaultTeam.id },
+          select: ["userId"],
+        });
+        const ids = teamMembers.map((m) => m.userId);
+        if (ids.length > 0) {
+          this.logger.log(
+            `No agents from tenant roles; using default team ${defaultTeam.id} (${ids.length} members)`,
+          );
+          return ids;
+        }
       }
     }
 
@@ -639,6 +689,19 @@ export class AssignmentService {
     if (assigned) {
       return assigned;
     }
+
+    // Log why session was left unassigned (helps debug prod handovers)
+    const { strategy } = await this.getStrategyWithType(
+      session.tenantId,
+      session.assignedTeamId || undefined,
+    );
+    const agentIds = await this.getAvailableAgents(
+      session.tenantId,
+      session.assignedTeamId || undefined,
+    );
+    this.logger.warn(
+      `Handover session ${session.id} left unassigned. Strategy=${strategy}, availableAgents=${agentIds.length} (tenantId=${session.tenantId}, teamId=${session.assignedTeamId ?? "none"}). Check: strategy is "manual", team has no members, or tenant has no member/admin/super_admin roles.`,
+    );
 
     // --- NO AGENT AVAILABLE HANDLING ---
 

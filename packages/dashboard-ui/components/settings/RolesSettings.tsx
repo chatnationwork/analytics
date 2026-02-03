@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
 import { roleApi, Role } from "@/lib/api/agent";
-import { Trash2, Plus, Edit2, Shield, Loader2, Check } from "lucide-react";
+import { Trash2, Plus, Edit2, Shield, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,15 +16,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const roleSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -105,7 +97,18 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     },
   });
 
-  const selectedPermissions = watch("permissions");
+  const selectedPermissions = watch("permissions") ?? [];
+
+  const togglePermission = (perm: string, checked: boolean) => {
+    if (checked) {
+      setValue("permissions", [...selectedPermissions, perm]);
+    } else {
+      setValue(
+        "permissions",
+        selectedPermissions.filter((p) => p !== perm),
+      );
+    }
+  };
 
   const handleEdit = (role: Role) => {
     setEditingRole(role);
@@ -135,23 +138,27 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     }
   };
 
-  const addPermission = (perm: string) => {
-    const current = selectedPermissions || [];
-    if (!current.includes(perm)) {
-      setValue("permissions", [...current, perm]);
+  /** Human-readable label for a permission string (e.g. analytics.view → View) */
+  const permissionLabel = (perm: string) => {
+    const part = perm.split(".").pop() ?? perm;
+    return part.charAt(0).toUpperCase() + part.slice(1);
+  };
+
+  /** Group permissions by prefix for display (e.g. Analytics, Team, Session) */
+  const permissionsByGroup = useMemo(() => {
+    if (!permissions?.length) return [];
+    const byPrefix = new Map<string, string[]>();
+    for (const p of permissions) {
+      const prefix = p.includes(".") ? p.split(".")[0] : "Other";
+      const list = byPrefix.get(prefix) ?? [];
+      list.push(p);
+      byPrefix.set(prefix, list);
     }
-  };
-
-  const removePermission = (perm: string) => {
-    const current = selectedPermissions || [];
-    setValue(
-      "permissions",
-      current.filter((p) => p !== perm),
-    );
-  };
-
-  const availablePermissions =
-    permissions?.filter((p) => !selectedPermissions?.includes(p)) || [];
+    return Array.from(byPrefix.entries()).map(([prefix, perms]) => ({
+      group: prefix.charAt(0).toUpperCase() + prefix.slice(1),
+      perms,
+    }));
+  }, [permissions]);
 
   if (isLoadingRoles) {
     return (
@@ -314,72 +321,42 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium block mb-2">
-                  Assigned Permissions
-                </label>
-                <div className="flex flex-wrap gap-2 min-h-[40px] p-3 border rounded-md bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700">
-                  {selectedPermissions && selectedPermissions.length > 0 ? (
-                    selectedPermissions.map((perm) => (
-                      <Badge
-                        key={perm}
-                        variant="secondary"
-                        className="flex items-center gap-1.5 py-1.5 pl-2.5 pr-1.5"
-                      >
-                        {perm}
-                        <button
-                          type="button"
-                          onClick={() => removePermission(perm)}
-                          className="hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full p-0.5 transition-colors"
-                        >
-                          <X size={14} />
-                        </button>
-                      </Badge>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-400 italic">
-                      No permissions assigned yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium block mb-2">
-                  Add Permission
-                </label>
-                <Select
-                  disabled={availablePermissions.length === 0}
-                  onValueChange={(val) => addPermission(val)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        availablePermissions.length === 0
-                          ? isLoadingRoles
-                            ? "Loading..."
-                            : "All permissions assigned"
-                          : "Select a permission to add..."
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availablePermissions.map((perm) => (
-                      <SelectItem key={perm} value={perm}>
-                        {perm}
-                      </SelectItem>
+              <label className="text-sm font-medium block">Permissions</label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Check each action this role should allow. Save when done.
+              </p>
+              <div className="border rounded-md bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700 overflow-hidden">
+                {!permissions?.length ? (
+                  <p className="text-sm text-muted-foreground p-4">
+                    Loading permissions…
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {permissionsByGroup.map(({ group, perms }) => (
+                      <div key={group} className="p-3">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                          {group}
+                        </div>
+                        <div className="flex flex-wrap gap-x-6 gap-y-2">
+                          {perms.map((perm) => (
+                            <label
+                              key={perm}
+                              className="flex items-center gap-2 cursor-pointer text-sm text-foreground"
+                            >
+                              <Checkbox
+                                checked={selectedPermissions.includes(perm)}
+                                onCheckedChange={(checked) =>
+                                  togglePermission(perm, checked === true)
+                                }
+                              />
+                              {permissionLabel(perm)}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-                {availablePermissions.length === 0 &&
-                  !isLoadingRoles &&
-                  permissions &&
-                  permissions.length > 0 && (
-                    <p className="text-xs text-green-600 mt-1.5">
-                      ✓ All available permissions have been assigned to this
-                      role.
-                    </p>
-                  )}
+                  </div>
+                )}
               </div>
             </div>
 
