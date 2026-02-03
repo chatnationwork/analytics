@@ -78,7 +78,7 @@ const navGroups = [
       },
       {
         href: "/settings/people",
-        label: "People",
+        label: "Users",
         icon: UserCircle,
         permission: "teams.manage",
       },

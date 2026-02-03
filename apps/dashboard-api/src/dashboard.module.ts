@@ -52,6 +52,7 @@ import { JourneysModule } from "./journeys/journeys.module";
 import { AgentInboxAnalyticsModule } from "./agent-inbox-analytics/agent-inbox-analytics.module";
 import { AuditModule } from "./audit/audit.module";
 import { MediaModule } from "./media/media.module";
+import { EmailModule } from "./email/email.module";
 
 /**
  * @Module() - Root module decorator
@@ -111,6 +112,7 @@ import { MediaModule } from "./media/media.module";
     AgentInboxAnalyticsModule, // GET /api/dashboard/agent-inbox-analytics/*
     AuditModule, // GET /api/dashboard/audit-logs
     MediaModule, // POST /api/dashboard/media/upload, GET /api/dashboard/media/:filename
+    EmailModule,
   ],
 })
 export class DashboardModule {}

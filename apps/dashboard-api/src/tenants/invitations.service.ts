@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import { InvitationEntity, InvitationStatus } from '@lib/database/entities/invitation.entity';
 import { TenantMembershipEntity, MembershipRole } from '@lib/database/entities/tenant-membership.entity';
 import { UserEntity } from '@lib/database/entities/user.entity';
+import { EmailService } from '../email/email.service';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -16,6 +18,8 @@ export class InvitationsService {
     private readonly membershipRepo: Repository<TenantMembershipEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -70,7 +74,24 @@ export class InvitationsService {
       status: 'pending'
     });
 
-    return this.invitationRepo.save(invitation);
+    const savedInvitation = await this.invitationRepo.save(invitation);
+
+    // 4. Send email
+    // Get inviter name
+    const inviter = await this.userRepo.findOne({ where: { id: createdByUserId } });
+    
+    // Construct invite URL (ensure frontend URL is configured)
+    const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
+    const inviteUrl = `${frontendUrl}/invite/accept?token=${token}`;
+
+    await this.emailService.sendInvitationEmail(
+        email, 
+        inviteUrl, 
+        inviter?.name || 'A colleague',
+        'ChatNation Workspace' // You might want to fetch tenant name if needed
+    );
+
+    return savedInvitation;
   }
 
   /**
