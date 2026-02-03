@@ -35,6 +35,7 @@ export default function ShowcasePage() {
     | "selfserve"
     | "agents"
     | "journey"
+    | "csat"
   >("overview");
 
   return (
@@ -53,7 +54,7 @@ export default function ShowcasePage() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-bold text-sm">
               A
             </div>
-            <span className="font-semibold">Dashboard Preview</span>
+            <span className="font-semibold">Kra Analytics · Preview</span>
           </div>
           <div className="flex items-center gap-6">
             <Link
@@ -63,10 +64,10 @@ export default function ShowcasePage() {
               Docs
             </Link>
             <Link
-              href="/signup"
+              href="/login"
               className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg text-sm"
             >
-              Start
+              Log in
             </Link>
           </div>
         </div>
@@ -128,20 +129,21 @@ export default function ShowcasePage() {
         {activeTab === "selfserve" && <SelfServeTab />}
         {activeTab === "agents" && <AgentAnalyticsTab />}
         {activeTab === "journey" && <JourneyTab />}
+        {activeTab === "csat" && <CsatTab />}
 
         {/* CTA */}
         <div className="mt-12 text-center py-12 border-t border-white/10">
           <h3 className="text-2xl font-bold mb-4">
-            Want to see your own data here?
+            Log in to see Kra Analytics with your data
           </h3>
           <p className="text-gray-400 mb-6">
-            Set up in 5 minutes. Start seeing insights immediately.
+            Funnels, journeys, CSAT, agent inbox, and reports in one place.
           </p>
           <Link
-            href="/signup"
+            href="/login"
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl transition-all font-medium"
           >
-            Get Started
+            Log in
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -1466,6 +1468,119 @@ function JourneyTab() {
                   </div>
                   <div className="text-sm text-gray-400">{event.details}</div>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== CSAT TAB ====================
+function CsatTab() {
+  const distribution = [
+    { score: 5, count: 842, pct: 42 },
+    { score: 4, count: 612, pct: 31 },
+    { score: 3, count: 298, pct: 15 },
+    { score: 2, count: 156, pct: 8 },
+    { score: 1, count: 92, pct: 5 },
+  ];
+  const recentFeedback = [
+    {
+      rating: 5,
+      feedback: "Very quick and helpful, issue resolved.",
+      date: "2 hours ago",
+    },
+    {
+      rating: 4,
+      feedback: "Good experience. Would be better with shorter wait.",
+      date: "5 hours ago",
+    },
+    { rating: 5, feedback: "Excellent service.", date: "1 day ago" },
+    {
+      rating: 3,
+      feedback: "Took a while to get through but got there in the end.",
+      date: "1 day ago",
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">CSAT Analytics</h2>
+        <select className="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm">
+          <option>Last 7 days</option>
+          <option>Last 30 days</option>
+          <option>Last 90 days</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Average score"
+          value="4.2"
+          change="+0.3 vs previous"
+          positive
+          icon={<Award className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Total responses"
+          value="2,000"
+          change="+18%"
+          positive
+          icon={<Users className="w-4 h-4" />}
+        />
+        <StatCard
+          label="5-star rate"
+          value="42%"
+          change="+4%"
+          positive
+          icon={<Target className="w-4 h-4" />}
+        />
+        <StatCard
+          label="Trend"
+          value="+5.2%"
+          change="vs last period"
+          positive
+          icon={<TrendingUp className="w-4 h-4" />}
+        />
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Score distribution</h3>
+          <div className="space-y-3">
+            {distribution.map((row) => (
+              <div key={row.score} className="flex items-center gap-3">
+                <span className="text-sm text-gray-400 w-8">{row.score} ★</span>
+                <div className="flex-1 h-6 bg-gray-700/50 rounded overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded"
+                    style={{ width: `${row.pct}%` }}
+                  />
+                </div>
+                <span className="text-sm text-gray-400 w-16 text-right">
+                  {row.count} ({row.pct}%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 rounded-xl border border-white/10 p-6">
+          <h3 className="font-medium mb-6">Recent feedback</h3>
+          <div className="space-y-4">
+            {recentFeedback.map((item, i) => (
+              <div key={i} className="p-3 bg-gray-700/30 rounded-lg">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-yellow-400">
+                    {"★".repeat(item.rating)}
+                    {"☆".repeat(5 - item.rating)}
+                  </span>
+                  <span className="text-xs text-gray-500">{item.date}</span>
+                </div>
+                <p className="text-sm text-gray-300">{item.feedback}</p>
               </div>
             ))}
           </div>

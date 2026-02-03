@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the REST API endpoints for the Analytics system.
+This document describes the REST API endpoints for the Kra Analytics Platform (event ingestion, dashboard API, and related services).
 
 ---
 
@@ -32,11 +32,11 @@ Or include it in the request body:
 
 ### Error Responses
 
-| Status | Message | Cause |
-|--------|---------|-------|
-| 401 | Missing X-Write-Key header | No write key provided |
-| 401 | Invalid write key | Write key doesn't match any project |
-| 401 | Origin not allowed | Request origin not in allowedOrigins |
+| Status | Message                    | Cause                                |
+| ------ | -------------------------- | ------------------------------------ |
+| 401    | Missing X-Write-Key header | No write key provided                |
+| 401    | Invalid write key          | Write key doesn't match any project  |
+| 401    | Origin not allowed         | Request origin not in allowedOrigins |
 
 ---
 
@@ -142,11 +142,11 @@ Get high-level KPIs for the dashboard.
 
 #### Query Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| startDate | string | Yes | ISO date (e.g., 2024-01-01) |
-| endDate | string | Yes | ISO date (e.g., 2024-01-31) |
-| tenantId | string | No | Tenant filter (default: default-tenant) |
+| Parameter | Type   | Required | Description                             |
+| --------- | ------ | -------- | --------------------------------------- |
+| startDate | string | Yes      | ISO date (e.g., 2024-01-01)             |
+| endDate   | string | Yes      | ISO date (e.g., 2024-01-31)             |
+| tenantId  | string | No       | Tenant filter (default: default-tenant) |
 
 #### Response
 
@@ -171,12 +171,12 @@ Get funnel analysis data for a specific journey.
 
 #### Query Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| journey | string | No | Journey type: mri, tot, nil (default: mri) |
-| startDate | string | Yes | ISO date |
-| endDate | string | Yes | ISO date |
-| tenantId | string | No | Tenant filter |
+| Parameter | Type   | Required | Description                                |
+| --------- | ------ | -------- | ------------------------------------------ |
+| journey   | string | No       | Journey type: mri, tot, nil (default: mri) |
+| startDate | string | Yes      | ISO date                                   |
+| endDate   | string | Yes      | ISO date                                   |
+| tenantId  | string | No       | Tenant filter                              |
 
 #### Response
 
@@ -205,13 +205,13 @@ Get a paginated list of sessions.
 
 #### Query Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| startDate | string | Yes | ISO date |
-| endDate | string | Yes | ISO date |
-| limit | number | No | Items per page (default: 50) |
-| offset | number | No | Items to skip (default: 0) |
-| tenantId | string | No | Tenant filter |
+| Parameter | Type   | Required | Description                  |
+| --------- | ------ | -------- | ---------------------------- |
+| startDate | string | Yes      | ISO date                     |
+| endDate   | string | Yes      | ISO date                     |
+| limit     | number | No       | Items per page (default: 50) |
+| offset    | number | No       | Items to skip (default: 0)   |
+| tenantId  | string | No       | Tenant filter                |
 
 #### Response
 
@@ -249,9 +249,9 @@ Get all events for a specific session.
 
 #### Query Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| sessionId | string | Yes | Session UUID |
+| Parameter | Type   | Required | Description  |
+| --------- | ------ | -------- | ------------ |
+| sessionId | string | Yes      | Session UUID |
 
 #### Response
 
@@ -388,10 +388,10 @@ All errors follow this format:
 
 ### Common Error Codes
 
-| Code | Meaning |
-|------|---------|
-| 400 | Bad Request - Invalid input data |
-| 401 | Unauthorized - Missing or invalid write key |
-| 404 | Not Found - Resource doesn't exist |
-| 429 | Too Many Requests - Rate limit exceeded |
-| 500 | Internal Server Error |
+| Code | Meaning                                     |
+| ---- | ------------------------------------------- |
+| 400  | Bad Request - Invalid input data            |
+| 401  | Unauthorized - Missing or invalid write key |
+| 404  | Not Found - Resource doesn't exist          |
+| 429  | Too Many Requests - Rate limit exceeded     |
+| 500  | Internal Server Error                       |

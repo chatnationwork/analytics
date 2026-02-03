@@ -1,7 +1,8 @@
 # Deployment Guide
 
 ## Overview
-This guide covers infrastructure setup, environment configuration, and deployment procedures for the Analytics Service.
+
+This guide covers infrastructure setup, environment configuration, and deployment procedures for the **Kra Analytics Platform** (built for Kenya Revenue Authority).
 
 ---
 
@@ -50,23 +51,23 @@ This guide covers infrastructure setup, environment configuration, and deploymen
 
 ### Minimum (Development/Staging)
 
-| Component | Spec | Count |
-|-----------|------|-------|
-| Collector | 1 vCPU, 1GB RAM | 1 |
-| Processor | 1 vCPU, 1GB RAM | 1 |
-| Redis | 1 vCPU, 1GB RAM | 1 |
-| ClickHouse | 2 vCPU, 4GB RAM | 1 |
-| Dashboard API | 1 vCPU, 1GB RAM | 1 |
+| Component     | Spec            | Count |
+| ------------- | --------------- | ----- |
+| Collector     | 1 vCPU, 1GB RAM | 1     |
+| Processor     | 1 vCPU, 1GB RAM | 1     |
+| Redis         | 1 vCPU, 1GB RAM | 1     |
+| ClickHouse    | 2 vCPU, 4GB RAM | 1     |
+| Dashboard API | 1 vCPU, 1GB RAM | 1     |
 
 ### Production
 
-| Component | Spec | Count |
-|-----------|------|-------|
-| Collector | 2 vCPU, 2GB RAM | 3+ |
-| Processor | 2 vCPU, 2GB RAM | 3+ |
-| Redis (Cluster) | 2 vCPU, 4GB RAM | 3 (HA) |
-| ClickHouse | 4 vCPU, 16GB RAM | 3 (Replicated) |
-| Dashboard API | 2 vCPU, 2GB RAM | 2+ |
+| Component       | Spec             | Count          |
+| --------------- | ---------------- | -------------- |
+| Collector       | 2 vCPU, 2GB RAM  | 3+             |
+| Processor       | 2 vCPU, 2GB RAM  | 3+             |
+| Redis (Cluster) | 2 vCPU, 4GB RAM  | 3 (HA)         |
+| ClickHouse      | 4 vCPU, 16GB RAM | 3 (Replicated) |
+| Dashboard API   | 2 vCPU, 2GB RAM  | 2+             |
 
 ---
 
@@ -150,7 +151,7 @@ ALLOWED_ORIGINS=https://dashboard.tax.app
 ## 4. Docker Compose (Development)
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   collector:
@@ -318,19 +319,20 @@ GRANT SELECT ON analytics.* TO analytics_reader;
 
 ### Metrics to Monitor
 
-| Metric | Source | Alert Threshold |
-|--------|--------|-----------------|
-| Collector Request Rate | Prometheus | N/A (baseline) |
-| Collector Error Rate | Prometheus | > 1% |
-| Collector Latency P95 | Prometheus | > 200ms |
-| Redis Queue Length | Redis INFO | > 10,000 |
-| Processor Lag | Custom metric | > 30s |
-| ClickHouse Insert Rate | ClickHouse system | < 80% capacity |
-| ClickHouse Disk Usage | ClickHouse system | > 80% |
+| Metric                 | Source            | Alert Threshold |
+| ---------------------- | ----------------- | --------------- |
+| Collector Request Rate | Prometheus        | N/A (baseline)  |
+| Collector Error Rate   | Prometheus        | > 1%            |
+| Collector Latency P95  | Prometheus        | > 200ms         |
+| Redis Queue Length     | Redis INFO        | > 10,000        |
+| Processor Lag          | Custom metric     | > 30s           |
+| ClickHouse Insert Rate | ClickHouse system | < 80% capacity  |
+| ClickHouse Disk Usage  | ClickHouse system | > 80%           |
 
 ### Grafana Dashboard
 
 Import dashboard JSON from `monitoring/grafana-dashboard.json`:
+
 - Request rate by endpoint
 - Error rate by type
 - Latency histogram
@@ -384,17 +386,20 @@ groups:
 ### Deployment Steps
 
 1. **Deploy Infrastructure**
+
    ```bash
    kubectl apply -f k8s/redis/
    kubectl apply -f k8s/clickhouse/
    ```
 
 2. **Initialize Database**
+
    ```bash
    kubectl exec -it clickhouse-0 -- clickhouse-client < init-db.sql
    ```
 
 3. **Deploy Services**
+
    ```bash
    kubectl apply -f k8s/collector/
    kubectl apply -f k8s/processor/
@@ -402,6 +407,7 @@ groups:
    ```
 
 4. **Verify Health**
+
    ```bash
    curl https://analytics-api.yourdomain.com/health
    ```
