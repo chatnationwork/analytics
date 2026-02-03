@@ -213,6 +213,17 @@ export const agentApi = {
     return fetchWithAuth<Team[]>("/agent/teams");
   },
 
+  getQueueStats: async () => {
+    return fetchWithAuth<
+      Array<{
+        teamId: string;
+        queueSize: number;
+        avgWaitTimeMinutes: number | null;
+        longestWaitTimeMinutes: number | null;
+      }>
+    >("/agent/teams/queue-stats");
+  },
+
   getTeam: async (teamId: string) => {
     return fetchWithAuth<Team>(`/agent/teams/${teamId}`);
   },

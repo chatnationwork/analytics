@@ -24,7 +24,10 @@ import {
 } from "lucide-react";
 import { agentApi, Team } from "@/lib/api/agent";
 import { CreateTeamDialog } from "@/components/team-management/CreateTeamDialog";
-import { TeamList } from "@/components/team-management/TeamList";
+import {
+  TeamList,
+  type TeamQueueStats,
+} from "@/components/team-management/TeamList";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import {
   agentStatusApi,
@@ -75,6 +78,21 @@ export default function TeamManagementPage() {
   useEffect(() => {
     fetchTeams();
   }, []);
+
+  const { data: queueStats = [] } = useQuery({
+    queryKey: ["agent-teams-queue-stats"],
+    queryFn: () => agentApi.getQueueStats(),
+  });
+  const queueStatsByTeamId: Record<string, TeamQueueStats> = Object.fromEntries(
+    queueStats.map((s) => [
+      s.teamId,
+      {
+        queueSize: s.queueSize,
+        avgWaitTimeMinutes: s.avgWaitTimeMinutes,
+        longestWaitTimeMinutes: s.longestWaitTimeMinutes,
+      },
+    ]),
+  );
 
   const {
     data: agents,
@@ -131,7 +149,11 @@ export default function TeamManagementPage() {
               No teams found. Create your first team to get started.
             </Card>
           ) : (
-            <TeamList teams={teams} onTeamUpdated={fetchTeams} />
+            <TeamList
+              teams={teams}
+              queueStatsByTeamId={queueStatsByTeamId}
+              onTeamUpdated={fetchTeams}
+            />
           )}
         </div>
 

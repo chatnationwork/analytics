@@ -34,6 +34,8 @@ import {
   TeamRole,
   UserEntity,
   TenantMembershipEntity,
+  InboxSessionEntity,
+  SessionStatus,
 } from "@lib/database";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { getRequestContext, type RequestLike } from "../request-context";
@@ -91,6 +93,8 @@ export class TeamController {
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(TenantMembershipEntity)
     private readonly tenantMembershipRepo: Repository<TenantMembershipEntity>,
+    @InjectRepository(InboxSessionEntity)
+    private readonly sessionRepo: Repository<InboxSessionEntity>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -111,6 +115,117 @@ export class TeamController {
       memberCount: team.members?.filter((m) => m.isActive).length || 0,
       totalMemberCount: team.members?.length || 0,
     }));
+  }
+
+  /**
+   * Get queue stats per team (queue size, avg wait time, longest wait time).
+   * Must be declared before @Get(":teamId").
+   */
+  @Get("queue-stats")
+  async getQueueStats(@Request() req: { user: { tenantId: string } }) {
+    const tenantId = req.user.tenantId;
+    const teams = await this.teamRepo.find({
+      where: { tenantId },
+      select: ["id"],
+    });
+    const teamIds = teams.map((t) => t.id);
+    if (teamIds.length === 0) return [];
+
+    const result: Array<{
+      teamId: string;
+      queueSize: number;
+      avgWaitTimeMinutes: number | null;
+      longestWaitTimeMinutes: number | null;
+    }> = [];
+
+    for (const teamId of teamIds) {
+      const [queueSizeRow] = await this.sessionRepo
+        .createQueryBuilder("s")
+        .select("COUNT(*)", "count")
+        .where("s.tenantId = :tenantId", { tenantId })
+        .andWhere("s.assignedTeamId = :teamId", { teamId })
+        .andWhere("s.status = :status", {
+          status: SessionStatus.UNASSIGNED,
+        })
+        .getRawMany<{ count: string }>();
+
+      const queueSize = parseInt(queueSizeRow?.count ?? "0", 10);
+
+      const avgResult = await this.sessionRepo
+        .createQueryBuilder("s")
+        .select(
+          "AVG(EXTRACT(EPOCH FROM (s.assignedAt - s.createdAt)) / 60)",
+          "avgMinutes",
+        )
+        .where("s.tenantId = :tenantId", { tenantId })
+        .andWhere("s.assignedTeamId = :teamId", { teamId })
+        .andWhere("s.assignedAt IS NOT NULL")
+        .andWhere("s.assignedAt >= :since", {
+          since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        })
+        .getRawOne<{ avgMinutes: string | null }>();
+
+      const avgParsed =
+        avgResult?.avgMinutes != null ? parseFloat(avgResult.avgMinutes) : NaN;
+      const avgWaitTimeMinutes = Number.isFinite(avgParsed)
+        ? Math.round(avgParsed)
+        : null;
+
+      const longestInQueue = await this.sessionRepo
+        .createQueryBuilder("s")
+        .select(
+          "MAX(EXTRACT(EPOCH FROM (NOW() - s.createdAt)) / 60)",
+          "maxMinutes",
+        )
+        .where("s.tenantId = :tenantId", { tenantId })
+        .andWhere("s.assignedTeamId = :teamId", { teamId })
+        .andWhere("s.status = :status", {
+          status: SessionStatus.UNASSIGNED,
+        })
+        .getRawOne<{ maxMinutes: string | null }>();
+
+      const longestRecent = await this.sessionRepo
+        .createQueryBuilder("s")
+        .select(
+          "MAX(EXTRACT(EPOCH FROM (s.assignedAt - s.createdAt)) / 60)",
+          "maxMinutes",
+        )
+        .where("s.tenantId = :tenantId", { tenantId })
+        .andWhere("s.assignedTeamId = :teamId", { teamId })
+        .andWhere("s.assignedAt IS NOT NULL")
+        .andWhere("s.assignedAt >= :since", {
+          since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        })
+        .getRawOne<{ maxMinutes: string | null }>();
+
+      const longestQueueParsed =
+        longestInQueue?.maxMinutes != null
+          ? parseFloat(longestInQueue.maxMinutes)
+          : NaN;
+      const longestQueue = Number.isFinite(longestQueueParsed)
+        ? Math.round(longestQueueParsed)
+        : null;
+      const longestRecentParsed =
+        longestRecent?.maxMinutes != null
+          ? parseFloat(longestRecent.maxMinutes)
+          : NaN;
+      const longestRecentVal = Number.isFinite(longestRecentParsed)
+        ? Math.round(longestRecentParsed)
+        : null;
+      const longestWaitTimeMinutes =
+        longestQueue != null && longestRecentVal != null
+          ? Math.max(longestQueue, longestRecentVal)
+          : (longestQueue ?? longestRecentVal ?? null);
+
+      result.push({
+        teamId,
+        queueSize,
+        avgWaitTimeMinutes,
+        longestWaitTimeMinutes,
+      });
+    }
+
+    return result;
   }
 
   /**

@@ -2,19 +2,38 @@ import { Team, agentApi } from "@/lib/api/agent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Star } from "lucide-react";
+import { Users, Plus, Star, Inbox, Clock } from "lucide-react";
 import { useState } from "react";
 import { AddMemberDialog } from "./AddMemberDialog";
 import { ManageTeamDialog } from "./ManageTeamDialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+export interface TeamQueueStats {
+  queueSize: number;
+  avgWaitTimeMinutes: number | null;
+  longestWaitTimeMinutes: number | null;
+}
+
 interface TeamListProps {
   teams: Team[];
+  queueStatsByTeamId?: Record<string, TeamQueueStats>;
   onTeamUpdated: () => void;
 }
 
-export function TeamList({ teams, onTeamUpdated }: TeamListProps) {
+function formatWaitTime(minutes: number | null): string {
+  if (minutes == null) return "—";
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+export function TeamList({
+  teams,
+  queueStatsByTeamId = {},
+  onTeamUpdated,
+}: TeamListProps) {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
@@ -84,6 +103,30 @@ export function TeamList({ teams, onTeamUpdated }: TeamListProps) {
                 {team.description}
               </p>
             )}
+
+            {(() => {
+              const stats = queueStatsByTeamId[team.id];
+              return stats ? (
+                <div className="grid grid-cols-3 gap-2 mb-4 text-xs">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Inbox className="h-3.5 w-3 shrink-0" />
+                    <span>Queue: {stats.queueSize}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-3.5 w-3 shrink-0" />
+                    <span>
+                      Avg wait: {formatWaitTime(stats.avgWaitTimeMinutes)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-3.5 w-3 shrink-0" />
+                    <span>
+                      Longest: {formatWaitTime(stats.longestWaitTimeMinutes)}
+                    </span>
+                  </div>
+                </div>
+              ) : null;
+            })()}
 
             <div className="flex items-center justify-between mt-auto">
               <div className="flex items-center text-sm text-muted-foreground">

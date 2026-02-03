@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { whatsappAnalyticsApi } from "@/lib/whatsapp-analytics-api";
-import { Users, UserPlus, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
@@ -97,30 +97,6 @@ export default function ContactsPage() {
     queryFn: () => whatsappAnalyticsApi.getContacts(page, PAGE_SIZE),
   });
 
-  const { data: newContactsTrend } = useQuery({
-    queryKey: ["new-contacts-trend", "day", 30],
-    queryFn: () => whatsappAnalyticsApi.getNewContactsTrend("day", 30),
-  });
-
-  const newContacts30d = (() => {
-    if (newContactsTrend == null) return null;
-    const withSummary = newContactsTrend as {
-      summary?: { totalNewContacts?: number };
-      data?: { newContacts?: number }[];
-    };
-    if (typeof withSummary.summary?.totalNewContacts === "number")
-      return withSummary.summary.totalNewContacts;
-    const arr = Array.isArray(newContactsTrend)
-      ? newContactsTrend
-      : withSummary.data;
-    return Array.isArray(arr)
-      ? (arr as { newContacts?: number }[]).reduce(
-          (s, x) => s + (x.newContacts ?? 0),
-          0,
-        )
-      : null;
-  })();
-
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
   const canPrev = page > 1;
   const canNext = page < totalPages;
@@ -142,43 +118,6 @@ export default function ContactsPage() {
         </p>
       </div>
 
-      {/* Analytics cards */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-[var(--muted)]">
-              Total contacts
-            </CardTitle>
-            <Users className="h-4 w-4 text-[var(--muted)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[var(--foreground)]">
-              {data != null ? data.total.toLocaleString() : "—"}
-            </div>
-            <p className="text-xs text-[var(--muted)] mt-1">
-              Unique contacts with at least one message (analytics)
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-[var(--muted)]">
-              New contacts (last 30 days)
-            </CardTitle>
-            <UserPlus className="h-4 w-4 text-[var(--muted)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[var(--foreground)]">
-              {newContacts30d != null ? newContacts30d.toLocaleString() : "—"}
-            </div>
-            <p className="text-xs text-[var(--muted)] mt-1">
-              First message in period (analytics)
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Table */}
       <Card>
         <CardHeader>
           <CardTitle>Contact list</CardTitle>
