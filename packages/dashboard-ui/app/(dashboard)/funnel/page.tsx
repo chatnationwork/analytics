@@ -26,9 +26,11 @@ function getEventLabel(eventName: string): string {
   );
 }
 
+const MAX_STEPS = 10;
+
 export default function FunnelPage() {
   const [steps, setSteps] = useState<FunnelStep[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
   // Fetch current tenant first
   const { data: tenant } = useQuery({
@@ -71,15 +73,15 @@ export default function FunnelPage() {
   });
 
   const addStep = () => {
+    if (steps.length >= MAX_STEPS || availableEvents.length === 0) return;
     const unusedEvent = availableEvents.find(
       (e) => !steps.some((s) => s.eventName === e),
     );
-    if (unusedEvent) {
-      setSteps([
-        ...steps,
-        { name: getEventLabel(unusedEvent), eventName: unusedEvent },
-      ]);
-    }
+    const eventToAdd = unusedEvent ?? availableEvents[0];
+    setSteps([
+      ...steps,
+      { name: getEventLabel(eventToAdd), eventName: eventToAdd },
+    ]);
   };
 
   const removeStep = (index: number) => {
@@ -143,13 +145,22 @@ export default function FunnelPage() {
               Funnel Steps
             </h2>
             <button
+              type="button"
               onClick={addStep}
-              disabled={steps.length >= availableEvents.length}
-              className="text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50"
+              disabled={
+                steps.length >= MAX_STEPS || availableEvents.length === 0
+              }
+              className="text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               + Add Step
             </button>
           </div>
+          {availableEvents.length === 0 && (
+            <p className="text-xs text-muted-foreground mb-3">
+              Loading event types… Add Step will be available once events are
+              loaded.
+            </p>
+          )}
 
           <div className="space-y-2">
             {steps.map((step, index) => (
