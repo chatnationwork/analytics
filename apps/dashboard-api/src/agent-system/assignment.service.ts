@@ -307,7 +307,7 @@ export class AssignmentService {
   ): Promise<string[]> {
     if (teamId) {
       const teamMembers = await this.memberRepo.find({
-        where: { teamId },
+        where: { teamId, isActive: true },
         select: ["userId"],
       });
       const ids = teamMembers.map((m) => m.userId);
@@ -325,7 +325,7 @@ export class AssignmentService {
     });
     if (defaultTeam) {
       const members = await this.memberRepo.find({
-        where: { teamId: defaultTeam.id },
+        where: { teamId: defaultTeam.id, isActive: true },
         select: ["userId"],
       });
       const ids = members.map((m) => m.userId);
@@ -344,7 +344,7 @@ export class AssignmentService {
     });
     for (const team of teams) {
       const teamMembers = await this.memberRepo.find({
-        where: { teamId: team.id },
+        where: { teamId: team.id, isActive: true },
         select: ["userId"],
       });
       const ids = teamMembers.map((m) => m.userId);
@@ -424,7 +424,21 @@ export class AssignmentService {
     session.status = SessionStatus.ASSIGNED;
     session.assignedAt = new Date();
 
-    return this.sessionRepo.save(session);
+    this.logger.log(
+      `Assigning session ${session.id} to agent ${selectedAgentId} (round-robin index ${nextIndex})`,
+    );
+    try {
+      const saved = await this.sessionRepo.save(session);
+      this.logger.log(
+        `Session ${session.id} saved with assignedAgentId=${saved.assignedAgentId}, status=${saved.status}`,
+      );
+      return saved;
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to save session ${session.id} assignment: ${err?.message ?? err}`,
+      );
+      throw err;
+    }
   }
 
   /**

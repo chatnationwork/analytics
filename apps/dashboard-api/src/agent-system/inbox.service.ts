@@ -83,6 +83,14 @@ export class InboxService {
   ) {}
 
   /**
+   * Sanitize phone number: trim and remove leading/trailing '+' for consistent storage and lookup.
+   */
+  private sanitizeContactId(contactId: string): string {
+    if (!contactId || typeof contactId !== "string") return contactId ?? "";
+    return contactId.trim().replace(/^\++/, "").replace(/\++$/, "");
+  }
+
+  /**
    * Gets or creates a session for a contact.
    * If an active (unassigned/assigned) session exists, returns it.
    * Otherwise, creates a new one.
@@ -94,11 +102,12 @@ export class InboxService {
     channel = "whatsapp",
     context?: Record<string, unknown>,
   ): Promise<InboxSessionEntity> {
-    // Look for existing active session
+    const normalizedContactId = this.sanitizeContactId(contactId);
+
     let session = await this.sessionRepo.findOne({
       where: {
         tenantId,
-        contactId,
+        contactId: normalizedContactId,
         status: SessionStatus.ASSIGNED,
       },
     });
@@ -107,7 +116,7 @@ export class InboxService {
       session = await this.sessionRepo.findOne({
         where: {
           tenantId,
-          contactId,
+          contactId: normalizedContactId,
           status: SessionStatus.UNASSIGNED,
         },
       });
@@ -117,10 +126,9 @@ export class InboxService {
       return session;
     }
 
-    // Create new session
     const newSession = this.sessionRepo.create({
       tenantId,
-      contactId,
+      contactId: normalizedContactId,
       contactName,
       channel,
       status: SessionStatus.UNASSIGNED,

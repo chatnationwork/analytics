@@ -7,6 +7,12 @@ import { AssignmentService } from "./assignment.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { MessageDirection } from "@lib/database";
 
+/** Sanitize phone number: trim and remove leading/trailing '+' so storage and lookup are consistent. */
+function sanitizePhoneNumber(contactId: string): string {
+  if (!contactId || typeof contactId !== "string") return contactId ?? "";
+  return contactId.trim().replace(/^\++/, "").replace(/\++$/, "");
+}
+
 interface HandoverDto {
   contactId: string;
   name?: string;
@@ -33,10 +39,9 @@ export class IntegrationController {
    */
   @Post("handover")
   async handover(@Request() req: any, @Body() dto: HandoverDto) {
-    // Allow overriding tenantId if provided (e.g. for super-token bots), otherwise fallback to auth context
+    const contactId = sanitizePhoneNumber(dto.contactId);
     const tenantId = dto.tenantId || req.user.tenantId;
 
-    // Merge issue into context if provided
     const context = {
       ...dto.context,
       ...(dto.issue ? { issue: dto.issue } : {}),
@@ -44,7 +49,7 @@ export class IntegrationController {
 
     const session = await this.inboxService.getOrCreateSession(
       tenantId,
-      dto.contactId,
+      contactId,
       dto.name,
       "whatsapp", // Default channel
       context,
@@ -64,15 +69,11 @@ export class IntegrationController {
         dto.handoverMessage || "Connecting you to an agent...";
       const sessionId = session.id;
       Promise.all([
-        this.whatsappService.sendMessage(
-          tenantId,
-          dto.contactId,
-          messageContent,
-        ),
+        this.whatsappService.sendMessage(tenantId, contactId, messageContent),
         this.inboxService.addMessage({
           tenantId,
           sessionId,
-          contactId: dto.contactId,
+          contactId,
           direction: MessageDirection.OUTBOUND,
           content: messageContent,
           senderId: undefined,

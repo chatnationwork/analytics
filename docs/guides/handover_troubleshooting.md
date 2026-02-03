@@ -131,6 +131,8 @@ If there is no row, the code uses defaults: strategy `round_robin`, waterfall `[
 
 ## Quick fix when you’re not routing to any team
 
+- **Same number / clear sessions**: See [handover_same_contact_and_clear.md](./handover_same_contact_and_clear.md) for what happens when the same phone number is handovered multiple times and how to clear assignments for a contact (for testing).
+
 - **Option A – Tenant roles**  
   In **Settings → People**, ensure at least one user has role **Member**, **Admin**, or **Super Admin** for that tenant.  
   Run query **#2** above to confirm.
