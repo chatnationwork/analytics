@@ -1816,8 +1816,7 @@ export class EventRepository {
       `,
       [tenantId, startDate, endDate],
     );
-    const total =
-      parseInt(summaryResult[0]?.total, 10) || 0;
+    const total = parseInt(summaryResult[0]?.total, 10) || 0;
     const averageScore =
       total > 0 ? parseFloat(summaryResult[0]?.avg_rating) || 0 : 0;
 
@@ -1849,7 +1848,8 @@ export class EventRepository {
       return { score, count, percentage };
     });
     const fiveCount = distMap.get(5) ?? 0;
-    const fiveStarPercent = total > 0 ? Math.round((fiveCount / total) * 100) : 0;
+    const fiveStarPercent =
+      total > 0 ? Math.round((fiveCount / total) * 100) : 0;
 
     return {
       averageScore: Math.round(averageScore * 10) / 10,
@@ -1889,7 +1889,10 @@ export class EventRepository {
     return result.map((r: any) => ({
       timestamp: r.timestamp,
       rating: parseInt(r.rating, 10) || 0,
-      feedback: r.feedback && String(r.feedback).trim() ? String(r.feedback).trim() : null,
+      feedback:
+        r.feedback && String(r.feedback).trim()
+          ? String(r.feedback).trim()
+          : null,
     }));
   }
 

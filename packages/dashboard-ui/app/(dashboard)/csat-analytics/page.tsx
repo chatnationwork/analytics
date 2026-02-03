@@ -77,9 +77,7 @@ export default function CsatAnalyticsPage() {
           </div>
           <select
             value={granularity}
-            onChange={(e) =>
-              setGranularity(e.target.value as CsatGranularity)
-            }
+            onChange={(e) => setGranularity(e.target.value as CsatGranularity)}
             className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             aria-label="Time range"
           >
@@ -91,7 +89,9 @@ export default function CsatAnalyticsPage() {
 
         {error && (
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error instanceof Error ? error.message : "Failed to load CSAT data"}
+            {error instanceof Error
+              ? error.message
+              : "Failed to load CSAT data"}
           </div>
         )}
 
@@ -134,14 +134,10 @@ export default function CsatAnalyticsPage() {
               <StatCard
                 label="5-Star %"
                 value={
-                  summary?.totalResponses
-                    ? `${summary.fiveStarPercent}%`
-                    : "—"
+                  summary?.totalResponses ? `${summary.fiveStarPercent}%` : "—"
                 }
                 sub="Top rating"
-                icon={
-                  <ThumbsUp className="w-4 h-4 text-muted-foreground" />
-                }
+                icon={<ThumbsUp className="w-4 h-4 text-muted-foreground" />}
               />
               <StatCard
                 label="Trend"
@@ -151,9 +147,7 @@ export default function CsatAnalyticsPage() {
                     : "—"
                 }
                 sub="vs previous period"
-                icon={
-                  <TrendingUp className="w-4 h-4 text-muted-foreground" />
-                }
+                icon={<TrendingUp className="w-4 h-4 text-muted-foreground" />}
               />
             </div>
 
@@ -170,10 +164,7 @@ export default function CsatAnalyticsPage() {
                 ) : (
                   <div className="space-y-3">
                     {distribution.map((row) => (
-                      <div
-                        key={row.score}
-                        className="flex items-center gap-3"
-                      >
+                      <div key={row.score} className="flex items-center gap-3">
                         <div className="flex items-center gap-1 w-16">
                           {Array.from({ length: row.score }).map((_, i) => (
                             <Star
