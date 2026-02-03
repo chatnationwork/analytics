@@ -1787,6 +1787,113 @@ export class EventRepository {
   }
 
   // ===========================================================================
+  // CSAT ANALYTICS (csat_submitted events)
+  // ===========================================================================
+
+  /**
+   * CSAT summary: average score, total responses, distribution (1-5), 5-star %.
+   */
+  async getCsatSummary(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
+    averageScore: number;
+    totalResponses: number;
+    distribution: Array<{ score: number; count: number; percentage: number }>;
+    fiveStarPercent: number;
+  }> {
+    const summaryResult = await this.repo.query(
+      `
+      SELECT 
+        COUNT(*) as total,
+        AVG((properties->>'rating')::numeric) as avg_rating
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'csat_submitted'
+        AND timestamp BETWEEN $2 AND $3
+        AND properties->>'rating' IS NOT NULL
+      `,
+      [tenantId, startDate, endDate],
+    );
+    const total =
+      parseInt(summaryResult[0]?.total, 10) || 0;
+    const averageScore =
+      total > 0 ? parseFloat(summaryResult[0]?.avg_rating) || 0 : 0;
+
+    const distResult = await this.repo.query(
+      `
+      SELECT 
+        (properties->>'rating')::int as score,
+        COUNT(*) as count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'csat_submitted'
+        AND timestamp BETWEEN $2 AND $3
+        AND (properties->>'rating')::text ~ '^[1-5]$'
+      GROUP BY (properties->>'rating')::int
+      ORDER BY score ASC
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const distMap = new Map<number, number>();
+    for (const r of distResult) {
+      const score = parseInt(r.score, 10);
+      if (score >= 1 && score <= 5)
+        distMap.set(score, parseInt(r.count, 10) || 0);
+    }
+    const distribution = [1, 2, 3, 4, 5].map((score) => {
+      const count = distMap.get(score) ?? 0;
+      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+      return { score, count, percentage };
+    });
+    const fiveCount = distMap.get(5) ?? 0;
+    const fiveStarPercent = total > 0 ? Math.round((fiveCount / total) * 100) : 0;
+
+    return {
+      averageScore: Math.round(averageScore * 10) / 10,
+      totalResponses: total,
+      distribution,
+      fiveStarPercent,
+    };
+  }
+
+  /**
+   * Recent CSAT feedback (rating + feedback text) for display.
+   */
+  async getCsatRecentFeedback(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    limit = 20,
+  ): Promise<
+    Array<{ timestamp: string; rating: number; feedback: string | null }>
+  > {
+    const result = await this.repo.query(
+      `
+      SELECT 
+        timestamp::text as timestamp,
+        (properties->>'rating')::int as rating,
+        properties->>'feedback' as feedback
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'csat_submitted'
+        AND timestamp BETWEEN $2 AND $3
+        AND (properties->>'rating')::text ~ '^[1-5]$'
+      ORDER BY timestamp DESC
+      LIMIT $4
+      `,
+      [tenantId, startDate, endDate, limit],
+    );
+    return result.map((r: any) => ({
+      timestamp: r.timestamp,
+      rating: parseInt(r.rating, 10) || 0,
+      feedback: r.feedback && String(r.feedback).trim() ? String(r.feedback).trim() : null,
+    }));
+  }
+
+  // ===========================================================================
   // AI ANALYTICS TRENDS
   // ===========================================================================
 

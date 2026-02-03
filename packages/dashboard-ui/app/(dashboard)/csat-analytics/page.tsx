@@ -2,41 +2,17 @@
 
 /**
  * CSAT Analytics – customer satisfaction after chat resolution.
- * Mock data until CSAT events/API are added.
+ * Uses live data from csat_submitted events.
  */
 
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Star, MessageSquare, TrendingUp, ThumbsUp } from "lucide-react";
 import { RouteGuard } from "@/components/auth/RouteGuard";
-
-// Mock data – replace with real API when CSAT events are available
-const MOCK_AVG_SCORE = 4.2;
-const MOCK_RESPONSE_RATE = 0.35;
-const MOCK_DISTRIBUTION = [
-  { stars: 5, count: 120, pct: 48 },
-  { stars: 4, count: 65, pct: 26 },
-  { stars: 3, count: 35, pct: 14 },
-  { stars: 2, count: 18, pct: 7 },
-  { stars: 1, count: 12, pct: 5 },
-];
-const MOCK_FEEDBACK = [
-  {
-    score: 5,
-    text: "Very helpful, issue resolved quickly.",
-    date: "2025-02-02",
-  },
-  {
-    score: 4,
-    text: "Good support. Would have liked faster first response.",
-    date: "2025-02-01",
-  },
-  { score: 5, text: "Excellent!", date: "2025-01-31" },
-  { score: 3, text: "It was okay.", date: "2025-01-30" },
-  {
-    score: 5,
-    text: "Agent was professional and solved my problem.",
-    date: "2025-01-29",
-  },
-];
+import {
+  getCsatDashboard,
+  type CsatGranularity,
+} from "@/lib/csat-analytics-api";
 
 function StatCard({
   label,
@@ -61,118 +37,213 @@ function StatCard({
   );
 }
 
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export default function CsatAnalyticsPage() {
+  const [granularity, setGranularity] = useState<CsatGranularity>("day");
+  const periods = granularity === "day" ? 30 : granularity === "week" ? 12 : 6;
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["csat-dashboard", granularity, periods],
+    queryFn: () => getCsatDashboard(granularity, periods),
+  });
+
+  const summary = data?.summary;
+  const recentFeedback = data?.recentFeedback ?? [];
+  const distribution = summary?.distribution ?? [];
+
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">
-            CSAT Analytics
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Customer satisfaction after chat resolution. Mock data until CSAT
-            events are added.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">
+              CSAT Analytics
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Customer satisfaction from csat_submitted events (rating &
+              feedback)
+            </p>
+          </div>
+          <select
+            value={granularity}
+            onChange={(e) =>
+              setGranularity(e.target.value as CsatGranularity)
+            }
+            className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            aria-label="Time range"
+          >
+            <option value="day">Last 30 days</option>
+            <option value="week">Last 12 weeks</option>
+            <option value="month">Last 6 months</option>
+          </select>
         </div>
 
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-muted-foreground">
-          This page shows mock data. Connect CSAT survey responses or resolution
-          events with <code className="text-foreground">csatScore</code> /{" "}
-          <code className="text-foreground">csatFeedback</code> to display real
-          metrics.
-        </div>
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error instanceof Error ? error.message : "Failed to load CSAT data"}
+          </div>
+        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label="Average CSAT"
-            value={MOCK_AVG_SCORE.toFixed(1)}
-            sub="Out of 5"
-            icon={<Star className="w-4 h-4 text-amber-500" />}
-          />
-          <StatCard
-            label="Response Rate"
-            value={`${(MOCK_RESPONSE_RATE * 100).toFixed(0)}%`}
-            sub="Surveys completed"
-            icon={<MessageSquare className="w-4 h-4 text-muted-foreground" />}
-          />
-          <StatCard
-            label="5-Star %"
-            value={`${MOCK_DISTRIBUTION[0].pct}%`}
-            sub="Top rating"
-            icon={<ThumbsUp className="w-4 h-4 text-muted-foreground" />}
-          />
-          <StatCard
-            label="Trend"
-            value="—"
-            sub="Connect API for trend"
-            icon={<TrendingUp className="w-4 h-4 text-muted-foreground" />}
-          />
-        </div>
+        {isLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-card rounded-xl border border-border p-5 animate-pulse"
+              >
+                <div className="h-4 w-24 bg-muted rounded mb-3" />
+                <div className="h-8 w-16 bg-muted rounded mb-2" />
+                <div className="h-3 w-20 bg-muted rounded" />
+              </div>
+            ))}
+          </div>
+        )}
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <h3 className="font-medium text-foreground mb-6">
-              Score Distribution
-            </h3>
-            <div className="space-y-3">
-              {MOCK_DISTRIBUTION.map((row) => (
-                <div key={row.stars} className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 w-16">
-                    {Array.from({ length: row.stars }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className="w-4 h-4 fill-amber-500 text-amber-500"
-                      />
+        {!isLoading && !error && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="Average CSAT"
+                value={
+                  summary?.totalResponses
+                    ? summary.averageScore.toFixed(1)
+                    : "—"
+                }
+                sub="Out of 5"
+                icon={<Star className="w-4 h-4 text-amber-500" />}
+              />
+              <StatCard
+                label="Total responses"
+                value={summary?.totalResponses?.toLocaleString() ?? "0"}
+                sub="Surveys completed"
+                icon={
+                  <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                }
+              />
+              <StatCard
+                label="5-Star %"
+                value={
+                  summary?.totalResponses
+                    ? `${summary.fiveStarPercent}%`
+                    : "—"
+                }
+                sub="Top rating"
+                icon={
+                  <ThumbsUp className="w-4 h-4 text-muted-foreground" />
+                }
+              />
+              <StatCard
+                label="Trend"
+                value={
+                  summary?.percentChange != null
+                    ? `${summary.percentChange >= 0 ? "+" : ""}${summary.percentChange.toFixed(1)}%`
+                    : "—"
+                }
+                sub="vs previous period"
+                icon={
+                  <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                }
+              />
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                <h3 className="font-medium text-foreground mb-6">
+                  Score Distribution
+                </h3>
+                {distribution.length === 0 && !summary?.totalResponses ? (
+                  <p className="text-sm text-muted-foreground">
+                    No CSAT responses yet. Send csat_submitted events with
+                    properties.rating (1–5) to see distribution.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {distribution.map((row) => (
+                      <div
+                        key={row.score}
+                        className="flex items-center gap-3"
+                      >
+                        <div className="flex items-center gap-1 w-16">
+                          {Array.from({ length: row.score }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className="w-4 h-4 fill-amber-500 text-amber-500"
+                            />
+                          ))}
+                        </div>
+                        <div className="flex-1">
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-amber-500 rounded-full"
+                              style={{
+                                width: `${row.percentage}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-sm text-muted-foreground w-16 text-right">
+                          {row.count} ({row.percentage}%)
+                        </span>
+                      </div>
                     ))}
                   </div>
-                  <div className="flex-1">
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                )}
+              </div>
+              <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+                <h3 className="font-medium text-foreground mb-6">
+                  Recent Feedback
+                </h3>
+                {recentFeedback.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No feedback yet. Send csat_submitted events with
+                    properties.feedback to see comments here.
+                  </p>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {recentFeedback.map((f, i) => (
                       <div
-                        className="h-full bg-amber-500 rounded-full"
-                        style={{ width: `${row.pct}%` }}
-                      />
-                    </div>
+                        key={i}
+                        className="p-3 rounded-lg bg-muted/50 border border-border/50"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: 5 }).map((_, j) => (
+                              <Star
+                                key={j}
+                                className={`w-3.5 h-3.5 ${
+                                  j < f.rating
+                                    ? "fill-amber-500 text-amber-500"
+                                    : "text-muted-foreground/40"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(f.timestamp)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground">
+                          {f.feedback ?? "—"}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                  <span className="text-sm text-muted-foreground w-16 text-right">
-                    {row.count} ({row.pct}%)
-                  </span>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <h3 className="font-medium text-foreground mb-6">
-              Recent Feedback
-            </h3>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {MOCK_FEEDBACK.map((f, i) => (
-                <div
-                  key={i}
-                  className="p-3 rounded-lg bg-muted/50 border border-border/50"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 5 }).map((_, j) => (
-                        <Star
-                          key={j}
-                          className={`w-3.5 h-3.5 ${
-                            j < f.score
-                              ? "fill-amber-500 text-amber-500"
-                              : "text-muted-foreground/40"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {f.date}
-                    </span>
-                  </div>
-                  <p className="text-sm text-foreground">{f.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </RouteGuard>
   );

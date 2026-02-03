@@ -44,6 +44,7 @@ import {
   SessionEntity,
   InboxSessionEntity,
   MessageEntity,
+  ResolutionEntity,
   SessionStatus,
   MessageDirection,
   MessageType,
@@ -68,6 +69,8 @@ export class EventProcessorService {
     private readonly inboxSessionRepo: Repository<InboxSessionEntity>,
     @InjectRepository(MessageEntity)
     private readonly messageRepo: Repository<MessageEntity>,
+    @InjectRepository(ResolutionEntity)
+    private readonly resolutionRepo: Repository<ResolutionEntity>,
   ) {}
 
   async start(): Promise<void> {
@@ -102,6 +105,9 @@ export class EventProcessorService {
 
       // Sync to Agent System (Inbox)
       await this.syncToAgentSystem(eventsToInsert);
+
+      // Update resolution CSAT when csat_submitted events are received (user_id can be phone number)
+      await this.processCsatEvents(eventsToInsert);
     }
 
     const duration = Date.now() - startTime;
@@ -335,6 +341,47 @@ export class EventProcessorService {
 
     await this.messageRepo.save(message);
     this.logger.log(`Synced message to Inbox: ${message.id} (${direction})`);
+  }
+
+  /**
+   * When we receive csat_submitted events, update the resolution row for that session
+   * so CSAT analytics and agent reports can use csatScore/csatFeedback.
+   * Expects properties.rating (number) and optionally properties.feedback (string).
+   */
+  private async processCsatEvents(events: CreateEventDto[]): Promise<void> {
+    for (const event of events) {
+      if (event.eventName !== "csat_submitted" || !event.sessionId) continue;
+
+      const props = event.properties ?? {};
+      const rating =
+        typeof props.rating === "number"
+          ? props.rating
+          : typeof props.rating === "string"
+            ? parseInt(props.rating, 10)
+            : undefined;
+      const feedback =
+        typeof props.feedback === "string" ? props.feedback : undefined;
+
+      if (rating == null && feedback == null) continue;
+
+      try {
+        const resolution = await this.resolutionRepo.findOne({
+          where: { sessionId: event.sessionId },
+        });
+        if (!resolution) continue;
+
+        if (rating != null) resolution.csatScore = rating;
+        if (feedback !== undefined) resolution.csatFeedback = feedback;
+        await this.resolutionRepo.save(resolution);
+        this.logger.debug(
+          `Updated CSAT for session ${event.sessionId}: score=${rating}, feedback=${feedback != null ? "yes" : "no"}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Failed to update resolution CSAT for session ${event.sessionId}: ${(err as Error).message}`,
+        );
+      }
+    }
   }
 
   private enrichEvent(event: QueuedEvent): CreateEventDto {

@@ -123,23 +123,20 @@ export default function AgentInboxPage() {
       .finally(() => setPresenceLoading(false));
   }, []);
 
-  const handleAvailableChange = useCallback(
-    async (on: boolean) => {
-      setPresenceToggling(true);
-      try {
-        await agentApi.setPresence(on ? "online" : "offline");
-        setAvailable(on);
-        toast.success(on ? "You're now available" : "You're now unavailable");
-      } catch (e) {
-        toast.error(
-          e instanceof Error ? e.message : "Failed to update availability",
-        );
-      } finally {
-        setPresenceToggling(false);
-      }
-    },
-    [],
-  );
+  const handleAvailableChange = useCallback(async (on: boolean) => {
+    setPresenceToggling(true);
+    try {
+      await agentApi.setPresence(on ? "online" : "offline");
+      setAvailable(on);
+      toast.success(on ? "You're now available" : "You're now unavailable");
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Failed to update availability",
+      );
+    } finally {
+      setPresenceToggling(false);
+    }
+  }, []);
 
   // Initial fetch and when filter changes
   useEffect(() => {

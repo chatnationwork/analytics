@@ -223,7 +223,9 @@ export const agentApi = {
    */
   setPresence: async (
     status: "online" | "offline",
-  ): Promise<{ sessionId?: string; startedAt?: string } | { endedAt?: string } | null> => {
+  ): Promise<
+    { sessionId?: string; startedAt?: string } | { endedAt?: string } | null
+  > => {
     return fetchWithAuth("/agent/inbox/presence", {
       method: "POST",
       body: JSON.stringify({ status }),

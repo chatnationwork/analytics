@@ -110,6 +110,7 @@ import { EmailModule } from "./email/email.module";
     TrendsModule, // GET /api/dashboard/trends/* (analytics trends)
     JourneysModule, // GET /api/dashboard/journeys/* (self-serve vs assisted)
     AgentInboxAnalyticsModule, // GET /api/dashboard/agent-inbox-analytics/*
+    CsatAnalyticsModule, // GET /api/dashboard/csat-analytics/*
     AuditModule, // GET /api/dashboard/audit-logs
     MediaModule, // POST /api/dashboard/media/upload, GET /api/dashboard/media/:filename
     EmailModule,

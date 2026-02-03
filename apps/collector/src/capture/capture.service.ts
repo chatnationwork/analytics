@@ -92,6 +92,16 @@ export class CaptureService {
   }
 
   /**
+   * Normalize user_id for CSAT events: we expect a phone number in user_id.
+   * Strip non-digits so analytics can group by contact consistently (e.g. "254 745 050 238" → "254745050238").
+   */
+  private normalizeCsatUserId(userId: string | undefined): string | undefined {
+    if (userId == null || userId === "") return userId;
+    const digits = userId.replace(/\D/g, "");
+    return digits.length > 0 ? digits : userId;
+  }
+
+  /**
    * Merge optional journey_start/journey_end from the DTO into properties so they are stored in the events table (properties JSONB).
    * When omitted, we do not set them so existing queries are unchanged.
    */
@@ -130,6 +140,12 @@ export class CaptureService {
     receivedAt: string,
     ipAddress?: string,
   ): QueuedEvent {
+    const eventName = event.event_name;
+    const userId =
+      eventName === "csat_submitted"
+        ? this.normalizeCsatUserId(event.user_id)
+        : event.user_id;
+
     return {
       // IDs
       eventId: event.event_id,
@@ -140,13 +156,13 @@ export class CaptureService {
       projectId: project.projectId,
 
       // Event details
-      eventName: event.event_name,
+      eventName,
       eventType: event.event_type || "track",
       timestamp: event.timestamp,
 
-      // Identity
+      // Identity (CSAT: user_id normalized to digits-only phone)
       anonymousId: event.anonymous_id,
-      userId: event.user_id,
+      userId,
       sessionId: event.session_id,
 
       // Context (browser info, page info, etc.)
