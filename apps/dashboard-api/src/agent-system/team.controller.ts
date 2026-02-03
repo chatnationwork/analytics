@@ -114,6 +114,28 @@ export class TeamController {
   }
 
   /**
+   * Get all tenant members available for team assignment.
+   * Must be declared before @Get(":teamId") so "available-members" is not matched as teamId.
+   */
+  @Get("available-members/list")
+  async getAvailableMembersForTeam(
+    @Request() req: { user: { tenantId: string } },
+  ) {
+    const memberships = await this.tenantMembershipRepo.find({
+      where: { tenantId: req.user.tenantId },
+      relations: ["user"],
+    });
+
+    return memberships.map((m) => ({
+      userId: m.userId,
+      name: m.user?.name || "Unknown",
+      email: m.user?.email || "",
+      role: m.role,
+      avatarUrl: m.user?.avatarUrl,
+    }));
+  }
+
+  /**
    * Get a specific team with members (including user details)
    */
   @Get(":teamId")
@@ -132,27 +154,6 @@ export class TeamController {
       memberCount: team.members?.filter((m) => m.isActive).length || 0,
       totalMemberCount: team.members?.length || 0,
     };
-  }
-
-  /**
-   * Get all tenant members available for team assignment
-   */
-  @Get("available-members/list")
-  async getAvailableMembersForTeam(
-    @Request() req: { user: { tenantId: string } },
-  ) {
-    const memberships = await this.tenantMembershipRepo.find({
-      where: { tenantId: req.user.tenantId },
-      relations: ["user"],
-    });
-
-    return memberships.map((m) => ({
-      userId: m.userId,
-      name: m.user?.name || "Unknown",
-      email: m.user?.email || "",
-      role: m.role,
-      avatarUrl: m.user?.avatarUrl,
-    }));
   }
 
   /**

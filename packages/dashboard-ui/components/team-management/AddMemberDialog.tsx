@@ -1,5 +1,7 @@
+"use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,11 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { agentApi } from "@/lib/api/agent";
-import { toast } from "sonner"; // Assuming sonner is used, or alert based on existing code
+import { toast } from "sonner";
 
 interface AddMemberDialogProps {
   open: boolean;
@@ -23,10 +30,40 @@ interface AddMemberDialogProps {
   onSuccess: () => void;
 }
 
-export function AddMemberDialog({ open, onOpenChange, teamId, teamName, onSuccess }: AddMemberDialogProps) {
+export function AddMemberDialog({
+  open,
+  onOpenChange,
+  teamId,
+  teamName,
+  onSuccess,
+}: AddMemberDialogProps) {
   const [userId, setUserId] = useState("");
   const [role, setRole] = useState("agent");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: availableMembers = [], isLoading: loadingAvailable } = useQuery(
+    {
+      queryKey: ["agent-teams-available-members"],
+      queryFn: () => agentApi.getAvailableMembersForTeam(),
+      enabled: open,
+    },
+  );
+
+  const { data: currentTeamMembers = [], isLoading: loadingTeam } = useQuery({
+    queryKey: ["agent-teams-members", teamId],
+    queryFn: () => agentApi.getTeamMembers(teamId),
+    enabled: open && !!teamId,
+  });
+
+  const currentMemberIds = useMemo(
+    () => new Set(currentTeamMembers.map((m) => m.userId)),
+    [currentTeamMembers],
+  );
+
+  const dropdownOptions = useMemo(
+    () => availableMembers.filter((m) => !currentMemberIds.has(m.userId)),
+    [availableMembers, currentMemberIds],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,15 +75,19 @@ export function AddMemberDialog({ open, onOpenChange, teamId, teamName, onSucces
       onSuccess();
       onOpenChange(false);
       setUserId("");
-      setRole("member");
+      setRole("agent");
       toast.success("Member added successfully");
     } catch (error) {
       console.error("Failed to add member:", error);
-      toast.error("Failed to add member"); // Fallback if toast not available in this scope? The file didn't show toast import but usage implies it might be needed.
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add member",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const isLoading = loadingAvailable || loadingTeam;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,31 +95,55 @@ export function AddMemberDialog({ open, onOpenChange, teamId, teamName, onSucces
         <DialogHeader>
           <DialogTitle>Add Member to {teamName}</DialogTitle>
           <DialogDescription>
-            Enter the Email Address of the agent you want to add to this team.
+            Choose a workspace member to add to this team. Only people who are
+            in your workspace and not already in this team are listed.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="userId">User Email</Label>
-              <Input
-                id="userId"
+              <Label htmlFor="member">Member</Label>
+              <Select
                 value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="user@example.com"
+                onValueChange={setUserId}
+                disabled={isLoading}
                 required
-              />
-              <p className="text-[10px] text-muted-foreground">
-                User must already exist. {' '}
-                <a href="/settings" target="_blank" className="text-primary hover:underline">
-                  Invite new users here
-                </a>.
+              >
+                <SelectTrigger id="member">
+                  <SelectValue
+                    placeholder={
+                      isLoading
+                        ? "Loading…"
+                        : dropdownOptions.length === 0
+                          ? "No members available to add"
+                          : "Select a member"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {dropdownOptions.map((m) => (
+                    <SelectItem key={m.userId} value={m.userId}>
+                      {m.name && m.name !== "Unknown"
+                        ? `${m.name} (${m.email})`
+                        : m.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                <a
+                  href="/settings/people"
+                  className="text-primary hover:underline"
+                >
+                  Invite or manage workspace members
+                </a>{" "}
+                if someone is missing.
               </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="role">Team Role</Label>
               <Select value={role} onValueChange={setRole}>
-                <SelectTrigger>
+                <SelectTrigger id="role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -89,11 +154,18 @@ export function AddMemberDialog({ open, onOpenChange, teamId, teamName, onSucces
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Adding..." : "Add Member"}
+            <Button
+              type="submit"
+              disabled={isSubmitting || !userId || dropdownOptions.length === 0}
+            >
+              {isSubmitting ? "Adding…" : "Add Member"}
             </Button>
           </DialogFooter>
         </form>

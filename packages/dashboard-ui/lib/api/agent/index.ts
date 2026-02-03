@@ -237,6 +237,19 @@ export const agentApi = {
     });
   },
 
+  /** Tenant members available to add to a team (exclude current team members in UI) */
+  getAvailableMembersForTeam: async () => {
+    return fetchWithAuth<
+      {
+        userId: string;
+        name: string;
+        email: string;
+        role: string;
+        avatarUrl?: string | null;
+      }[]
+    >("/agent/teams/available-members/list");
+  },
+
   getTeamMembers: async (teamId: string) => {
     return fetchWithAuth<TeamMember[]>(`/agent/teams/${teamId}/members`);
   },

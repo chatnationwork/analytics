@@ -13,5 +13,6 @@ module.exports = {
     '^@lib/database(|/.*)$': '<rootDir>/libs/database/src/$1',
     '^@lib/queue(|/.*)$': '<rootDir>/libs/queue/src/$1',
     '^@lib/events(|/.*)$': '<rootDir>/libs/events/src/$1',
+    '^@lib/crm-api(|/.*)$': '<rootDir>/libs/crm-api/$1',
   },
 };

@@ -64,7 +64,7 @@ export default function LandingPage() {
               href="/signup" 
               className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl transition-all text-lg font-medium flex items-center gap-2"
             >
-              Start Free
+              Start
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link 

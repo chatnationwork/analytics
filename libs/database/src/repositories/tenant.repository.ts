@@ -2,15 +2,18 @@
  * =============================================================================
  * TENANT REPOSITORY
  * =============================================================================
- * 
+ *
  * Data access layer for tenant management.
  */
 
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { TenantEntity } from '../entities/tenant.entity';
-import { TenantMembershipEntity, MembershipRole } from '../entities/tenant-membership.entity';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { TenantEntity } from "../entities/tenant.entity";
+import {
+  TenantMembershipEntity,
+  MembershipRole,
+} from "../entities/tenant-membership.entity";
 
 @Injectable()
 export class TenantRepository {
@@ -43,7 +46,7 @@ export class TenantRepository {
     const membership = this.membershipRepo.create({
       userId: ownerId,
       tenantId: savedTenant.id,
-      role: 'super_admin',
+      role: "super_admin",
     });
     await this.membershipRepo.save(membership);
 
@@ -60,13 +63,16 @@ export class TenantRepository {
   async findByUserId(userId: string): Promise<TenantEntity[]> {
     const memberships = await this.membershipRepo.find({
       where: { userId },
-      relations: ['tenant'],
+      relations: ["tenant"],
     });
     return memberships.map((m) => m.tenant);
   }
 
   /** Get user's role in a tenant */
-  async getUserRole(userId: string, tenantId: string): Promise<MembershipRole | null> {
+  async getUserRole(
+    userId: string,
+    tenantId: string,
+  ): Promise<MembershipRole | null> {
     const membership = await this.membershipRepo.findOne({
       where: { userId, tenantId },
     });
@@ -93,12 +99,55 @@ export class TenantRepository {
   async getMembers(tenantId: string): Promise<TenantMembershipEntity[]> {
     return this.membershipRepo.find({
       where: { tenantId },
-      relations: ['user'], // Include user details
+      relations: ["user"],
+    });
+  }
+
+  /** Update a member's role */
+  async updateMemberRole(
+    tenantId: string,
+    userId: string,
+    role: MembershipRole,
+  ): Promise<TenantMembershipEntity | null> {
+    const membership = await this.membershipRepo.findOne({
+      where: { tenantId, userId },
+    });
+    if (!membership) return null;
+    membership.role = role;
+    await this.membershipRepo.save(membership);
+    return membership;
+  }
+
+  /** Remove a member from a tenant */
+  async removeMember(tenantId: string, userId: string): Promise<boolean> {
+    const result = await this.membershipRepo.delete({ tenantId, userId });
+    return (result.affected ?? 0) > 0;
+  }
+
+  /** Count members with a given role in a tenant */
+  async countMembersWithRole(
+    tenantId: string,
+    role: MembershipRole,
+  ): Promise<number> {
+    return this.membershipRepo.count({ where: { tenantId, role } });
+  }
+
+  /** Get a single membership */
+  async getMembership(
+    tenantId: string,
+    userId: string,
+  ): Promise<TenantMembershipEntity | null> {
+    return this.membershipRepo.findOne({
+      where: { tenantId, userId },
+      relations: ["user"],
     });
   }
 
   /** Update tenant */
-  async update(id: string, data: Partial<TenantEntity>): Promise<TenantEntity | null> {
+  async update(
+    id: string,
+    data: Partial<TenantEntity>,
+  ): Promise<TenantEntity | null> {
     await this.tenantRepo.update(id, data);
     return this.findById(id);
   }

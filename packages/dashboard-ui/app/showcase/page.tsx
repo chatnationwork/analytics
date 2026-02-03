@@ -66,7 +66,7 @@ export default function ShowcasePage() {
               href="/signup"
               className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg text-sm"
             >
-              Start Free
+              Start
             </Link>
           </div>
         </div>

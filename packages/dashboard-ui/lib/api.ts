@@ -299,6 +299,46 @@ export const api = {
   },
 
   /**
+   * List current tenant members (with inviter info)
+   */
+  async getTenantMembers(): Promise<
+    {
+      userId: string;
+      name: string | null;
+      email: string;
+      role: string;
+      joinedAt: string;
+      avatarUrl?: string | null;
+      invitedBy?: string;
+      invitedByName?: string | null;
+    }[]
+  > {
+    return fetchWithAuth("/tenants/current/members");
+  },
+
+  /**
+   * Update a member's role
+   */
+  async updateMemberRole(
+    userId: string,
+    role: string,
+  ): Promise<{ userId: string; role: string }> {
+    return fetchWithAuth(`/tenants/current/members/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    });
+  },
+
+  /**
+   * Remove a member from the current tenant
+   */
+  async removeMember(userId: string): Promise<{ success: boolean }> {
+    return fetchWithAuth(`/tenants/current/members/${userId}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
    * Search for users by userId, anonymousId, phone, or email
    */
   async searchUsers(
