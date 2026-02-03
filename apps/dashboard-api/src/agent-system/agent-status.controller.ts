@@ -3,9 +3,23 @@
  * For dashboard/supervisors.
  */
 
-import { Controller, Get, Query, Request, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  Query,
+  Request,
+  UseGuards,
+} from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { AgentStatusService } from "./agent-status.service";
+
+/** DTO for setting another agent's presence (admin/supervisor). */
+class SetPresenceDto {
+  targetUserId!: string;
+  status!: "online" | "offline";
+}
 
 @Controller("agent/status")
 @UseGuards(JwtAuthGuard)
@@ -19,6 +33,23 @@ export class AgentStatusController {
   @Get()
   async getAgentStatusList(@Request() req: { user: { tenantId: string } }) {
     return this.agentStatusService.getAgentStatusList(req.user.tenantId);
+  }
+
+  /**
+   * Set another agent's presence (online/offline). Caller must be a tenant member.
+   * Used so admins/supervisors can mark agents online or offline; offline agents are not assigned messages.
+   */
+  @Patch("presence")
+  async setAgentPresence(
+    @Request() req: { user: { tenantId: string } },
+    @Body() dto: SetPresenceDto,
+  ): Promise<{ ok: true }> {
+    await this.agentStatusService.setAgentPresence(
+      req.user.tenantId,
+      dto.targetUserId,
+      dto.status,
+    );
+    return { ok: true };
   }
 
   /**

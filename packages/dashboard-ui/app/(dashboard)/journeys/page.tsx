@@ -27,12 +27,73 @@ import {
   getHandoffByStep,
   getHandoffReasons,
   getTimeToHandoff,
+  getJourneyBreakdown,
   type HandoffTrendDataPoint,
   type HandoffByStepItem,
   type HandoffReasonItem,
+  type JourneyBreakdownItem,
 } from "@/lib/journeys-api";
 
 type Granularity = "day" | "week" | "month";
+
+// Journey step key -> display label (from SERVICE_CATEGORIES / SERVICE_URLS).
+// Self-serve = has URL (web); assisted = no URL or handed off. Both can become assisted via handoff.
+const JOURNEY_LABELS: Record<string, string> = {
+  // eTIMS & Invoicing
+  "Sales Invoice": "Sales Invoice",
+  "Credit Note": "Credit Note",
+  "Buyer-Initiated Invoices": "Buyer-Initiated Invoices",
+  eTIMS: "eTIMS",
+  // Return Filing
+  "NIL Filing": "NIL Filing",
+  MRI: "MRI",
+  TOT: "TOT",
+  PAYE: "PAYE",
+  VAT: "VAT",
+  Partnership: "Partnership",
+  Excise: "Excise",
+  // PIN
+  "PIN Registration": "PIN Registration",
+  "PIN Retrieve": "PIN Retrieve",
+  "PIN Change": "PIN Change",
+  "PIN Update": "PIN Update",
+  "PIN Reactivate": "PIN Reactivate",
+  "PIN Obligations": "PIN Obligations",
+  // Tax Compliance
+  "TCC Application": "TCC Application",
+  "TCC Reprint": "TCC Reprint",
+  // Customs
+  "F88 Declaration": "F88 Declaration",
+  TIMV: "TIMV",
+  TEMV: "Extend TIMV",
+  "Extend TIMV": "Extend TIMV",
+  Forms: "Forms",
+  Status: "Status",
+  // Payments
+  eSlip: "eSlip",
+  NITA: "NITA",
+  AHL: "AHL",
+  // Verification
+  "PIN Check": "PIN Check",
+  "Invoice Check": "Invoice Check",
+  "TCC Check": "TCC Check",
+  "Staff Check": "Staff Check",
+  Station: "Station",
+  "Import Check": "Import Check",
+  // Other
+  Refund: "Refund",
+  "Report Fraud": "Report Fraud",
+  More: "More",
+  tax: "Tax",
+  unknown: "Other",
+};
+
+function getJourneyLabel(step: string): string {
+  return (
+    JOURNEY_LABELS[step] ??
+    step.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
 
 // =============================================================================
 // COMPONENTS
@@ -370,6 +431,63 @@ function HandoffReasonsChart({ data }: { data: HandoffReasonItem[] }) {
   );
 }
 
+// Individual journeys: Completed (self-serve) vs Assisted per journey
+function JourneyBreakdownTable({
+  data,
+  getLabel,
+}: {
+  data: JourneyBreakdownItem[];
+  getLabel: (step: string) => string;
+}) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-40 items-center justify-center text-muted-foreground text-sm">
+        No journey data yet. Data appears when users complete journeys or hand
+        off to agents.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left py-3 font-medium text-foreground">
+              Journey
+            </th>
+            <th className="text-right py-3 font-medium text-foreground">
+              Completed (self-serve)
+            </th>
+            <th className="text-right py-3 font-medium text-foreground">
+              Dropped off
+            </th>
+            <th className="text-right py-3 font-medium text-foreground">
+              Assisted
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="border-b border-border/50">
+              <td className="py-2.5 font-medium text-foreground">
+                {getLabel(row.step)}
+              </td>
+              <td className="py-2.5 text-right text-muted-foreground">
+                {row.completedSelfServe.toLocaleString()}
+              </td>
+              <td className="py-2.5 text-right text-muted-foreground">—</td>
+              <td className="py-2.5 text-right text-muted-foreground">
+                {row.assisted.toLocaleString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // =============================================================================
 // MAIN PAGE COMPONENT
 // =============================================================================
@@ -406,11 +524,17 @@ export default function JourneysPage() {
     queryFn: () => getTimeToHandoff(granularity, periods),
   });
 
+  const journeyBreakdownQuery = useQuery({
+    queryKey: ["journeys-by-journey", granularity, periods],
+    queryFn: () => getJourneyBreakdown(granularity, periods),
+  });
+
   const overview = overviewQuery.data;
   const handoffTrend = handoffTrendQuery.data;
   const handoffByStep = handoffByStepQuery.data;
   const handoffReasons = handoffReasonsQuery.data;
   const timeToHandoff = timeToHandoffQuery.data;
+  const journeyBreakdown = journeyBreakdownQuery.data;
 
   const isLoading =
     overviewQuery.isLoading ||
@@ -579,6 +703,22 @@ export default function JourneysPage() {
               <HandoffRateTrendChart data={handoffTrend?.data || []} />
             </div>
 
+            {/* Individual journeys: Completed vs Assisted */}
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <h2 className="text-base font-semibold text-foreground">
+                By journey
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5 mb-4">
+                Per-journey breakdown: completed (self-serve on web) vs assisted
+                (handed off to agent). Self-serve journeys have URLs; both can
+                become assisted via handoff.
+              </p>
+              <JourneyBreakdownTable
+                data={journeyBreakdown?.data ?? []}
+                getLabel={getJourneyLabel}
+              />
+            </div>
+
             {/* Handoff Details */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Handoff by Step */}
@@ -603,8 +743,6 @@ export default function JourneysPage() {
                 <HandoffReasonsChart data={handoffReasons?.data || []} />
               </div>
             </div>
-
-       
           </>
         )}
       </div>

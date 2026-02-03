@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { fetchWithAuth } from "@/lib/api";
 
+/** Max session duration is fixed at 7 days (not configurable in UI). */
+const MAX_SESSION_DURATION_MINUTES = 7 * 24 * 60; // 10080
+
 interface SessionSettingsData {
-  maxDurationMinutes: number;
   inactivityTimeoutMinutes: number;
   sessionsRevokedAt?: string;
 }
@@ -121,7 +123,6 @@ function DurationInput({
 
 export function SessionSettings({ tenantId }: { tenantId: string }) {
   const [settings, setSettings] = useState<SessionSettingsData>({
-    maxDurationMinutes: 10080,
     inactivityTimeoutMinutes: 30,
   });
   const [loading, setLoading] = useState(false);
@@ -131,16 +132,23 @@ export function SessionSettings({ tenantId }: { tenantId: string }) {
     fetchWithAuth("/tenants/current")
       .then((data) => {
         if (data?.settings?.session) {
-          setSettings((prev) => ({ ...prev, ...data.settings.session }));
+          const session = data.settings.session as SessionSettingsData & {
+            maxDurationMinutes?: number;
+          };
+          setSettings({
+            inactivityTimeoutMinutes: session.inactivityTimeoutMinutes ?? 30,
+            sessionsRevokedAt: session.sessionsRevokedAt,
+          });
         }
       })
       .catch(console.error);
   }, []);
 
   const handleSave = async () => {
-    // Validate: inactivity timeout should be less than max duration
-    if (settings.inactivityTimeoutMinutes >= settings.maxDurationMinutes) {
-      alert("Inactivity timeout must be less than the max session duration.");
+    if (settings.inactivityTimeoutMinutes >= MAX_SESSION_DURATION_MINUTES) {
+      alert(
+        `Inactivity timeout must be less than ${MAX_SESSION_DURATION_MINUTES / 60 / 24} days.`,
+      );
       return;
     }
 
@@ -152,7 +160,13 @@ export function SessionSettings({ tenantId }: { tenantId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           settings: {
-            session: settings,
+            session: {
+              maxDurationMinutes: MAX_SESSION_DURATION_MINUTES,
+              inactivityTimeoutMinutes: settings.inactivityTimeoutMinutes,
+              ...(settings.sessionsRevokedAt && {
+                sessionsRevokedAt: settings.sessionsRevokedAt,
+              }),
+            },
           },
         }),
       });
@@ -185,7 +199,11 @@ export function SessionSettings({ tenantId }: { tenantId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           settings: {
-            session: newSettings,
+            session: {
+              maxDurationMinutes: MAX_SESSION_DURATION_MINUTES,
+              inactivityTimeoutMinutes: settings.inactivityTimeoutMinutes,
+              sessionsRevokedAt: newSettings.sessionsRevokedAt,
+            },
           },
         }),
       });
@@ -215,24 +233,14 @@ export function SessionSettings({ tenantId }: { tenantId: string }) {
 
       <div className="grid gap-6 max-w-md">
         <DurationInput
-          value={settings.maxDurationMinutes}
-          onChange={(minutes) =>
-            setSettings({ ...settings, maxDurationMinutes: minutes })
-          }
-          minMinutes={1}
-          label="Max Session Duration"
-          description="Force re-login after this time. New tokens will use this duration."
-        />
-
-        <DurationInput
           value={settings.inactivityTimeoutMinutes}
           onChange={(minutes) =>
             setSettings({ ...settings, inactivityTimeoutMinutes: minutes })
           }
           minMinutes={1}
-          maxMinutes={settings.maxDurationMinutes - 1}
+          maxMinutes={10079}
           label="Inactivity Timeout"
-          description="Auto-logout after idle time. Takes effect immediately."
+          description="Auto-logout after idle time. Takes effect immediately. Sessions expire after 7 days at most."
         />
 
         <div className="pt-2">

@@ -108,6 +108,24 @@ export class JourneysController {
   }
 
   /**
+   * GET /journeys/by-journey
+   * Get per-journey breakdown: completed (self-serve) vs assisted per journey step.
+   */
+  @Get("by-journey")
+  async getJourneyBreakdown(
+    @Request() req: any,
+    @Query("granularity") granularity?: string,
+    @Query("periods") periods?: string,
+  ) {
+    const numPeriods = periods ? parseInt(periods, 10) : 30;
+    return this.journeysService.getJourneyBreakdown(
+      req.user.tenantId,
+      (granularity as Granularity) || "day",
+      numPeriods,
+    );
+  }
+
+  /**
    * GET /journeys/agent-performance
    * Get agent performance for assisted sessions.
    */

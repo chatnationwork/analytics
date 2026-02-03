@@ -9,7 +9,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import {
   InboxSessionEntity,
   SessionStatus,
@@ -297,69 +297,97 @@ export class AssignmentService {
   }
 
   /**
+   * Gets available agents for assignment (team members who are online).
+   * Only agents with status ONLINE are assigned messages; offline agents are excluded.
+   */
+  private async filterToOnlineAgents(agentIds: string[]): Promise<string[]> {
+    if (agentIds.length === 0) return [];
+    const profiles = await this.agentRepo.find({
+      where: { userId: In(agentIds), status: AgentStatus.ONLINE },
+      select: ["userId"],
+    });
+    return profiles.map((p) => p.userId);
+  }
+
+  /**
    * Gets available agents for assignment.
    * - When teamId is provided: use that team's members.
    * - When no teamId: use default team with members, else first team with members; if no teams or none have members, return [] (do not assign).
+   * - Only returns agents who are online (agent_profiles.status = ONLINE).
    */
   private async getAvailableAgents(
     tenantId: string,
     teamId?: string,
   ): Promise<string[]> {
+    let ids: string[] = [];
+
     if (teamId) {
       const teamMembers = await this.memberRepo.find({
         where: { teamId, isActive: true },
         select: ["userId"],
       });
-      const ids = teamMembers.map((m) => m.userId);
+      ids = teamMembers.map((m) => m.userId);
       if (ids.length > 0) {
         this.logger.log(`Found ${ids.length} agents in Team ${teamId}`);
-        return ids;
       }
+    } else {
+      const defaultTeam = await this.teamRepo.findOne({
+        where: { tenantId, isDefault: true, isActive: true },
+        select: ["id"],
+      });
+      if (defaultTeam) {
+        const members = await this.memberRepo.find({
+          where: { teamId: defaultTeam.id, isActive: true },
+          select: ["userId"],
+        });
+        ids = members.map((m) => m.userId);
+        if (ids.length > 0) {
+          this.logger.log(
+            `Using default team ${defaultTeam.id} (${ids.length} members)`,
+          );
+        }
+      }
+      if (ids.length === 0) {
+        const teams = await this.teamRepo.find({
+          where: { tenantId, isActive: true },
+          select: ["id"],
+          order: { isDefault: "DESC", createdAt: "ASC" },
+        });
+        for (const team of teams) {
+          const teamMembers = await this.memberRepo.find({
+            where: { teamId: team.id, isActive: true },
+            select: ["userId"],
+          });
+          ids = teamMembers.map((m) => m.userId);
+          if (ids.length > 0) {
+            this.logger.log(
+              `Using first team with members: ${team.id} (${ids.length} members)`,
+            );
+            break;
+          }
+        }
+      }
+    }
+
+    if (ids.length === 0) {
+      this.logger.warn(
+        "No teams with members found for tenant; session left unassigned",
+      );
       return [];
     }
 
-    // No team specified: default team with members, else first team with members
-    const defaultTeam = await this.teamRepo.findOne({
-      where: { tenantId, isDefault: true, isActive: true },
-      select: ["id"],
-    });
-    if (defaultTeam) {
-      const members = await this.memberRepo.find({
-        where: { teamId: defaultTeam.id, isActive: true },
-        select: ["userId"],
-      });
-      const ids = members.map((m) => m.userId);
-      if (ids.length > 0) {
-        this.logger.log(
-          `Using default team ${defaultTeam.id} (${ids.length} members)`,
-        );
-        return ids;
-      }
+    const onlineIds = await this.filterToOnlineAgents(ids);
+    if (onlineIds.length < ids.length) {
+      this.logger.log(
+        `${onlineIds.length} of ${ids.length} team members are online and eligible for assignment`,
+      );
     }
-
-    const teams = await this.teamRepo.find({
-      where: { tenantId, isActive: true },
-      select: ["id"],
-      order: { isDefault: "DESC", createdAt: "ASC" },
-    });
-    for (const team of teams) {
-      const teamMembers = await this.memberRepo.find({
-        where: { teamId: team.id, isActive: true },
-        select: ["userId"],
-      });
-      const ids = teamMembers.map((m) => m.userId);
-      if (ids.length > 0) {
-        this.logger.log(
-          `Using first team with members: ${team.id} (${ids.length} members)`,
-        );
-        return ids;
-      }
+    if (onlineIds.length === 0) {
+      this.logger.warn(
+        "No online agents in team; session left unassigned. Agents must be online to receive assignments.",
+      );
     }
-
-    this.logger.warn(
-      "No teams with members found for tenant; session left unassigned",
-    );
-    return [];
+    return onlineIds;
   }
 
   /**

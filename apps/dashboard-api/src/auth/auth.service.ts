@@ -23,6 +23,7 @@ import {
   TeamMemberEntity,
 } from "@lib/database";
 import { RbacService } from "../agent-system/rbac.service";
+import { PresenceService } from "../agent-system/presence.service";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { SignupDto, LoginDto, LoginResponseDto } from "./dto";
@@ -59,6 +60,7 @@ export class AuthService {
     private readonly teamMemberRepo: Repository<TeamMemberEntity>,
     private readonly rbacService: RbacService,
     private readonly jwtService: JwtService,
+    private readonly presenceService: PresenceService,
   ) {}
 
   /**
@@ -129,9 +131,31 @@ export class AuthService {
     // Update last login time
     await this.userRepository.updateLastLogin(user.id);
 
+    // Set agent presence to online (used for assignment and agent analytics)
+    const tenants = await this.tenantRepository.findByUserId(user.id);
+    if (tenants.length > 0) {
+      await this.presenceService
+        .goOnline(tenants[0].id, user.id)
+        .catch((err) =>
+          this.logger.warn(`Failed to set presence online: ${err?.message}`),
+        );
+    }
+
     this.logger.log(`User logged in: ${user.email}`);
 
     return await this.generateLoginResponse(user);
+  }
+
+  /**
+   * Logout: set agent presence to offline.
+   * Call this when the user explicitly logs out so they stop receiving assignments.
+   */
+  async logout(tenantId: string, userId: string): Promise<void> {
+    await this.presenceService
+      .goOffline(tenantId, userId)
+      .catch((err) =>
+        this.logger.warn(`Failed to set presence offline: ${err?.message}`),
+      );
   }
 
   /**

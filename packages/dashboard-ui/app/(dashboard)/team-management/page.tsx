@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,6 +94,9 @@ export default function TeamManagementPage() {
     ]),
   );
 
+  const queryClient = useQueryClient();
+  const [presenceUpdating, setPresenceUpdating] = useState<string | null>(null);
+
   const {
     data: agents,
     isLoading: agentsLoading,
@@ -102,6 +105,21 @@ export default function TeamManagementPage() {
     queryKey: ["agent-status-list"],
     queryFn: () => agentStatusApi.getAgentStatusList(),
   });
+
+  const handleSetPresence = async (
+    agentId: string,
+    status: "online" | "offline",
+  ) => {
+    setPresenceUpdating(agentId);
+    try {
+      await agentStatusApi.setPresence(agentId, status);
+      await queryClient.invalidateQueries({ queryKey: ["agent-status-list"] });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPresenceUpdating(null);
+    }
+  };
 
   const {
     data: sessionsData,
@@ -216,26 +234,51 @@ export default function TeamManagementPage() {
                             {a.email}
                           </TableCell>
                           <TableCell>
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
-                                a.status === "online"
-                                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                  : a.status === "busy"
-                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                                    : "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              <Circle
-                                className={`h-2 w-2 fill-current ${
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
                                   a.status === "online"
-                                    ? "text-green-600"
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                                     : a.status === "busy"
-                                      ? "text-amber-600"
-                                      : ""
+                                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                                      : "bg-muted text-muted-foreground"
                                 }`}
-                              />
-                              {a.status}
-                            </span>
+                              >
+                                <Circle
+                                  className={`h-2 w-2 fill-current ${
+                                    a.status === "online"
+                                      ? "text-green-600"
+                                      : a.status === "busy"
+                                        ? "text-amber-600"
+                                        : ""
+                                  }`}
+                                />
+                                {a.status}
+                              </span>
+                              <select
+                                aria-label={`Set ${a.name || a.email} status`}
+                                value={
+                                  a.status === "online" ? "online" : "offline"
+                                }
+                                onChange={(e) => {
+                                  const v = e.target.value as
+                                    | "online"
+                                    | "offline";
+                                  if (
+                                    v !==
+                                    (a.status === "online"
+                                      ? "online"
+                                      : "offline")
+                                  )
+                                    handleSetPresence(a.agentId, v);
+                                }}
+                                disabled={presenceUpdating === a.agentId}
+                                className="text-sm border rounded px-2 py-1 bg-background disabled:opacity-50"
+                              >
+                                <option value="online">Online</option>
+                                <option value="offline">Offline</option>
+                              </select>
+                            </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {a.currentSessionStartedAt

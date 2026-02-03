@@ -87,6 +87,18 @@ export class AuthController {
   }
 
   /**
+   * Logout: set presence to offline so the user stops receiving assignments.
+   * Client should discard the JWT after calling this.
+   */
+  @Post("logout")
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logout(@CurrentUser() user: AuthUser): Promise<{ ok: true }> {
+    await this.authService.logout(user.tenantId, user.id);
+    return { ok: true };
+  }
+
+  /**
    * Get current authenticated user.
    * Requires valid JWT in Authorization header.
    */

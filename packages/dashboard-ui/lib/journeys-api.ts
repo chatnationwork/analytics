@@ -160,3 +160,30 @@ export async function getAgentPerformance(
     `/journeys/agent-performance?granularity=${granularity}&periods=${periods}`,
   );
 }
+
+// Per-journey breakdown (completed self-serve vs assisted per journey step)
+export interface JourneyBreakdownItem {
+  step: string;
+  assisted: number;
+  completedSelfServe: number;
+}
+
+export interface JourneyBreakdownResponse {
+  data: JourneyBreakdownItem[];
+  summary: {
+    totalAssisted: number;
+    totalCompleted: number;
+    journeyCount: number;
+  };
+  startDate: string;
+  endDate: string;
+}
+
+export async function getJourneyBreakdown(
+  granularity: "day" | "week" | "month" = "day",
+  periods: number = 30,
+): Promise<JourneyBreakdownResponse> {
+  return fetchWithAuth(
+    `/journeys/by-journey?granularity=${granularity}&periods=${periods}`,
+  );
+}

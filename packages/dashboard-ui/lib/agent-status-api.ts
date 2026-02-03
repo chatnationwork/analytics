@@ -30,6 +30,18 @@ interface Wrapped<T> {
 }
 
 export const agentStatusApi = {
+  /** Set another agent's presence (online/offline). Caller must be a tenant member (e.g. admin). */
+  setPresence: async (
+    targetUserId: string,
+    status: "online" | "offline",
+  ): Promise<void> => {
+    await fetchWithAuthFull("/agent/status/presence", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetUserId, status }),
+    });
+  },
+
   getAgentStatusList: async (): Promise<AgentStatusItem[]> => {
     const res =
       await fetchWithAuthFull<Wrapped<AgentStatusItem[]>>("/agent/status");

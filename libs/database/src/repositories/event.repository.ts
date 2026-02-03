@@ -1347,6 +1347,84 @@ export class EventRepository {
   }
 
   /**
+   * Get per-journey breakdown: assisted (handoffs) and completed self-serve
+   * (sessions that had an event for that journey step and no handoff).
+   */
+  async getJourneyBreakdown(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<
+    Array<{ step: string; assisted: number; completedSelfServe: number }>
+  > {
+    const handoffsResult = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(properties->>'journeyStep', properties->>'handoffReason', 'unknown') as step,
+        COUNT(*) as handoffs
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'agent.handoff'
+        AND timestamp BETWEEN $2 AND $3
+      GROUP BY COALESCE(properties->>'journeyStep', properties->>'handoffReason', 'unknown')
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const completedResult = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(properties->>'journeyStep', "eventName") as step,
+        COUNT(DISTINCT e."sessionId") as completed
+      FROM events e
+      WHERE e."tenantId" = $1
+        AND e.timestamp BETWEEN $2 AND $3
+        AND e."sessionId" IS NOT NULL
+        AND COALESCE(e.properties->>'journeyStep', e."eventName") IS NOT NULL
+        AND TRIM(COALESCE(e.properties->>'journeyStep', e."eventName")) <> ''
+        AND NOT EXISTS (
+          SELECT 1 FROM events h
+          WHERE h."tenantId" = e."tenantId"
+            AND h."sessionId" = e."sessionId"
+            AND h."eventName" = 'agent.handoff'
+            AND h.timestamp BETWEEN $2 AND $3
+        )
+      GROUP BY COALESCE(e.properties->>'journeyStep', e."eventName")
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const assistedByStep = new Map<string, number>();
+    for (const r of handoffsResult) {
+      const step = r.step ?? "unknown";
+      assistedByStep.set(step, parseInt(r.handoffs, 10) || 0);
+    }
+    const completedByStep = new Map<string, number>();
+    for (const r of completedResult) {
+      const step = r.step ?? "unknown";
+      completedByStep.set(step, parseInt(r.completed, 10) || 0);
+    }
+
+    const allSteps = new Set([
+      ...assistedByStep.keys(),
+      ...completedByStep.keys(),
+    ]);
+    return Array.from(allSteps)
+      .filter((step) => step !== "unknown")
+      .map((step) => ({
+        step,
+        assisted: assistedByStep.get(step) ?? 0,
+        completedSelfServe: completedByStep.get(step) ?? 0,
+      }))
+      .sort(
+        (a, b) =>
+          b.assisted +
+          b.completedSelfServe -
+          (a.assisted + a.completedSelfServe),
+      );
+  }
+
+  /**
    * Get handoff rate trend over time.
    */
   async getHandoffRateTrend(

@@ -269,6 +269,41 @@ export class JourneysService {
   }
 
   /**
+   * Get per-journey breakdown (assisted + completed self-serve per journey step).
+   */
+  async getJourneyBreakdown(
+    tenantId: string,
+    granularity: Granularity = "day",
+    periods: number = 30,
+  ) {
+    const endDate = new Date();
+    const startDate = this.calculateStartDate(granularity, periods);
+
+    const data = await this.eventRepository.getJourneyBreakdown(
+      tenantId,
+      startDate,
+      endDate,
+    );
+
+    const totalAssisted = data.reduce((sum, d) => sum + d.assisted, 0);
+    const totalCompleted = data.reduce(
+      (sum, d) => sum + d.completedSelfServe,
+      0,
+    );
+
+    return {
+      data,
+      summary: {
+        totalAssisted,
+        totalCompleted,
+        journeyCount: data.length,
+      },
+      startDate,
+      endDate,
+    };
+  }
+
+  /**
    * Get agent performance for handoffs.
    */
   async getAgentPerformance(

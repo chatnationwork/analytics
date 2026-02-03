@@ -15,6 +15,8 @@ import {
   TeamEntity,
   UserEntity,
 } from "@lib/database";
+import { PresenceService } from "./presence.service";
+import { ForbiddenException } from "@nestjs/common";
 
 export interface AgentStatusItem {
   agentId: string;
@@ -52,6 +54,7 @@ export class AgentStatusService {
     private readonly teamRepo: Repository<TeamEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    private readonly presenceService: PresenceService,
   ) {}
 
   /** Get all agents for tenant (team members) and their current status. */
@@ -192,5 +195,27 @@ export class AgentStatusService {
       select: ["userId"],
     });
     return [...new Set(members.map((m) => m.userId))];
+  }
+
+  /**
+   * Set another agent's presence (online/offline). Caller must have permission.
+   * Only allowed for users who are team members in this tenant.
+   */
+  async setAgentPresence(
+    tenantId: string,
+    targetUserId: string,
+    status: "online" | "offline",
+  ): Promise<void> {
+    const agentIds = await this.getAgentIdsForTenant(tenantId);
+    if (!agentIds.includes(targetUserId)) {
+      throw new ForbiddenException(
+        "Cannot set presence for a user who is not an agent in this tenant",
+      );
+    }
+    if (status === "online") {
+      await this.presenceService.goOnline(tenantId, targetUserId);
+    } else {
+      await this.presenceService.goOffline(tenantId, targetUserId);
+    }
   }
 }

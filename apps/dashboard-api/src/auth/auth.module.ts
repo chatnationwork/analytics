@@ -17,10 +17,12 @@ import { JwtStrategy } from "./jwt.strategy";
 import { DatabaseModule } from "@lib/database";
 import { RbacModule } from "../agent-system/rbac.module";
 import { AuditModule } from "../audit/audit.module";
+import { AgentSystemModule } from "../agent-system/agent-system.module";
 
 @Module({
   imports: [
     AuditModule,
+    AgentSystemModule,
     // Database access for user/tenant repositories
     DatabaseModule.forFeature(),
 

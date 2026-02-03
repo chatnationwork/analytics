@@ -29,6 +29,37 @@ const COMMON_EVENT_NAMES = [
   "app_error",
 ];
 
+/** Friendly labels for event types (filter dropdown and list) */
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  page_view: "Page view",
+  button_click: "Button click",
+  form_submit: "Form submit",
+  identify: "User identified",
+  app_error: "App error",
+  "message.received": "Message received",
+  "message.sent": "Message sent",
+  "message.read": "Message read",
+  "message.delivered": "Message delivered",
+  "agent.handoff": "Handoff to agent",
+  "chat.resolved": "Chat resolved",
+  "chat.transferred": "Chat transferred",
+  "ai.classification": "AI classification",
+  "ai.error": "AI error",
+  "messages sent": "Messages sent",
+  "messages received": "Messages received",
+  "debug.test_event": "Debug test",
+};
+
+function getEventTypeLabel(name: string): string {
+  return (
+    EVENT_TYPE_LABELS[name] ??
+    name
+      .replace(/_/g, " ")
+      .replace(/\./g, " · ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
 const POLL_INTERVAL_MS = 10_000;
 
 function formatTime(iso: string) {
@@ -53,7 +84,7 @@ function EventRow({ event }: { event: LiveEventRow }) {
       title={propsStr || undefined}
     >
       <span className="font-medium text-foreground shrink-0">
-        {event.eventName}
+        {getEventTypeLabel(event.eventName)}
       </span>
       {isError && (
         <span className="rounded bg-destructive/20 text-destructive px-1.5 py-0.5 text-xs font-medium shrink-0">
@@ -195,7 +226,7 @@ export default function EventsPage() {
                     <SelectItem value="all">All types</SelectItem>
                     {eventTypeOptions.map((name) => (
                       <SelectItem key={name} value={name}>
-                        {name}
+                        {getEventTypeLabel(name)}
                       </SelectItem>
                     ))}
                   </SelectContent>
