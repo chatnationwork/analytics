@@ -44,6 +44,25 @@ export class PresenceService {
     return session ? { endedAt: session.endedAt! } : null;
   }
 
+  /**
+   * Get current agent presence status (for inbox "Available" toggle).
+   * If the agent has an open session, they are considered online regardless of profile.
+   */
+  async getStatus(
+    tenantId: string,
+    agentId: string,
+  ): Promise<"online" | "offline"> {
+    const activeSession = await this.agentSessionRepo.getActiveSession(
+      tenantId,
+      agentId,
+    );
+    if (activeSession) return "online";
+    const profile = await this.agentProfileRepo.findOne({
+      where: { userId: agentId },
+    });
+    return profile?.status === AgentStatus.ONLINE ? "online" : "offline";
+  }
+
   private async upsertAgentProfileStatus(
     agentId: string,
     status: AgentStatus,

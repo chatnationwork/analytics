@@ -194,17 +194,25 @@ export const api = {
   },
 
   /**
-   * Analyze a funnel with custom steps
+   * Analyze a funnel with custom steps.
+   * When useJourneyFlags is true, first step = sessions with journeyStart, last step = sessions with journeyEnd.
    */
   async analyzeFunnel(
     steps: { name: string; eventName: string }[],
     startDate: string,
     endDate: string,
     tenantId?: string,
+    useJourneyFlags?: boolean,
   ): Promise<FunnelResponse> {
     return fetchWithAuth<FunnelResponse>("/funnel", {
       method: "POST",
-      body: JSON.stringify({ steps, startDate, endDate, tenantId }),
+      body: JSON.stringify({
+        steps,
+        startDate,
+        endDate,
+        tenantId,
+        useJourneyFlags: useJourneyFlags === true,
+      }),
     });
   },
 

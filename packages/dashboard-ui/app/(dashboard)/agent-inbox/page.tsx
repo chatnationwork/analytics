@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   MessageSquare,
   RefreshCw,
@@ -84,6 +85,9 @@ export default function AgentInboxPage() {
   const [resolveWrapUpConfig, setResolveWrapUpConfig] = useState<
     TeamWrapUpReport | null | undefined
   >(undefined);
+  const [available, setAvailable] = useState<boolean>(true);
+  const [presenceLoading, setPresenceLoading] = useState(true);
+  const [presenceToggling, setPresenceToggling] = useState(false);
 
   // Fetch current user and permissions on mount
   useEffect(() => {
@@ -109,6 +113,33 @@ export default function AgentInboxPage() {
       setLoading(false);
     }
   }, [filter]);
+
+  // Fetch presence on mount (for "Available" toggle)
+  useEffect(() => {
+    agentApi
+      .getPresence()
+      .then((res) => setAvailable(res.status === "online"))
+      .catch(() => setAvailable(false))
+      .finally(() => setPresenceLoading(false));
+  }, []);
+
+  const handleAvailableChange = useCallback(
+    async (on: boolean) => {
+      setPresenceToggling(true);
+      try {
+        await agentApi.setPresence(on ? "online" : "offline");
+        setAvailable(on);
+        toast.success(on ? "You're now available" : "You're now unavailable");
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "Failed to update availability",
+        );
+      } finally {
+        setPresenceToggling(false);
+      }
+    },
+    [],
+  );
 
   // Initial fetch and when filter changes
   useEffect(() => {
@@ -256,6 +287,22 @@ export default function AgentInboxPage() {
       {/* Sidebar: Chat List */}
       <Card className="w-1/3 flex flex-col min-w-[300px]">
         <CardHeader className="space-y-0 pb-2 border-b">
+          {/* Available (on/off) at top */}
+          <div className="flex items-center justify-between gap-2 mb-3 py-1.5 px-1 rounded-lg bg-muted/40">
+            <span className="text-sm font-medium text-foreground">
+              Available
+            </span>
+            {presenceLoading ? (
+              <span className="text-xs text-muted-foreground">…</span>
+            ) : (
+              <Switch
+                checked={available}
+                onCheckedChange={handleAvailableChange}
+                disabled={presenceToggling}
+                aria-label="Available for new chats"
+              />
+            )}
+          </div>
           <div className="flex items-center justify-between mb-3">
             <CardTitle className="text-xl font-bold flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />

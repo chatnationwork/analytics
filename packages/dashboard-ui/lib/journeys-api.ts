@@ -161,11 +161,14 @@ export async function getAgentPerformance(
   );
 }
 
-// Per-journey breakdown (completed self-serve vs assisted per journey step)
+// Per-journey breakdown (started, completed, dropped off, assisted per journey step)
 export interface JourneyBreakdownItem {
   step: string;
   assisted: number;
   completedSelfServe: number;
+  started: number;
+  completed: number;
+  droppedOff: number;
 }
 
 export interface JourneyBreakdownResponse {

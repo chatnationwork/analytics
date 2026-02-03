@@ -261,6 +261,96 @@ export class EventRepository {
   }
 
   /**
+   * Count unique sessions per funnel step using journey flags for first and last steps.
+   * First step = sessions with eventName = firstStep.eventName AND properties.journeyStart = true.
+   * Last step = sessions with eventName = lastStep.eventName AND properties.journeyEnd = true.
+   * Middle steps = distinct sessions per eventName (same as countByEventName).
+   */
+  async countByEventNameWithJourneyFlags(
+    tenantId: string,
+    steps: { eventName: string }[],
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{ eventName: string; count: number }[]> {
+    if (!steps.length) return [];
+
+    const firstEventName = steps[0].eventName;
+    const lastEventName = steps[steps.length - 1].eventName;
+    const eventNames = steps.map((s) => s.eventName);
+
+    const baseWhere =
+      "event.tenantId = :tenantId AND event.timestamp BETWEEN :startDate AND :endDate AND event.eventName IN (:...eventNames)";
+
+    const qb = this.repo.createQueryBuilder("event");
+    const params = { tenantId, startDate, endDate, eventNames };
+
+    // First step: sessions with journeyStart = true for first step's eventName
+    const startedResult =
+      steps.length > 0
+        ? await qb
+            .clone()
+            .select("COUNT(DISTINCT event.sessionId)", "count")
+            .where(baseWhere, params)
+            .andWhere("event.eventName = :firstEventName", {
+              ...params,
+              firstEventName,
+            })
+            .andWhere("(event.properties->>'journeyStart')::text = 'true'")
+            .getRawOne()
+        : { count: "0" };
+
+    // Last step: sessions with journeyEnd = true for last step's eventName
+    const completedResult =
+      steps.length > 0
+        ? await this.repo
+            .createQueryBuilder("event")
+            .select("COUNT(DISTINCT event.sessionId)", "count")
+            .where(baseWhere, params)
+            .andWhere("event.eventName = :lastEventName", {
+              ...params,
+              lastEventName,
+            })
+            .andWhere("(event.properties->>'journeyEnd')::text = 'true'")
+            .getRawOne()
+        : { count: "0" };
+
+    // Middle steps (and first/last as raw event counts for display fallback): distinct sessions per event name
+    const middleCounts = await this.repo
+      .createQueryBuilder("event")
+      .select("event.eventName", "eventName")
+      .addSelect("COUNT(DISTINCT event.sessionId)", "count")
+      .where("event.tenantId = :tenantId", { tenantId })
+      .andWhere("event.eventName IN (:...eventNames)", { eventNames })
+      .andWhere("event.timestamp BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      })
+      .groupBy("event.eventName")
+      .getRawMany();
+
+    const middleMap = new Map<string, number>(
+      middleCounts.map((r) => [r.eventName, parseInt(r.count, 10)]),
+    );
+
+    const started = parseInt(startedResult?.count, 10) || 0;
+    const completed = parseInt(completedResult?.count, 10) || 0;
+
+    return steps.map((step, i) => {
+      let count: number;
+      if (steps.length === 1) {
+        count = started || completed || middleMap.get(step.eventName) || 0;
+      } else if (i === 0) {
+        count = started;
+      } else if (i === steps.length - 1) {
+        count = completed;
+      } else {
+        count = middleMap.get(step.eventName) || 0;
+      }
+      return { eventName: step.eventName, count };
+    });
+  }
+
+  /**
    * Check if a message ID already exists (for deduplication).
    *
    * More efficient than findByMessageId when you only need to know
@@ -1347,15 +1437,23 @@ export class EventRepository {
   }
 
   /**
-   * Get per-journey breakdown: assisted (handoffs) and completed self-serve
-   * (sessions that had an event for that journey step and no handoff).
+   * Get per-journey breakdown: assisted (handoffs), completed self-serve,
+   * and when journey flags are present: started, completed, droppedOff.
+   * Step key: COALESCE(properties->>'step', properties->>'journeyStep', eventName).
    */
   async getJourneyBreakdown(
     tenantId: string,
     startDate: Date,
     endDate: Date,
   ): Promise<
-    Array<{ step: string; assisted: number; completedSelfServe: number }>
+    Array<{
+      step: string;
+      assisted: number;
+      completedSelfServe: number;
+      started: number;
+      completed: number;
+      droppedOff: number;
+    }>
   > {
     const handoffsResult = await this.repo.query(
       `
@@ -1374,7 +1472,7 @@ export class EventRepository {
     const completedResult = await this.repo.query(
       `
       SELECT 
-        COALESCE(properties->>'journeyStep', "eventName") as step,
+        COALESCE(e.properties->>'journeyStep', e."eventName") as step,
         COUNT(DISTINCT e."sessionId") as completed
       FROM events e
       WHERE e."tenantId" = $1
@@ -1394,6 +1492,61 @@ export class EventRepository {
       [tenantId, startDate, endDate],
     );
 
+    const startedResult = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(properties->>'step', properties->>'journeyStep', "eventName") as step,
+        COUNT(DISTINCT "sessionId") as started
+      FROM events
+      WHERE "tenantId" = $1
+        AND timestamp BETWEEN $2 AND $3
+        AND "sessionId" IS NOT NULL
+        AND (properties->>'journeyStart')::text = 'true'
+        AND TRIM(COALESCE(properties->>'step', properties->>'journeyStep', "eventName")) <> ''
+      GROUP BY COALESCE(properties->>'step', properties->>'journeyStep', "eventName")
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const completedWithFlagsResult = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(properties->>'step', properties->>'journeyStep', "eventName") as step,
+        COUNT(DISTINCT "sessionId") as completed
+      FROM events
+      WHERE "tenantId" = $1
+        AND timestamp BETWEEN $2 AND $3
+        AND "sessionId" IS NOT NULL
+        AND (properties->>'journeyEnd')::text = 'true'
+        AND TRIM(COALESCE(properties->>'step', properties->>'journeyStep', "eventName")) <> ''
+      GROUP BY COALESCE(properties->>'step', properties->>'journeyStep', "eventName")
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const completedSelfServeWithFlagsResult = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(e.properties->>'step', e.properties->>'journeyStep', e."eventName") as step,
+        COUNT(DISTINCT e."sessionId") as completed
+      FROM events e
+      WHERE e."tenantId" = $1
+        AND e.timestamp BETWEEN $2 AND $3
+        AND e."sessionId" IS NOT NULL
+        AND (e.properties->>'journeyEnd')::text = 'true'
+        AND TRIM(COALESCE(e.properties->>'step', e.properties->>'journeyStep', e."eventName")) <> ''
+        AND NOT EXISTS (
+          SELECT 1 FROM events h
+          WHERE h."tenantId" = e."tenantId"
+            AND h."sessionId" = e."sessionId"
+            AND h."eventName" = 'agent.handoff'
+            AND h.timestamp BETWEEN $2 AND $3
+        )
+      GROUP BY COALESCE(e.properties->>'step', e.properties->>'journeyStep', e."eventName")
+      `,
+      [tenantId, startDate, endDate],
+    );
+
     const assistedByStep = new Map<string, number>();
     for (const r of handoffsResult) {
       const step = r.step ?? "unknown";
@@ -1404,23 +1557,52 @@ export class EventRepository {
       const step = r.step ?? "unknown";
       completedByStep.set(step, parseInt(r.completed, 10) || 0);
     }
+    const startedByStep = new Map<string, number>();
+    for (const r of startedResult) {
+      const step = r.step ?? "unknown";
+      startedByStep.set(step, parseInt(r.started, 10) || 0);
+    }
+    const completedFlagsByStep = new Map<string, number>();
+    for (const r of completedWithFlagsResult) {
+      const step = r.step ?? "unknown";
+      completedFlagsByStep.set(step, parseInt(r.completed, 10) || 0);
+    }
+    const completedSelfServeFlagsByStep = new Map<string, number>();
+    for (const r of completedSelfServeWithFlagsResult) {
+      const step = r.step ?? "unknown";
+      completedSelfServeFlagsByStep.set(step, parseInt(r.completed, 10) || 0);
+    }
 
     const allSteps = new Set([
       ...assistedByStep.keys(),
       ...completedByStep.keys(),
+      ...startedByStep.keys(),
+      ...completedFlagsByStep.keys(),
     ]);
     return Array.from(allSteps)
       .filter((step) => step !== "unknown")
-      .map((step) => ({
-        step,
-        assisted: assistedByStep.get(step) ?? 0,
-        completedSelfServe: completedByStep.get(step) ?? 0,
-      }))
+      .map((step) => {
+        const started = startedByStep.get(step) ?? 0;
+        const completed = completedFlagsByStep.get(step) ?? 0;
+        const completedSelfServeFromFlags =
+          completedSelfServeFlagsByStep.get(step) ?? undefined;
+        const completedSelfServe =
+          completedSelfServeFromFlags ?? completedByStep.get(step) ?? 0;
+        return {
+          step,
+          assisted: assistedByStep.get(step) ?? 0,
+          completedSelfServe,
+          started,
+          completed,
+          droppedOff: started > 0 ? Math.max(0, started - completed) : 0,
+        };
+      })
       .sort(
         (a, b) =>
           b.assisted +
-          b.completedSelfServe -
-          (a.assisted + a.completedSelfServe),
+          b.completedSelfServe +
+          b.started -
+          (a.assisted + a.completedSelfServe + a.started),
       );
   }
 

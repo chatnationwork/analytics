@@ -1,6 +1,12 @@
-
-import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from "class-transformer";
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from "class-validator";
 
 export class FunnelStepDto {
   @IsString()
@@ -23,6 +29,10 @@ export class AnalyzeFunnelDto {
   @IsOptional()
   @IsString()
   tenantId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  useJourneyFlags?: boolean;
 
   @IsArray()
   @ValidateNested({ each: true })

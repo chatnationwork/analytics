@@ -128,6 +128,20 @@ export class AgentInboxController {
   }
 
   /**
+   * Get current agent presence (for inbox "Available" toggle).
+   */
+  @Get("presence")
+  async getPresence(
+    @Request() req: { user: { id: string; tenantId: string } },
+  ): Promise<{ status: "online" | "offline" }> {
+    const status = await this.presenceService.getStatus(
+      req.user.tenantId,
+      req.user.id,
+    );
+    return { status };
+  }
+
+  /**
    * Set agent presence (online/offline). Creates/ends agent_sessions and updates agent_profiles.status.
    */
   @Post("presence")

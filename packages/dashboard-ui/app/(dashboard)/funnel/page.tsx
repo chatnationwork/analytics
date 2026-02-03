@@ -31,6 +31,7 @@ const MAX_STEPS = 10;
 export default function FunnelPage() {
   const [steps, setSteps] = useState<FunnelStep[]>([]);
   const [showFilters, setShowFilters] = useState(true);
+  const [useJourneyFlags, setUseJourneyFlags] = useState(false);
 
   // Fetch current tenant first
   const { data: tenant } = useQuery({
@@ -162,6 +163,17 @@ export default function FunnelPage() {
             </p>
           )}
 
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer mb-3">
+            <input
+              type="checkbox"
+              checked={useJourneyFlags}
+              onChange={(e) => setUseJourneyFlags(e.target.checked)}
+              className="rounded border-border"
+              aria-label="Use journey start/end flags"
+            />
+            Use journey start/end flags (first step = started, last step =
+            completed)
+          </label>
           <div className="space-y-2">
             {steps.map((step, index) => (
               <div key={index} className="flex items-center gap-3">

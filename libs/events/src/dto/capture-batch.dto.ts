@@ -5,16 +5,17 @@ import {
   IsOptional,
   IsObject,
   IsArray,
+  IsBoolean,
   ValidateNested,
   MaxLength,
   ArrayMaxSize,
-} from 'class-validator';
-import { Type, Transform } from 'class-transformer';
-import { v4 as uuidv4, v5 as uuidv5, validate as uuidValidate } from 'uuid';
-import { EventContextDto } from './event-context.dto';
+} from "class-validator";
+import { Type, Transform } from "class-transformer";
+import { v4 as uuidv4, v5 as uuidv5, validate as uuidValidate } from "uuid";
+import { EventContextDto } from "./event-context.dto";
 
 // Namespace for hashing loose IDs (randomly generated UUID v4)
-const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+const NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
 /**
  * Helper to ensure value is a valid UUID.
@@ -36,14 +37,14 @@ function toDateString(value: any): string {
   if (!value) return new Date().toISOString();
   // Check if it's already ISO string or date
   if (value instanceof Date) return value.toISOString();
-  
+
   // Try parsing
   const date = new Date(value);
   if (isNaN(date.getTime())) {
     // Check if it's a timestamp number
     if (!isNaN(Number(value))) {
-       const tsDate = new Date(Number(value));
-       if (!isNaN(tsDate.getTime())) return tsDate.toISOString();
+      const tsDate = new Date(Number(value));
+      if (!isNaN(tsDate.getTime())) return tsDate.toISOString();
     }
     return new Date().toISOString(); // Fallback to now
   }
@@ -89,6 +90,26 @@ export class CaptureEventDto {
   @IsOptional()
   @IsObject()
   properties?: Record<string, unknown>;
+
+  /**
+   * When true, marks this event as the start of a user journey.
+   * Used by funnels and self-serve analytics to count journey starts and compute drop-off.
+   * Omitted or false = not a journey start.
+   */
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === "true")
+  journey_start?: boolean;
+
+  /**
+   * When true, marks this event as the end of a user journey (e.g. completion).
+   * Used by funnels and self-serve analytics to count completions vs drop-off.
+   * Omitted or false = not a journey end.
+   */
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === "true")
+  journey_end?: boolean;
 
   @IsOptional()
   @IsUUID()

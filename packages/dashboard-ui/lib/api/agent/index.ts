@@ -209,6 +209,27 @@ export const agentApi = {
     return fetchWithAuth<AvailableAgent[]>("/agent/inbox/transfer/agents");
   },
 
+  /**
+   * Get current agent presence (for "Available" toggle in inbox).
+   */
+  getPresence: async (): Promise<{ status: "online" | "offline" }> => {
+    return fetchWithAuth<{ status: "online" | "offline" }>(
+      "/agent/inbox/presence",
+    );
+  },
+
+  /**
+   * Set current agent presence. "online" = available for assignments, "offline" = not available.
+   */
+  setPresence: async (
+    status: "online" | "offline",
+  ): Promise<{ sessionId?: string; startedAt?: string } | { endedAt?: string } | null> => {
+    return fetchWithAuth("/agent/inbox/presence", {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    });
+  },
+
   getTeams: async () => {
     return fetchWithAuth<Team[]>("/agent/teams");
   },

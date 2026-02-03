@@ -457,6 +457,9 @@ function JourneyBreakdownTable({
               Journey
             </th>
             <th className="text-right py-3 font-medium text-foreground">
+              Started
+            </th>
+            <th className="text-right py-3 font-medium text-foreground">
               Completed (self-serve)
             </th>
             <th className="text-right py-3 font-medium text-foreground">
@@ -474,9 +477,14 @@ function JourneyBreakdownTable({
                 {getLabel(row.step)}
               </td>
               <td className="py-2.5 text-right text-muted-foreground">
+                {row.started > 0 ? row.started.toLocaleString() : "—"}
+              </td>
+              <td className="py-2.5 text-right text-muted-foreground">
                 {row.completedSelfServe.toLocaleString()}
               </td>
-              <td className="py-2.5 text-right text-muted-foreground">—</td>
+              <td className="py-2.5 text-right text-muted-foreground">
+                {row.droppedOff > 0 ? row.droppedOff.toLocaleString() : "—"}
+              </td>
               <td className="py-2.5 text-right text-muted-foreground">
                 {row.assisted.toLocaleString()}
               </td>
@@ -709,9 +717,11 @@ export default function JourneysPage() {
                 By journey
               </h2>
               <p className="text-sm text-muted-foreground mt-0.5 mb-4">
-                Per-journey breakdown: completed (self-serve on web) vs assisted
-                (handed off to agent). Self-serve journeys have URLs; both can
-                become assisted via handoff.
+                Per-journey breakdown: started (journeyStart), completed
+                (self-serve, journeyEnd without handoff), dropped off (started −
+                completed), and assisted (handed off to agent). When events send
+                journey_start/journey_end flags, Started and Dropped off are
+                populated.
               </p>
               <JourneyBreakdownTable
                 data={journeyBreakdown?.data ?? []}
