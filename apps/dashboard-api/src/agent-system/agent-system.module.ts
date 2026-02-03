@@ -25,6 +25,7 @@ import {
   UserEntity,
   RolePermissionEntity,
   TenantMembershipEntity,
+  ContactNoteEntity,
   DatabaseModule,
 } from "@lib/database";
 
@@ -37,6 +38,8 @@ import { IntegrationController } from "./integration.controller";
 import { PresenceService } from "./presence.service";
 import { AgentStatusService } from "./agent-status.service";
 import { AgentStatusController } from "./agent-status.controller";
+import { ContactProfileController } from "./contact-profile.controller";
+import { ContactProfileService } from "./contact-profile.service";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { ApiKeysModule } from "../api-keys/api-keys.module";
 import { AuditModule } from "../audit/audit.module";
@@ -60,6 +63,7 @@ import { AuditModule } from "../audit/audit.module";
       UserEntity,
       TenantMembershipEntity,
       AgentSessionEntity,
+      ContactNoteEntity,
     ]),
   ],
   controllers: [
@@ -67,12 +71,14 @@ import { AuditModule } from "../audit/audit.module";
     TeamController,
     IntegrationController,
     AgentStatusController,
+    ContactProfileController,
   ],
   providers: [
     InboxService,
     AssignmentService,
     PresenceService,
     AgentStatusService,
+    ContactProfileService,
   ],
   exports: [
     InboxService,

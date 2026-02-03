@@ -47,6 +47,52 @@ export class ContactRepository {
     return this.repo.save(created);
   }
 
+  /** Find one contact by tenant and contact id (e.g. phone). */
+  async findOne(
+    tenantId: string,
+    contactId: string,
+  ): Promise<ContactEntity | null> {
+    return this.repo.findOne({
+      where: { tenantId, contactId },
+    });
+  }
+
+  /**
+   * Find or create a contact so the profile panel can always show/edit. Creates with firstSeen/lastSeen = now, messageCount = 0 if missing.
+   */
+  async findOneOrCreate(
+    tenantId: string,
+    contactId: string,
+    name?: string | null,
+  ): Promise<ContactEntity> {
+    const existing = await this.repo.findOne({
+      where: { tenantId, contactId },
+    });
+    if (existing) return existing;
+    const now = new Date();
+    const created = this.repo.create({
+      tenantId,
+      contactId,
+      name: name ?? null,
+      firstSeen: now,
+      lastSeen: now,
+      messageCount: 0,
+    });
+    return this.repo.save(created);
+  }
+
+  /**
+   * Update contact profile fields (name, pin, email, metadata). Does not touch firstSeen/lastSeen/messageCount.
+   */
+  async updateProfile(
+    tenantId: string,
+    contactId: string,
+    data: Partial<Pick<ContactEntity, "name" | "pin" | "email" | "metadata">>,
+  ): Promise<ContactEntity | null> {
+    await this.repo.update({ tenantId, contactId }, data);
+    return this.findOne(tenantId, contactId);
+  }
+
   /**
    * List contacts for a tenant with pagination, ordered by lastSeen desc.
    */

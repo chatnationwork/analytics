@@ -26,6 +26,17 @@ export class ContactEntity {
   @Column({ type: "varchar", length: 200, nullable: true })
   name: string | null;
 
+  /** PIN or tax ID (e.g. KRA PIN) */
+  @Column({ type: "varchar", length: 50, nullable: true })
+  pin: string | null;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
+  email: string | null;
+
+  /** Extra profile fields (e.g. address, company) */
+  @Column("jsonb", { nullable: true })
+  metadata: Record<string, string> | null;
+
   @Column({ type: "timestamptz" })
   firstSeen: Date;
 

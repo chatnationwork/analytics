@@ -48,6 +48,8 @@ export class AuditLogRepository {
       endDate?: Date;
       action?: string;
       actorId?: string;
+      resourceType?: string;
+      resourceId?: string;
       page?: number;
       limit?: number;
     } = {},
@@ -62,6 +64,8 @@ export class AuditLogRepository {
       endDate,
       action,
       actorId,
+      resourceType,
+      resourceId,
       page = 1,
       limit = 50,
     } = options;
@@ -74,6 +78,9 @@ export class AuditLogRepository {
     if (endDate) qb.andWhere("a.createdAt <= :endDate", { endDate });
     if (action) qb.andWhere("a.action = :action", { action });
     if (actorId) qb.andWhere("a.actorId = :actorId", { actorId });
+    if (resourceType)
+      qb.andWhere("a.resourceType = :resourceType", { resourceType });
+    if (resourceId) qb.andWhere("a.resourceId = :resourceId", { resourceId });
 
     const total = await qb.getCount();
     const data = await qb

@@ -1,4 +1,4 @@
-import { fetchWithAuth } from "../../api";
+import { fetchWithAuth, fetchWithAuthFull } from "../../api";
 
 /** A single configurable field in a team's wrap-up report form */
 export interface WrapUpField {
@@ -330,7 +330,100 @@ export const agentApi = {
       method: "DELETE",
     });
   },
+
+  /** Contact profile (right panel in inbox) */
+  getContactProfile: async (
+    contactId: string,
+    name?: string,
+  ): Promise<ContactProfile> => {
+    const q = name ? `?name=${encodeURIComponent(name)}` : "";
+    return fetchWithAuth<ContactProfile>(`/agent/contacts/${contactId}${q}`);
+  },
+
+  updateContactProfile: async (
+    contactId: string,
+    data: UpdateContactProfileDto,
+  ): Promise<ContactProfile> => {
+    return fetchWithAuth<ContactProfile>(`/agent/contacts/${contactId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  getContactNotes: async (
+    contactId: string,
+    limit?: number,
+  ): Promise<ContactNote[]> => {
+    const q = limit != null ? `?limit=${limit}` : "";
+    return fetchWithAuth<ContactNote[]>(
+      `/agent/contacts/${contactId}/notes${q}`,
+    );
+  },
+
+  addContactNote: async (
+    contactId: string,
+    content: string,
+  ): Promise<ContactNote> => {
+    return fetchWithAuth<ContactNote>(`/agent/contacts/${contactId}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  getContactHistory: async (
+    contactId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<{ data: ContactHistoryEntry[]; total: number }> => {
+    const params = new URLSearchParams();
+    if (page != null) params.set("page", String(page));
+    if (limit != null) params.set("limit", String(limit));
+    const q = params.toString() ? `?${params}` : "";
+    const res = await fetchWithAuthFull<{
+      data: ContactHistoryEntry[];
+      total: number;
+    }>(`/agent/contacts/${contactId}/history${q}`);
+    return {
+      data: Array.isArray(res?.data) ? res.data : [],
+      total: typeof res?.total === "number" ? res.total : 0,
+    };
+  },
 };
+
+export interface ContactProfile {
+  contactId: string;
+  name: string | null;
+  pin: string | null;
+  email: string | null;
+  metadata: Record<string, string> | null;
+  firstSeen: string;
+  lastSeen: string;
+  messageCount: number;
+}
+
+export interface UpdateContactProfileDto {
+  name?: string | null;
+  pin?: string | null;
+  email?: string | null;
+  metadata?: Record<string, string> | null;
+}
+
+export interface ContactNote {
+  id: string;
+  content: string;
+  authorId: string;
+  authorName: string | null;
+  createdAt: string;
+}
+
+export interface ContactHistoryEntry {
+  id: string;
+  action: string;
+  actorId: string | null;
+  actorName: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
 
 export interface Role {
   id: string;

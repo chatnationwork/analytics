@@ -23,6 +23,7 @@ export const AuditActions = {
   CHAT_SESSION_ASSIGNED: "chat.session.assigned",
   CHAT_SESSION_RESOLVED: "chat.session.resolved",
   CHAT_SESSION_TRANSFERRED: "chat.session.transferred",
+  CONTACT_PROFILE_UPDATED: "contact.profile.updated",
 } as const;
 
 /** Request context for audit entries (IP, user agent) */
@@ -79,6 +80,8 @@ export class AuditService {
       endDate?: Date;
       action?: string;
       actorId?: string;
+      resourceType?: string;
+      resourceId?: string;
       page?: number;
       limit?: number;
     } = {},

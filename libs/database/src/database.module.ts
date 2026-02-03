@@ -55,6 +55,7 @@ import { AssignmentConfigEntity } from "./entities/assignment-config.entity";
 import { RolePermissionEntity } from "./entities/role-permission.entity";
 import { RoleEntity } from "./entities/role.entity";
 import { ContactEntity } from "./entities/contact.entity";
+import { ContactNoteEntity } from "./entities/contact-note.entity";
 import { AgentSessionEntity } from "./entities/agent-session.entity";
 import { AuditLogEntity } from "./entities/audit-log.entity";
 import { TwoFaVerificationEntity } from "./entities/two-fa-verification.entity";
@@ -95,6 +96,7 @@ const entities = [
   RolePermissionEntity,
   RoleEntity,
   ContactEntity,
+  ContactNoteEntity,
   AgentSessionEntity,
   AuditLogEntity,
   TwoFaVerificationEntity,
