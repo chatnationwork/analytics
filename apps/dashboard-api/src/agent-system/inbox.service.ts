@@ -34,7 +34,13 @@ import { WhatsappService } from "../whatsapp/whatsapp.service";
 /**
  * Filter types for inbox queries
  */
-export type InboxFilter = "all" | "pending" | "resolved" | "expired";
+export type InboxFilter =
+  | "all"
+  | "assigned"
+  | "unassigned"
+  | "pending"
+  | "resolved"
+  | "expired";
 
 /**
  * DTO for creating a new message
@@ -239,6 +245,16 @@ export class InboxService {
 
     switch (filter) {
       case "all":
+        break;
+      case "assigned":
+        query.andWhere("session.status = :status", {
+          status: SessionStatus.ASSIGNED,
+        });
+        break;
+      case "unassigned":
+        query.andWhere("session.status = :status", {
+          status: SessionStatus.UNASSIGNED,
+        });
         break;
       case "pending":
         query.andWhere("session.status = :status", {

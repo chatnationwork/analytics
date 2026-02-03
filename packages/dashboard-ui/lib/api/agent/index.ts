@@ -96,7 +96,13 @@ export interface AvailableAgent {
  * - 'resolved': Resolved sessions
  * - 'expired': Sessions with no activity for 24+ hours
  */
-export type InboxFilter = "all" | "pending" | "resolved" | "expired";
+export type InboxFilter =
+  | "all"
+  | "assigned"
+  | "unassigned"
+  | "pending"
+  | "resolved"
+  | "expired";
 
 const API_BASE =
   typeof window !== "undefined" ? "" : (process.env.NEXT_PUBLIC_API_URL ?? "");

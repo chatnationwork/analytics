@@ -11,6 +11,7 @@ import {
   Clock,
   Inbox,
   Archive,
+  UserX,
 } from "lucide-react";
 import { ChatList } from "@/components/agent-inbox/ChatList";
 import { ChatWindow } from "@/components/agent-inbox/ChatWindow";
@@ -28,12 +29,37 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 
-const FILTER_TABS: {
+const FILTER_TABS_AGENT: {
   value: InboxFilter;
   label: string;
   icon: React.ReactNode;
 }[] = [
   { value: "all", label: "Assigned", icon: <Inbox className="h-4 w-4" /> },
+  { value: "pending", label: "Active", icon: <Clock className="h-4 w-4" /> },
+  {
+    value: "resolved",
+    label: "Resolved",
+    icon: <CheckCircle className="h-4 w-4" />,
+  },
+  { value: "expired", label: "Expired", icon: <Archive className="h-4 w-4" /> },
+];
+
+const FILTER_TABS_SUPER_ADMIN: {
+  value: InboxFilter;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  { value: "all", label: "All", icon: <Inbox className="h-4 w-4" /> },
+  {
+    value: "assigned",
+    label: "Assigned",
+    icon: <CheckCircle className="h-4 w-4" />,
+  },
+  {
+    value: "unassigned",
+    label: "Unassigned",
+    icon: <UserX className="h-4 w-4" />,
+  },
   { value: "pending", label: "Active", icon: <Clock className="h-4 w-4" /> },
   {
     value: "resolved",
@@ -51,6 +77,7 @@ export default function AgentInboxPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [canViewAllChats, setCanViewAllChats] = useState(false);
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
@@ -58,11 +85,16 @@ export default function AgentInboxPage() {
     TeamWrapUpReport | null | undefined
   >(undefined);
 
-  // Fetch current user ID on mount
+  // Fetch current user and permissions on mount
   useEffect(() => {
-    const user = authClient
+    authClient
       .getProfile()
-      .then((u) => setCurrentUserId(u.id))
+      .then((u) => {
+        setCurrentUserId(u.id);
+        setCanViewAllChats(
+          u.permissions?.global?.includes("session.view_all") ?? false,
+        );
+      })
       .catch(console.error);
   }, []);
 
@@ -237,8 +269,11 @@ export default function AgentInboxPage() {
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex gap-1 p-1 bg-muted/50 rounded-lg">
-            {FILTER_TABS.map((tab) => (
+          <div className="flex gap-1 p-1 bg-muted/50 rounded-lg flex-wrap">
+            {(canViewAllChats
+              ? FILTER_TABS_SUPER_ADMIN
+              : FILTER_TABS_AGENT
+            ).map((tab) => (
               <button
                 key={tab.value}
                 onClick={() => setFilter(tab.value)}
