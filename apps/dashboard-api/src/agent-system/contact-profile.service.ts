@@ -14,6 +14,7 @@ export interface ContactProfileDto {
   contactId: string;
   name: string | null;
   pin: string | null;
+  yearOfBirth: number | null;
   email: string | null;
   metadata: Record<string, string> | null;
   firstSeen: string;
@@ -24,6 +25,7 @@ export interface ContactProfileDto {
 export interface UpdateContactProfileDto {
   name?: string | null;
   pin?: string | null;
+  yearOfBirth?: number | null;
   email?: string | null;
   metadata?: Record<string, string> | null;
 }

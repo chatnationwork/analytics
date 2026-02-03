@@ -19,6 +19,7 @@ import { ChatWindow } from "@/components/agent-inbox/ChatWindow";
 import { MessageInput } from "@/components/agent-inbox/MessageInput";
 import { ResolveDialog } from "@/components/agent-inbox/ResolveDialog";
 import { TransferDialog } from "@/components/agent-inbox/TransferDialog";
+import { ContactProfilePanel } from "@/components/agent-inbox/ContactProfilePanel";
 import {
   agentApi,
   InboxSession,
@@ -447,6 +448,14 @@ export default function AgentInboxPage() {
           </div>
         )}
       </Card>
+
+      {/* Contact Profile Panel - shown when a session is selected */}
+      {selectedSession && (
+        <ContactProfilePanel
+          contactId={selectedSession.contactId}
+          contactName={selectedSession.contactName}
+        />
+      )}
 
       {/* Resolve Dialog */}
       <ResolveDialog

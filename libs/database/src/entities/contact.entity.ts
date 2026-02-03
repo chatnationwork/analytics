@@ -30,6 +30,10 @@ export class ContactEntity {
   @Column({ type: "varchar", length: 50, nullable: true })
   pin: string | null;
 
+  /** Year of birth (e.g. 1990) */
+  @Column({ type: "int", nullable: true })
+  yearOfBirth: number | null;
+
   @Column({ type: "varchar", length: 255, nullable: true })
   email: string | null;
 

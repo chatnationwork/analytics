@@ -82,12 +82,17 @@ export class ContactRepository {
   }
 
   /**
-   * Update contact profile fields (name, pin, email, metadata). Does not touch firstSeen/lastSeen/messageCount.
+   * Update contact profile fields (name, pin, yearOfBirth, email, metadata). Does not touch firstSeen/lastSeen/messageCount.
    */
   async updateProfile(
     tenantId: string,
     contactId: string,
-    data: Partial<Pick<ContactEntity, "name" | "pin" | "email" | "metadata">>,
+    data: Partial<
+      Pick<
+        ContactEntity,
+        "name" | "pin" | "yearOfBirth" | "email" | "metadata"
+      >
+    >,
   ): Promise<ContactEntity | null> {
     await this.repo.update({ tenantId, contactId }, data);
     return this.findOne(tenantId, contactId);

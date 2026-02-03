@@ -62,6 +62,23 @@ Permissions are granular keys (e.g., `analytics.view`, `team.settings`) mapped t
 4. `AssignmentService` assigns session to a team/agent based on rules.
 5. Session appears in Agent Inbox.
 
+### Contact Profile Management
+The system provides a Contact Profile Panel in the Agent Inbox that allows agents to:
+1. **View/Edit Contact Details**: Name, PIN, Email, and custom metadata fields.
+2. **Add Notes**: Agents can add notes about contacts. Each note is timestamped and linked to the author.
+3. **Track Changes**: All profile changes are logged in the audit system, showing who made what change and when.
+
+**Database Entities:**
+- `ContactEntity`: Stores contact information (tenantId, contactId, name, pin, email, metadata, firstSeen, lastSeen, messageCount)
+- `ContactNoteEntity`: Stores agent notes (tenantId, contactId, authorId, content, createdAt)
+
+**API Endpoints:**
+- `GET /agent/contacts/:contactId`: Get contact profile
+- `PATCH /agent/contacts/:contactId`: Update contact profile (changes are audited)
+- `GET /agent/contacts/:contactId/notes`: List notes for a contact
+- `POST /agent/contacts/:contactId/notes`: Add a note
+- `GET /agent/contacts/:contactId/history`: Get change history from audit log
+
 ## Future Improvements
 - WebSocket integration for real-time updates (removing polling).
 - AI-based suggested replies.
