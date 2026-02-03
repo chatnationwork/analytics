@@ -151,7 +151,7 @@ export default function AgentInboxPage() {
     setSelectedSessionId(session.id);
     try {
       const data = await agentApi.getSession(session.id);
-      setMessages(data.messages);
+      setMessages(Array.isArray(data?.messages) ? data.messages : []);
 
       // Mark as read locally or refresh session data if needed
       if (session.status === "unassigned") {

@@ -83,7 +83,7 @@ export function ContactProfilePanel({
   const fetchNotes = useCallback(async () => {
     try {
       const data = await agentApi.getContactNotes(contactId, NOTES_LIMIT);
-      setNotes(data);
+      setNotes(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Failed to fetch notes:", e);
       setNotes([]);
@@ -98,8 +98,8 @@ export function ContactProfilePanel({
           page,
           HISTORY_PAGE_SIZE,
         );
-        setHistory(data);
-        setHistoryTotal(total);
+        setHistory(Array.isArray(data) ? data : []);
+        setHistoryTotal(typeof total === "number" ? total : 0);
         setHistoryPage(page);
       } catch (e) {
         console.error("Failed to fetch history:", e);

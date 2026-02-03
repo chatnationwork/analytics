@@ -175,8 +175,10 @@ export class AgentInboxController {
     const messages = await this.inboxService.getSessionMessages(sessionId);
 
     return {
-      session,
-      messages,
+      data: {
+        session,
+        messages,
+      },
     };
   }
 
