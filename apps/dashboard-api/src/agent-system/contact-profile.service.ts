@@ -93,6 +93,13 @@ export class ContactProfileService {
       updates.pin = dto.pin;
       details.pin = { old: existing.pin, new: dto.pin };
     }
+    if (
+      dto.yearOfBirth !== undefined &&
+      dto.yearOfBirth !== existing.yearOfBirth
+    ) {
+      updates.yearOfBirth = dto.yearOfBirth;
+      details.yearOfBirth = { old: existing.yearOfBirth, new: dto.yearOfBirth };
+    }
     if (dto.email !== undefined && dto.email !== existing.email) {
       updates.email = dto.email;
       details.email = { old: existing.email, new: dto.email };
@@ -217,6 +224,7 @@ export class ContactProfileService {
     contactId: string;
     name: string | null;
     pin: string | null;
+    yearOfBirth?: number | null;
     email: string | null;
     metadata: Record<string, string> | null;
     firstSeen: Date;
@@ -227,6 +235,7 @@ export class ContactProfileService {
       contactId: c.contactId,
       name: c.name ?? null,
       pin: c.pin ?? null,
+      yearOfBirth: c.yearOfBirth ?? null,
       email: c.email ?? null,
       metadata: c.metadata ?? null,
       firstSeen: c.firstSeen.toISOString(),

@@ -394,6 +394,7 @@ export interface ContactProfile {
   contactId: string;
   name: string | null;
   pin: string | null;
+  yearOfBirth: number | null;
   email: string | null;
   metadata: Record<string, string> | null;
   firstSeen: string;
@@ -404,6 +405,7 @@ export interface ContactProfile {
 export interface UpdateContactProfileDto {
   name?: string | null;
   pin?: string | null;
+  yearOfBirth?: number | null;
   email?: string | null;
   metadata?: Record<string, string> | null;
 }

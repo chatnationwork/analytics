@@ -23,6 +23,7 @@ import {
   Phone,
   Mail,
   KeyRound,
+  Calendar,
 } from "lucide-react";
 
 const HISTORY_PAGE_SIZE = 20;
@@ -52,6 +53,7 @@ export function ContactProfilePanel({
   // Editable form state (mirrors profile until save)
   const [editName, setEditName] = useState("");
   const [editPin, setEditPin] = useState("");
+  const [editYearOfBirth, setEditYearOfBirth] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editMetadata, setEditMetadata] = useState<Record<string, string>>({});
   const [newNoteContent, setNewNoteContent] = useState("");
@@ -66,6 +68,9 @@ export function ContactProfilePanel({
       setProfile(data);
       setEditName(data.name ?? "");
       setEditPin(data.pin ?? "");
+      setEditYearOfBirth(
+        data.yearOfBirth != null ? String(data.yearOfBirth) : "",
+      );
       setEditEmail(data.email ?? "");
       setEditMetadata(data.metadata ?? {});
     } catch (e) {
@@ -115,9 +120,24 @@ export function ContactProfilePanel({
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
+      const yob =
+        editYearOfBirth.trim() === ""
+          ? null
+          : parseInt(editYearOfBirth.trim(), 10);
+      if (
+        editYearOfBirth.trim() !== "" &&
+        (yob === null ||
+          Number.isNaN(yob) ||
+          yob < 1900 ||
+          yob > new Date().getFullYear())
+      ) {
+        toast.error("Year of birth must be between 1900 and current year");
+        return;
+      }
       const dto: UpdateContactProfileDto = {
         name: editName.trim() || null,
         pin: editPin.trim() || null,
+        yearOfBirth: yob ?? null,
         email: editEmail.trim() || null,
         metadata: Object.keys(editMetadata).length > 0 ? editMetadata : null,
       };
@@ -149,10 +169,13 @@ export function ContactProfilePanel({
     }
   };
 
+  const profileYob =
+    profile?.yearOfBirth != null ? String(profile.yearOfBirth) : "";
   const hasProfileChanges =
     profile &&
     (editName !== (profile.name ?? "") ||
       editPin !== (profile.pin ?? "") ||
+      editYearOfBirth !== profileYob ||
       editEmail !== (profile.email ?? "") ||
       JSON.stringify(editMetadata) !== JSON.stringify(profile.metadata ?? {}));
 
@@ -230,6 +253,25 @@ export function ContactProfilePanel({
                   value={editPin}
                   onChange={(e) => setEditPin(e.target.value)}
                   placeholder="PIN"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="contact-yob"
+                  className="flex items-center gap-1.5"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  Year of birth
+                </Label>
+                <Input
+                  id="contact-yob"
+                  type="number"
+                  min={1900}
+                  max={new Date().getFullYear()}
+                  value={editYearOfBirth}
+                  onChange={(e) => setEditYearOfBirth(e.target.value)}
+                  placeholder="e.g. 1990"
                   className="h-9"
                 />
               </div>

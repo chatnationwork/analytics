@@ -88,10 +88,7 @@ export class ContactRepository {
     tenantId: string,
     contactId: string,
     data: Partial<
-      Pick<
-        ContactEntity,
-        "name" | "pin" | "yearOfBirth" | "email" | "metadata"
-      >
+      Pick<ContactEntity, "name" | "pin" | "yearOfBirth" | "email" | "metadata">
     >,
   ): Promise<ContactEntity | null> {
     await this.repo.update({ tenantId, contactId }, data);
