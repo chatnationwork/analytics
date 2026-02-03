@@ -80,10 +80,10 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
+          <h3 className="text-lg font-medium leading-6 text-foreground">
             API Keys
           </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage API keys for SDK integration (Write) or API access (Read).
           </p>
         </div>
@@ -153,19 +153,19 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
       )}
 
       {isAdding && !newKey && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-          <h4 className="text-base font-medium mb-4 dark:text-white">
+        <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
+          <h4 className="text-base font-medium mb-4 text-foreground">
             Generate New Key
           </h4>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-foreground">
                 Name
               </label>
               <input
                 {...register("name")}
                 placeholder="e.g. Website SDK"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm py-2 px-3"
+                className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] sm:text-sm py-2 px-3"
               />
               {errors.name && (
                 <p className="text-red-500 text-xs mt-1">
@@ -174,12 +174,12 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-foreground">
                 Type
               </label>
               <select
                 {...register("type")}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm py-2 px-3"
+                className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] sm:text-sm py-2 px-3"
               >
                 <option value="write">Write (SDK Event Tracking)</option>
                 <option value="read">Read (API Access)</option>
@@ -192,7 +192,7 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
                   setIsAdding(false);
                   reset();
                 }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
               >
                 Cancel
               </button>
@@ -213,37 +213,37 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
           <Loader2 className="animate-spin text-[var(--primary)]" size={24} />
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Prefix
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Last Used
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-card divide-y divide-border">
               {keys?.map((key) => (
                 <tr key={key.id} className={!key.isActive ? "opacity-60" : ""}>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-white">
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
                     {key.name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-muted-foreground">
                     {key.keyPrefix}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -262,7 +262,7 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         key.isActive
                           ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                          : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {key.isActive ? "Active" : "Deactivated"}
@@ -301,7 +301,7 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400"
+                    className="px-6 py-8 text-center text-sm text-muted-foreground"
                   >
                     No keys found. Generate one to integrate SDKs.
                   </td>

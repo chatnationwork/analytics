@@ -258,7 +258,7 @@ export default function FunnelPage() {
                       style={{ width: `${Math.max(widthPercent, 2)}%` }}
                     />
                     {index > 0 && dropoff > 0 && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                         -{dropoff}%
                       </div>
                     )}

@@ -172,10 +172,10 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
+          <h3 className="text-lg font-medium leading-6 text-foreground">
             Roles & Permissions
           </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage custom roles and define specific access levels for your team
             members.
           </p>
@@ -195,34 +195,34 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Role Name
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Description
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Permissions
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Type
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-card divide-y divide-border">
             {roles?.map((role) => (
               <tr key={role.id}>
-                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-white">
+                <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
                   {role.name}
                 </td>
                 <td
-                  className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate"
+                  className="px-6 py-4 text-sm text-muted-foreground max-w-xs truncate"
                   title={role.description}
                 >
                   {role.description || "-"}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                <td className="px-6 py-4 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                     {role.permissions?.length || 0} permissions
                   </span>
                 </td>
@@ -241,7 +241,7 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
                   <div className="flex justify-end gap-2">
                     <button
                       onClick={() => handleEdit(role)}
-                      className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                      className="text-muted-foreground hover:text-foreground"
                       title="Edit"
                     >
                       <Edit2 size={16} />
@@ -265,7 +265,7 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
                     )}
                     {role.isSystem && (
                       <button
-                        className="text-gray-400 cursor-not-allowed"
+                        className="text-muted-foreground cursor-not-allowed"
                         title="System roles cannot be deleted directly"
                         disabled
                       >
@@ -296,7 +296,7 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
               <label className="text-sm font-medium">Role Name</label>
               <input
                 {...register("name")}
-                className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700"
+                className="w-full px-3 py-2 border border-input bg-background rounded-md"
                 placeholder="e.g. Content Moderator"
                 disabled={!!editingRole && editingRole.isSystem}
               />
@@ -315,7 +315,7 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
               <label className="text-sm font-medium">Description</label>
               <textarea
                 {...register("description")}
-                className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:border-gray-700 min-h-[80px]"
+                className="w-full px-3 py-2 border border-input bg-background rounded-md min-h-[80px]"
                 placeholder="Describe what this role is for..."
               />
             </div>
@@ -325,7 +325,7 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
               <p className="text-xs text-muted-foreground mb-2">
                 Check each action this role should allow. Save when done.
               </p>
-              <div className="border rounded-md bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700 overflow-hidden">
+              <div className="border border-border rounded-md bg-muted/30 overflow-hidden">
                 {!permissions?.length ? (
                   <p className="text-sm text-muted-foreground p-4">
                     Loading permissions…
@@ -364,7 +364,7 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 border rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+                className="px-4 py-2 border border-border rounded-md hover:bg-muted text-sm text-foreground"
               >
                 Cancel
               </button>

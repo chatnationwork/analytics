@@ -326,7 +326,7 @@ function MessageFunnel({
 }) {
   if (!data.length) {
     return (
-      <div className="text-gray-500 text-sm text-center py-8">
+      <div className="text-muted-foreground text-sm text-center py-8">
         No funnel data available
       </div>
     );

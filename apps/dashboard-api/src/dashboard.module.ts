@@ -50,6 +50,7 @@ import { AgentSystemModule } from "./agent-system/agent-system.module";
 import { TrendsModule } from "./trends/trends.module";
 import { JourneysModule } from "./journeys/journeys.module";
 import { AgentInboxAnalyticsModule } from "./agent-inbox-analytics/agent-inbox-analytics.module";
+import { CsatAnalyticsModule } from "./csat-analytics/csat-analytics.module";
 import { AuditModule } from "./audit/audit.module";
 import { MediaModule } from "./media/media.module";
 import { EmailModule } from "./email/email.module";

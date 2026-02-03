@@ -427,7 +427,7 @@ export function ManageTeamDialog({
           </TabsList>
 
           <TabsContent value="members" className="space-y-4 py-4">
-            <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">
+            <div className="flex justify-between items-center bg-muted/40 p-3 rounded-md">
               <span className="text-sm font-medium">Team Status</span>
               <Button
                 variant="destructive"
@@ -457,7 +457,7 @@ export function ManageTeamDialog({
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${member.isActive ? "bg-primary/10 text-primary" : "bg-gray-100 text-gray-400"}`}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center ${member.isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
                         >
                           <User size={16} />
                         </div>

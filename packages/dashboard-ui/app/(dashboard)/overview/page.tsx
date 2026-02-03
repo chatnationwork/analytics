@@ -337,7 +337,7 @@ function SessionsTrendChart({
 }) {
   if (!data?.length)
     return (
-      <div className="h-48 flex items-center justify-center text-gray-500">
+      <div className="h-48 flex items-center justify-center text-muted-foreground">
         No data available
       </div>
     );
@@ -508,7 +508,7 @@ function ActivityHeatmap({
                       backgroundColor: `rgba(59, 130, 246, ${Math.max(0.1, val / max)})`,
                     }}
                   >
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-white/10">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
                       {days[i]} {j}:00 - {val} sessions
                     </div>
                   </div>
@@ -529,7 +529,7 @@ function PagePathsChart({
 }) {
   if (!data?.length) {
     return (
-      <div className="h-32 flex items-center justify-center text-gray-500">
+      <div className="h-32 flex items-center justify-center text-muted-foreground">
         No page path data available
       </div>
     );
@@ -580,7 +580,7 @@ function DailyActiveUsersChart({
 }) {
   if (!data?.length)
     return (
-      <div className="h-48 flex items-center justify-center text-gray-500">
+      <div className="h-48 flex items-center justify-center text-muted-foreground">
         No data available
       </div>
     );

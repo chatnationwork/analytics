@@ -15,7 +15,6 @@ import {
 import {
   Plus,
   Users,
-  Clock,
   ChevronLeft,
   ChevronRight,
   Circle,
@@ -175,135 +174,21 @@ export default function TeamManagementPage() {
           )}
         </div>
 
-        {/* Agent Status – who is online and session metrics */}
+        {/* Agent Status – single table: status + session history */}
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-foreground">
             Agent Status
           </h3>
           <p className="text-sm text-muted-foreground -mt-4">
-            See who is online/offline, when they logged in/out, and session
-            metrics (chats received, resolved).
+            Session history with current status. Use the dropdown to set an
+            agent online/offline.
           </p>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-muted flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Agents
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {agentsError && (
-                <p className="text-sm text-destructive py-4">
-                  {agentsError instanceof Error
-                    ? agentsError.message
-                    : "Failed to load agents."}
-                </p>
-              )}
-              {agentsLoading && (
-                <p className="text-sm text-muted py-4">Loading agents…</p>
-              )}
-              {!agentsLoading && !agentsError && agents && (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Current session started</TableHead>
-                      <TableHead>Last session ended</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {agents.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={5}
-                          className="text-center py-8 text-muted"
-                        >
-                          No agents found. Add team members to see them here.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      agents.map((a: AgentStatusItem) => (
-                        <TableRow key={a.agentId}>
-                          <TableCell className="font-medium">
-                            {a.name || "—"}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {a.email}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  a.status === "online"
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                    : a.status === "busy"
-                                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                                      : "bg-muted text-muted-foreground"
-                                }`}
-                              >
-                                <Circle
-                                  className={`h-2 w-2 fill-current ${
-                                    a.status === "online"
-                                      ? "text-green-600"
-                                      : a.status === "busy"
-                                        ? "text-amber-600"
-                                        : ""
-                                  }`}
-                                />
-                                {a.status}
-                              </span>
-                              <select
-                                aria-label={`Set ${a.name || a.email} status`}
-                                value={
-                                  a.status === "online" ? "online" : "offline"
-                                }
-                                onChange={(e) => {
-                                  const v = e.target.value as
-                                    | "online"
-                                    | "offline";
-                                  if (
-                                    v !==
-                                    (a.status === "online"
-                                      ? "online"
-                                      : "offline")
-                                  )
-                                    handleSetPresence(a.agentId, v);
-                                }}
-                                disabled={presenceUpdating === a.agentId}
-                                className="text-sm border rounded px-2 py-1 bg-background disabled:opacity-50"
-                              >
-                                <option value="online">Online</option>
-                                <option value="offline">Offline</option>
-                              </select>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {a.currentSessionStartedAt
-                              ? formatDate(a.currentSessionStartedAt)
-                              : "—"}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {a.lastSessionEndedAt
-                              ? formatDate(a.lastSessionEndedAt)
-                              : "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-muted flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Session history
+                Agent status & session history
               </CardTitle>
               {agents && agents.length > 0 && (
                 <select
@@ -318,113 +203,187 @@ export default function TeamManagementPage() {
                   <option value="">All agents</option>
                   {agents.map((a: AgentStatusItem) => (
                     <option key={a.agentId} value={a.agentId}>
-                      {a.name || a.email}
+                      {a.name || a.agentId.slice(0, 8)}
                     </option>
                   ))}
                 </select>
               )}
             </CardHeader>
             <CardContent>
-              {sessionsError && (
+              {(agentsError || sessionsError) && (
                 <p className="text-sm text-destructive py-4">
-                  {sessionsError instanceof Error
-                    ? sessionsError.message
-                    : "Failed to load sessions."}
+                  {agentsError instanceof Error
+                    ? agentsError.message
+                    : sessionsError instanceof Error
+                      ? sessionsError.message
+                      : "Failed to load data."}
                 </p>
               )}
-              {sessionsLoading && (
-                <p className="text-sm text-muted py-4">Loading sessions…</p>
+              {(agentsLoading || sessionsLoading) && (
+                <p className="text-sm text-muted-foreground py-4">Loading…</p>
               )}
-              {!sessionsLoading && !sessionsError && sessionsData && (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Agent</TableHead>
-                        <TableHead>Started</TableHead>
-                        <TableHead>Ended</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead className="text-center">
-                          <MessageSquare className="h-4 w-4 inline mr-1" />
-                          Chats received
-                        </TableHead>
-                        <TableHead className="text-center">
-                          <CheckCircle className="h-4 w-4 inline mr-1" />
-                          Chats resolved
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sessionsData.data.length === 0 ? (
+              {!agentsLoading &&
+                !sessionsLoading &&
+                !agentsError &&
+                !sessionsError &&
+                agents &&
+                sessionsData && (
+                  <>
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell
-                            colSpan={6}
-                            className="text-center py-8 text-muted"
-                          >
-                            No sessions yet. Agents appear here when they go
-                            online and then offline.
-                          </TableCell>
+                          <TableHead>Agent</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Started</TableHead>
+                          <TableHead>Ended</TableHead>
+                          <TableHead>Duration</TableHead>
+                          <TableHead className="text-center">
+                            <MessageSquare className="h-4 w-4 inline mr-1" />
+                            Chats received
+                          </TableHead>
+                          <TableHead className="text-center">
+                            <CheckCircle className="h-4 w-4 inline mr-1" />
+                            Chats resolved
+                          </TableHead>
                         </TableRow>
-                      ) : (
-                        sessionsData.data.map((s: AgentSessionWithMetrics) => (
-                          <TableRow key={s.id}>
-                            <TableCell className="font-medium">
-                              {s.agentName || s.agentId.slice(0, 8)}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {formatDate(s.startedAt)}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {s.endedAt ? formatDate(s.endedAt) : "Online"}
-                            </TableCell>
-                            <TableCell>
-                              {formatDuration(s.durationMinutes)}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {s.chatsReceived}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {s.chatsResolved}
+                      </TableHeader>
+                      <TableBody>
+                        {sessionsData.data.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={7}
+                              className="text-center py-8 text-muted-foreground"
+                            >
+                              No sessions yet. Agents appear here when they go
+                              online and then offline.
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                  {sessionsData.data.length > 0 && (
-                    <div className="flex items-center justify-between mt-4">
-                      <p className="text-sm text-muted">
-                        Page {sessionPage} of {totalSessionPages} ·{" "}
-                        {sessionsData.total} total
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={!canPrevSession}
-                          onClick={() =>
-                            setSessionPage((p) => Math.max(1, p - 1))
-                          }
-                        >
-                          <ChevronLeft className="h-4 w-4" /> Previous
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={!canNextSession}
-                          onClick={() =>
-                            setSessionPage((p) =>
-                              Math.min(totalSessionPages, p + 1),
-                            )
-                          }
-                        >
-                          Next <ChevronRight className="h-4 w-4" />
-                        </Button>
+                        ) : (
+                          sessionsData.data.map(
+                            (s: AgentSessionWithMetrics) => {
+                              const agent = agents.find(
+                                (a: AgentStatusItem) => a.agentId === s.agentId,
+                              );
+                              const status = agent?.status ?? "—";
+                              const isOnline = status === "online";
+                              return (
+                                <TableRow key={s.id}>
+                                  <TableCell className="font-medium">
+                                    {s.agentName ||
+                                      agent?.name ||
+                                      s.agentId.slice(0, 8)}
+                                  </TableCell>
+                                  <TableCell>
+                                    {agent ? (
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                            isOnline
+                                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                                              : status === "busy"
+                                                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                                                : "bg-muted text-muted-foreground"
+                                          }`}
+                                        >
+                                          <Circle
+                                            className={`h-2 w-2 fill-current ${
+                                              isOnline
+                                                ? "text-green-600"
+                                                : status === "busy"
+                                                  ? "text-amber-600"
+                                                  : ""
+                                            }`}
+                                          />
+                                          {status}
+                                        </span>
+                                        <select
+                                          aria-label={`Set ${s.agentName || agent?.name} status`}
+                                          value={
+                                            isOnline ? "online" : "offline"
+                                          }
+                                          onChange={(e) => {
+                                            const v = e.target.value as
+                                              | "online"
+                                              | "offline";
+                                            if (
+                                              v !==
+                                              (isOnline ? "online" : "offline")
+                                            )
+                                              handleSetPresence(s.agentId, v);
+                                          }}
+                                          disabled={
+                                            presenceUpdating === s.agentId
+                                          }
+                                          className="text-sm border rounded px-2 py-1 bg-background disabled:opacity-50"
+                                        >
+                                          <option value="online">Online</option>
+                                          <option value="offline">
+                                            Offline
+                                          </option>
+                                        </select>
+                                      </div>
+                                    ) : (
+                                      "—"
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">
+                                    {formatDate(s.startedAt)}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">
+                                    {s.endedAt
+                                      ? formatDate(s.endedAt)
+                                      : "Online"}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatDuration(s.durationMinutes)}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {s.chatsReceived}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {s.chatsResolved}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            },
+                          )
+                        )}
+                      </TableBody>
+                    </Table>
+                    {sessionsData.data.length > 0 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <p className="text-sm text-muted-foreground">
+                          Page {sessionPage} of {totalSessionPages} ·{" "}
+                          {sessionsData.total} total
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!canPrevSession}
+                            onClick={() =>
+                              setSessionPage((p) => Math.max(1, p - 1))
+                            }
+                          >
+                            <ChevronLeft className="h-4 w-4" /> Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!canNextSession}
+                            onClick={() =>
+                              setSessionPage((p) =>
+                                Math.min(totalSessionPages, p + 1),
+                              )
+                            }
+                          >
+                            Next <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
+                    )}
+                  </>
+                )}
             </CardContent>
           </Card>
         </div>
