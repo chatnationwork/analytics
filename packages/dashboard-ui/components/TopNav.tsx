@@ -26,6 +26,9 @@ import {
   Clock,
   Shield,
   UserCircle,
+  Brain,
+  FileText,
+  Star,
 } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { usePermission } from "@/components/auth/PermissionContext";
@@ -52,6 +55,9 @@ const navGroups = [
       { href: "/whatsapp-analytics", label: "WhatsApp", icon: MessageCircle },
       { href: "/whatsapp", label: "Campaigns", icon: Briefcase },
       { href: "/agent-analytics", label: "Agent Analytics", icon: BarChart2 },
+      { href: "/ai-analytics", label: "AI & Intents", icon: Brain },
+      { href: "/wrap-up-analytics", label: "Wrap-up Reports", icon: FileText },
+      { href: "/csat-analytics", label: "CSAT", icon: Star },
       { href: "/events", label: "Live Events", icon: Activity },
       { href: "/audit-logs", label: "Audit logs", icon: ShieldCheck },
     ],

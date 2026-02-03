@@ -1,4 +1,16 @@
-const API_BASE_URL = ""; // Relative path for proxy
+/** API base URL. When NEXT_PUBLIC_API_URL is set but same-origin, use "" to avoid CORS. */
+function getApiBaseUrl(): string {
+  const env = process.env.NEXT_PUBLIC_API_URL ?? "";
+  if (typeof window === "undefined") return env;
+  if (!env) return "";
+  try {
+    const u = new URL(env);
+    if (window.location.origin === u.origin) return "";
+  } catch {
+    /* ignore */
+  }
+  return env;
+}
 
 interface OverviewData {
   totalSessions: number;
@@ -98,7 +110,7 @@ export async function fetchWithAuth<T = any>(
   url: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}/api/dashboard${url}`, {
+  const res = await fetch(`${getApiBaseUrl()}/api/dashboard${url}`, {
     ...options,
     credentials: "include",
     headers: {
@@ -139,7 +151,7 @@ export async function fetchWithAuthFull<T = unknown>(
   url: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}/api/dashboard${url}`, {
+  const res = await fetch(`${getApiBaseUrl()}/api/dashboard${url}`, {
     ...options,
     credentials: "include",
     headers: {

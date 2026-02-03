@@ -27,11 +27,9 @@ import {
   getHandoffByStep,
   getHandoffReasons,
   getTimeToHandoff,
-  getAgentPerformance,
   type HandoffTrendDataPoint,
   type HandoffByStepItem,
   type HandoffReasonItem,
-  type AgentPerformanceItem,
 } from "@/lib/journeys-api";
 
 type Granularity = "day" | "week" | "month";
@@ -372,52 +370,6 @@ function HandoffReasonsChart({ data }: { data: HandoffReasonItem[] }) {
   );
 }
 
-// Agent Performance Table
-function AgentPerformanceTable({ data }: { data: AgentPerformanceItem[] }) {
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex h-32 items-center justify-center text-muted-foreground">
-        No agent data available
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="pb-2 text-left text-xs font-medium text-muted-foreground uppercase">
-              Agent ID
-            </th>
-            <th className="pb-2 text-right text-xs font-medium text-muted-foreground uppercase">
-              Handoffs
-            </th>
-            <th className="pb-2 text-right text-xs font-medium text-muted-foreground uppercase">
-              Sessions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.slice(0, 10).map((agent, i) => (
-            <tr key={i} className="border-b border-border/50 last:border-0">
-              <td className="py-2 text-sm text-foreground font-mono">
-                {agent.agentId.slice(0, 8)}...
-              </td>
-              <td className="py-2 text-right text-sm text-muted-foreground">
-                {agent.totalHandoffs}
-              </td>
-              <td className="py-2 text-right text-sm text-muted-foreground">
-                {agent.uniqueSessions}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // =============================================================================
 // MAIN PAGE COMPONENT
 // =============================================================================
@@ -454,17 +406,11 @@ export default function JourneysPage() {
     queryFn: () => getTimeToHandoff(granularity, periods),
   });
 
-  const agentPerformanceQuery = useQuery({
-    queryKey: ["journeys-agent-performance", granularity, periods],
-    queryFn: () => getAgentPerformance(granularity, periods),
-  });
-
   const overview = overviewQuery.data;
   const handoffTrend = handoffTrendQuery.data;
   const handoffByStep = handoffByStepQuery.data;
   const handoffReasons = handoffReasonsQuery.data;
   const timeToHandoff = timeToHandoffQuery.data;
-  const agentPerformance = agentPerformanceQuery.data;
 
   const isLoading =
     overviewQuery.isLoading ||
@@ -658,36 +604,16 @@ export default function JourneysPage() {
               </div>
             </div>
 
-            {/* Agent Performance */}
-            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-base font-semibold text-foreground">
-                    Agent Performance
-                  </h2>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    Handoff distribution across agents
-                  </p>
-                </div>
-                {agentPerformance?.summary && (
-                  <div className="flex gap-6 text-sm text-muted-foreground">
-                    <span>
-                      <strong className="text-foreground">
-                        {agentPerformance.summary.totalAgents}
-                      </strong>{" "}
-                      agents
-                    </span>
-                    <span>
-                      <strong className="text-foreground">
-                        {agentPerformance.summary.avgHandoffsPerAgent}
-                      </strong>{" "}
-                      avg/agent
-                    </span>
-                  </div>
-                )}
-              </div>
-              <AgentPerformanceTable data={agentPerformance?.data || []} />
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Agent performance metrics are in{" "}
+              <a
+                href="/agent-analytics"
+                className="text-primary hover:underline"
+              >
+                Agent Analytics
+              </a>
+              .
+            </p>
           </>
         )}
       </div>

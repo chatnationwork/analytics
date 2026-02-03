@@ -212,10 +212,15 @@ export default function EventsPage() {
                   (error.message.toLowerCase().includes("fetch") ||
                     error.message.toLowerCase().includes("network")) && (
                     <p className="mt-2 text-muted-foreground">
-                      Check that the API is reachable (
+                      If the dashboard and API are on the same domain, leave{" "}
+                      <code className="text-foreground">
+                        NEXT_PUBLIC_API_URL
+                      </code>{" "}
+                      unset so requests use same origin. Otherwise ensure the
+                      API at{" "}
                       {typeof window !== "undefined" &&
-                        (process.env.NEXT_PUBLIC_API_URL || "same origin")}
-                      ) and CORS allows your origin.
+                        (process.env.NEXT_PUBLIC_API_URL || "same origin")}{" "}
+                      is reachable and CORS allows your origin.
                     </p>
                   )}
               </div>
