@@ -23,6 +23,7 @@ import {
   Loader2,
   UserX,
   UserCheck,
+  Trash2,
 } from "lucide-react";
 import {
   Dialog,
