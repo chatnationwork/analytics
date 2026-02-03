@@ -5,13 +5,13 @@ export class AddTenantMembershipIsActive1769521800000 implements MigrationInterf
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "tenant_memberships" ADD COLUMN "isActive" boolean NOT NULL DEFAULT true`,
+      `ALTER TABLE "tenant_memberships" ADD COLUMN IF NOT EXISTS "isActive" boolean NOT NULL DEFAULT true`,
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "tenant_memberships" DROP COLUMN "isActive"`,
+      `ALTER TABLE "tenant_memberships" DROP COLUMN IF EXISTS "isActive"`,
     );
   }
 }
