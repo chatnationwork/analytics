@@ -23,6 +23,33 @@ import { TenantRepository, UserRepository } from "@lib/database";
 import { TenantContextService } from "./tenant-context.service";
 import { MembershipRole } from "@lib/database/entities/tenant-membership.entity";
 
+function deepMerge(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Record<string, unknown> {
+  const out = { ...target };
+  for (const key of Object.keys(source)) {
+    const t = out[key];
+    const s = source[key];
+    if (
+      s !== null &&
+      typeof s === "object" &&
+      !Array.isArray(s) &&
+      t !== null &&
+      typeof t === "object" &&
+      !Array.isArray(t)
+    ) {
+      out[key] = deepMerge(
+        t as Record<string, unknown>,
+        s as Record<string, unknown>,
+      );
+    } else {
+      out[key] = s;
+    }
+  }
+  return out;
+}
+
 @Controller("tenants")
 @UseGuards(JwtAuthGuard)
 export class TenantsController {
@@ -64,6 +91,7 @@ export class TenantsController {
 
   /**
    * Update current tenant settings.
+   * Merges body.settings into existing tenant.settings so partial updates do not wipe other keys.
    */
   @Patch("current")
   async updateCurrent(
@@ -73,10 +101,24 @@ export class TenantsController {
     const context = await this.tenantContextService.getTenantForUser(user.id);
 
     if (context.role !== "super_admin" && context.role !== "admin") {
-      throw new Error("Insufficient permissions");
+      throw new ForbiddenException("Insufficient permissions");
     }
 
-    const updated = await this.tenantRepository.update(context.tenantId, body);
+    const payload: { name?: string; settings?: Record<string, unknown> } = {
+      ...(body.name !== undefined && { name: body.name }),
+    };
+    if (body.settings !== undefined) {
+      const existing = (context.tenant.settings ?? {}) as Record<
+        string,
+        unknown
+      >;
+      payload.settings = deepMerge(existing, body.settings);
+    }
+
+    const updated = await this.tenantRepository.update(
+      context.tenantId,
+      payload,
+    );
     return {
       id: updated?.id,
       name: updated?.name,

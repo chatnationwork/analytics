@@ -2,18 +2,18 @@
  * =============================================================================
  * TENANT ENTITY
  * =============================================================================
- * 
+ *
  * Represents an organization/workspace in the multi-tenant system.
- * 
+ *
  * TABLE: tenants
- * 
+ *
  * MULTI-TENANCY MODEL:
  * -------------------
  * Tenant (Organization)
  *   └── Members (Users with roles)
  *   └── Projects (Analytics projects)
  *   └── CRM Integrations (WhatsApp CRM connections)
- * 
+ *
  * DEPLOYMENT MODES:
  * ----------------
  * - SaaS: Multiple tenants share the platform
@@ -27,7 +27,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-} from 'typeorm';
+} from "typeorm";
+
+/** Navigation label overrides keyed by route path (e.g. "/agent-inbox" -> "Inbox") */
+export type NavLabels = Record<string, string>;
 
 /** White-label/branding settings for a tenant */
 export interface TenantSettings {
@@ -43,17 +46,19 @@ export interface TenantSettings {
   timezone?: string;
   /** Session management configuration */
   session?: SessionSettings;
+  /** Custom labels for sidebar nav items (route path -> label) */
+  navLabels?: NavLabels;
 }
 
 /** Configuration for session management */
 export interface SessionSettings {
   /** Maximum session duration in minutes. Default: 10080 (7 days) */
   maxDurationMinutes: number;
-  
+
   /** Inactivity timeout in minutes. Default: 30 */
   inactivityTimeoutMinutes: number;
-  
-  /** 
+
+  /**
    * Timestamp when sessions were last revoked/reset.
    * Any token issued before this time will be considered invalid.
    */
@@ -61,15 +66,15 @@ export interface SessionSettings {
 }
 
 /** Available subscription plans */
-export type TenantPlan = 'free' | 'starter' | 'pro' | 'enterprise';
+export type TenantPlan = "free" | "starter" | "pro" | "enterprise";
 
-@Entity('tenants')
+@Entity("tenants")
 export class TenantEntity {
   /** Auto-generated tenant ID */
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  /** 
+  /**
    * URL-friendly unique identifier.
    * Used in URLs like /t/acme-corp/dashboard
    */
@@ -82,14 +87,14 @@ export class TenantEntity {
   name: string;
 
   /** Subscription plan */
-  @Column({ default: 'free' })
+  @Column({ default: "free" })
   plan: TenantPlan;
 
-  /** 
+  /**
    * Flexible settings as JSON.
    * Includes white-label branding options.
    */
-  @Column('jsonb', { nullable: true })
+  @Column("jsonb", { nullable: true })
   settings: TenantSettings | null;
 
   /** Whether the tenant is active */
@@ -97,10 +102,10 @@ export class TenantEntity {
   isActive: boolean;
 
   /** When the tenant was created */
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
   /** When the tenant was last updated */
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 }

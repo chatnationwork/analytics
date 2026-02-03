@@ -310,14 +310,32 @@ export const api = {
   },
 
   /**
-   * Get current tenant context
+   * Get current tenant context (includes settings e.g. navLabels).
    */
   async getCurrentTenant(): Promise<{
     tenantId: string;
     name: string;
     slug: string;
+    plan?: string;
+    role?: string;
+    settings?: { navLabels?: Record<string, string> } & Record<string, unknown>;
   }> {
     return fetchWithAuth("/tenants/current");
+  },
+
+  /**
+   * Update current tenant settings (merged with existing on backend).
+   */
+  async updateTenantSettings(
+    settings: {
+      navLabels?: Record<string, string>;
+    } & Record<string, unknown>,
+  ): Promise<{ settings?: Record<string, unknown> }> {
+    return fetchWithAuth("/tenants/current", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings }),
+    });
   },
 
   /**

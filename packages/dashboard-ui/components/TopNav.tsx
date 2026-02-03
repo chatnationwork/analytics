@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronLeft,
@@ -29,9 +30,11 @@ import {
   Brain,
   FileText,
   Star,
+  List,
 } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { usePermission } from "@/components/auth/PermissionContext";
+import { api } from "@/lib/api";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 const SIDEBAR_GROUPS_KEY = "sidebar-groups-open";
@@ -96,6 +99,12 @@ const navGroups = [
         icon: Shield,
         permission: "settings.manage",
       },
+      {
+        href: "/settings/navigation",
+        label: "Navigation labels",
+        icon: List,
+        permission: "settings.manage",
+      },
     ],
   },
   {
@@ -138,6 +147,13 @@ export function TopNav() {
     loadGroupOpenState(),
   );
   const { can, isLoading } = usePermission();
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant"],
+    queryFn: () => api.getCurrentTenant(),
+  });
+  const navLabels = tenant?.settings?.navLabels ?? {};
+  const getLabel = (href: string, defaultLabel: string) =>
+    (navLabels[href]?.trim() && navLabels[href]) || defaultLabel;
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -260,13 +276,14 @@ export function TopNav() {
                         pathname === item.href ||
                         pathname.startsWith(item.href + "/");
                       const Icon = item.icon;
+                      const displayLabel = getLabel(item.href, item.label);
                       const linkContent = (
                         <>
                           <Icon
                             className={`w-5 h-5 shrink-0 ${collapsed ? "mx-auto" : ""}`}
                           />
                           {!collapsed && (
-                            <span className="truncate">{item.label}</span>
+                            <span className="truncate">{displayLabel}</span>
                           )}
                         </>
                       );
@@ -274,7 +291,7 @@ export function TopNav() {
                         <Link
                           key={item.href}
                           href={item.href}
-                          title={collapsed ? item.label : undefined}
+                          title={collapsed ? displayLabel : undefined}
                           className={`
                             flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                             ${collapsed ? "justify-center" : ""}
