@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import {
   InboxSessionEntity,
   MessageEntity,
@@ -46,12 +46,13 @@ export class MessageStorageService {
         `Storing message event: ${event.event_name} for ${contactId}`,
       );
 
-      // 1. Get or Create Session
+      // 1. Get or Create Session – reuse existing pending session so we never open a new chat while one is open
       let session = await this.sessionRepo.findOne({
-        where: [
-          { tenantId, contactId, status: SessionStatus.ASSIGNED },
-          { tenantId, contactId, status: SessionStatus.UNASSIGNED },
-        ],
+        where: {
+          tenantId,
+          contactId,
+          status: In([SessionStatus.ASSIGNED, SessionStatus.UNASSIGNED]),
+        },
         order: { lastMessageAt: "DESC" },
       });
 

@@ -50,7 +50,7 @@ import {
   toCanonicalContactId,
 } from "@lib/database";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { GeoipEnricher } from "../enrichers/geoip.enricher";
 import { UseragentEnricher } from "../enrichers/useragent.enricher";
 
@@ -289,28 +289,18 @@ export class EventProcessorService {
       content = `[${props.type.toUpperCase()}]`; // Placeholder for media
     }
 
-    // Get or Create Session
-    // We can't reuse InboxService logic directly as it's in another app, so we implement simplified logic here.
+    // Get or Create Session – reuse existing pending session so we never open a new chat while one is open
     let session = await this.inboxSessionRepo.findOne({
       where: {
         tenantId: event.tenantId,
         contactId,
-        status: SessionStatus.ASSIGNED, // Prioritize existing assigned sessions
+        status: In([SessionStatus.ASSIGNED, SessionStatus.UNASSIGNED]),
       },
+      order: { lastMessageAt: "DESC" },
     });
 
     if (!session) {
-      session = await this.inboxSessionRepo.findOne({
-        where: {
-          tenantId: event.tenantId,
-          contactId,
-          status: SessionStatus.UNASSIGNED,
-        },
-      });
-    }
-
-    if (!session) {
-      // Create new UNASSIGNED session
+      // Create new UNASSIGNED session only when contact has no pending session
       session = this.inboxSessionRepo.create({
         tenantId: event.tenantId,
         contactId,

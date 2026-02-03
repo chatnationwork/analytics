@@ -16,7 +16,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
-import { Repository, LessThan } from "typeorm";
+import { Repository, LessThan, In } from "typeorm";
 import {
   InboxSessionEntity,
   SessionStatus,
@@ -92,7 +92,8 @@ export class InboxService {
 
   /**
    * Gets or creates a session for a contact.
-   * If an active (unassigned/assigned) session exists, returns it.
+   * If the contact already has a pending (unassigned/assigned) session, we reuse it
+   * so we never open a new chat while one is still open.
    * Otherwise, creates a new one.
    */
   async getOrCreateSession(
@@ -104,23 +105,14 @@ export class InboxService {
   ): Promise<InboxSessionEntity> {
     const normalizedContactId = this.sanitizeContactId(contactId);
 
-    let session = await this.sessionRepo.findOne({
+    const session = await this.sessionRepo.findOne({
       where: {
         tenantId,
         contactId: normalizedContactId,
-        status: SessionStatus.ASSIGNED,
+        status: In([SessionStatus.ASSIGNED, SessionStatus.UNASSIGNED]),
       },
+      order: { lastMessageAt: "DESC" },
     });
-
-    if (!session) {
-      session = await this.sessionRepo.findOne({
-        where: {
-          tenantId,
-          contactId: normalizedContactId,
-          status: SessionStatus.UNASSIGNED,
-        },
-      });
-    }
 
     if (session) {
       return session;
