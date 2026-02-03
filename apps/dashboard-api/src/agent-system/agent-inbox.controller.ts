@@ -29,7 +29,7 @@ import {
   WhatsappService,
   WhatsAppSendPayload,
 } from "../whatsapp/whatsapp.service";
-import { MessageDirection, MessageType } from "@lib/database";
+import { MessageDirection, MessageType, Permission } from "@lib/database";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { getRequestContext, type RequestLike } from "../request-context";
 
@@ -103,9 +103,23 @@ export class AgentInboxController {
    */
   @Get()
   async getInbox(
-    @Request() req: { user: { id: string; tenantId: string } },
+    @Request()
+    req: {
+      user: {
+        id: string;
+        tenantId: string;
+        permissions?: { global?: string[] };
+      };
+    },
     @Query("filter") filter?: InboxFilter,
   ) {
+    const canViewAll =
+      req.user.permissions?.global?.includes(
+        Permission.SESSION_VIEW_ALL as string,
+      ) ?? false;
+    if (canViewAll) {
+      return this.inboxService.getTenantInbox(req.user.tenantId, filter);
+    }
     return this.inboxService.getAgentInbox(
       req.user.tenantId,
       req.user.id,

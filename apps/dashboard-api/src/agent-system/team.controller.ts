@@ -218,6 +218,40 @@ export class TeamController {
   /**
    * Disable a team (soft delete)
    */
+  /**
+   * Set a team as the default for the tenant (used when handover has no teamId).
+   */
+  @Patch(":teamId/set-default")
+  async setDefaultTeam(
+    @Request() req: { user: { id: string; tenantId: string } },
+    @Param("teamId") teamId: string,
+    @Req() expressReq: RequestLike,
+  ) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) {
+      throw new NotFoundException("Team not found");
+    }
+    if (team.tenantId !== req.user.tenantId) {
+      throw new ForbiddenException("Access denied");
+    }
+    await this.teamRepo.update(
+      { tenantId: req.user.tenantId },
+      { isDefault: false },
+    );
+    await this.teamRepo.update(teamId, { isDefault: true });
+    await this.auditService.log({
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: "user",
+      action: AuditActions.CONFIG_TEAM_UPDATED,
+      resourceType: "team",
+      resourceId: teamId,
+      details: { name: team.name, setDefault: true },
+      requestContext: getRequestContext(expressReq),
+    });
+    return { success: true, message: "Default team updated" };
+  }
+
   @Patch(":teamId/disable")
   async disableTeam(
     @Request() req: { user: { id: string; tenantId: string } },

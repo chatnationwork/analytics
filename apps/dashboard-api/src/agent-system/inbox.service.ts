@@ -224,6 +224,55 @@ export class InboxService {
   }
 
   /**
+   * Get all inbox sessions for a tenant (assigned and unassigned).
+   * Used when the user has session.view_all (e.g. super admin).
+   */
+  async getTenantInbox(
+    tenantId: string,
+    filter?: InboxFilter,
+  ): Promise<InboxSessionEntity[]> {
+    const query = this.sessionRepo
+      .createQueryBuilder("session")
+      .where("session.tenantId = :tenantId", { tenantId });
+
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    switch (filter) {
+      case "all":
+        break;
+      case "pending":
+        query.andWhere("session.status = :status", {
+          status: SessionStatus.ASSIGNED,
+        });
+        query.andWhere(
+          "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
+          { cutoff: twentyFourHoursAgo },
+        );
+        break;
+      case "resolved":
+        query.andWhere("session.status = :status", {
+          status: SessionStatus.RESOLVED,
+        });
+        break;
+      case "expired":
+        query.andWhere("session.status = :status", {
+          status: SessionStatus.ASSIGNED,
+        });
+        query.andWhere("session.lastMessageAt <= :cutoff", {
+          cutoff: twentyFourHoursAgo,
+        });
+        break;
+      default:
+        query.andWhere("session.status != :resolved", {
+          resolved: SessionStatus.RESOLVED,
+        });
+    }
+
+    query.orderBy("session.lastMessageAt", "DESC");
+    return query.getMany();
+  }
+
+  /**
    * Get unassigned sessions for a team or tenant.
    */
   async getUnassignedSessions(

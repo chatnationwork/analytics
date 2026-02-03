@@ -4,28 +4,30 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-} from 'typeorm';
+} from "typeorm";
 
 export enum Permission {
   // Global Permissions
-  ANALYTICS_VIEW = 'analytics.view',
-  ANALYTICS_EXPORT = 'analytics.export',
-  SETTINGS_MANAGE = 'settings.manage',
-  USERS_MANAGE = 'users.manage',
-  TEAMS_MANAGE = 'teams.manage',
-  AUDIT_VIEW = 'audit.view',
+  ANALYTICS_VIEW = "analytics.view",
+  ANALYTICS_EXPORT = "analytics.export",
+  SETTINGS_MANAGE = "settings.manage",
+  USERS_MANAGE = "users.manage",
+  TEAMS_MANAGE = "teams.manage",
+  AUDIT_VIEW = "audit.view",
 
   // Team Permissions (Scoped)
-  TEAM_SETTINGS = 'team.settings',
-  TEAM_ANALYTICS = 'team.analytics',
-  SESSION_VIEW = 'session.view',
-  SESSION_MANAGE = 'session.manage',
-  AGENT_ASSIGN = 'agent.assign',
+  TEAM_SETTINGS = "team.settings",
+  TEAM_ANALYTICS = "team.analytics",
+  SESSION_VIEW = "session.view",
+  SESSION_MANAGE = "session.manage",
+  AGENT_ASSIGN = "agent.assign",
+  /** Super admins: view all chats (assigned and unassigned) in the inbox */
+  SESSION_VIEW_ALL = "session.view_all",
 }
 
-@Entity('roles')
+@Entity("roles")
 export class RoleEntity {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
   @Column()
@@ -42,12 +44,12 @@ export class RoleEntity {
   isSystem: boolean;
 
   /** List of permission strings */
-  @Column({ type: 'jsonb', default: [] })
+  @Column({ type: "jsonb", default: [] })
   permissions: string[];
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 }

@@ -21,6 +21,8 @@ export interface Team {
   id: string;
   name: string;
   description?: string;
+  /** When true, handovers with no teamId use this team's members */
+  isDefault?: boolean;
   memberCount?: number;
   schedule?: {
     timezone: string;
@@ -257,18 +259,28 @@ export const agentApi = {
   disableTeam: async (teamId: string) => {
     return fetchWithAuth(`/agent/teams/${teamId}/disable`, {
       method: "PATCH",
+      body: JSON.stringify({}),
+    });
+  },
+
+  setDefaultTeam: async (teamId: string) => {
+    return fetchWithAuth(`/agent/teams/${teamId}/set-default`, {
+      method: "PATCH",
+      body: JSON.stringify({}),
     });
   },
 
   disableTeamMember: async (teamId: string, userId: string) => {
     return fetchWithAuth(`/agent/teams/${teamId}/members/${userId}/disable`, {
       method: "PATCH",
+      body: JSON.stringify({}),
     });
   },
 
   enableTeamMember: async (teamId: string, userId: string) => {
     return fetchWithAuth(`/agent/teams/${teamId}/members/${userId}/enable`, {
       method: "PATCH",
+      body: JSON.stringify({}),
     });
   },
 

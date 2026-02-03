@@ -297,87 +297,68 @@ export class AssignmentService {
   }
 
   /**
-   * Gets available agents for assignment using "Waterfall" Logic.
-   * 1. Check Team Members
-   * 2. Check General Members (Role: MEMBER)
-   * 3. Check Admins
-   * 4. Check Super Admins
-   *
-   * Ignores "Online" status and Capacity for now (MVP).
+   * Gets available agents for assignment.
+   * - When teamId is provided: use that team's members.
+   * - When no teamId: use default team with members, else first team with members; if no teams or none have members, return [] (do not assign).
    */
   private async getAvailableAgents(
     tenantId: string,
     teamId?: string,
   ): Promise<string[]> {
-    // 1. Fetch Config
-    const config = await this.configRepo.findOne({
-      where: { tenantId, teamId: undefined, enabled: true },
-    });
-
-    // Default Waterfall Settings
-    const waterfall = config?.settings?.waterfall || {
-      levels: ["team", "member", "admin", "super_admin"],
-      enabled: true,
-    };
-
-    // Ordered levels to check
-    const levelsToCheck = waterfall.levels || [
-      "team",
-      "member",
-      "admin",
-      "super_admin",
-    ];
-
-    for (const level of levelsToCheck) {
-      let foundIds: string[] = [];
-
-      if (level === "team" && teamId) {
-        const teamMembers = await this.memberRepo.find({
-          where: { teamId },
-          select: ["userId"],
-        });
-        foundIds = teamMembers.map((m) => m.userId);
-        if (foundIds.length > 0)
-          this.logger.log(`Found ${foundIds.length} agents in Team ${teamId}`);
-      } else if (level !== "team") {
-        // Treat level as role
-        const role = level as MembershipRole;
-        const members = await this.tenantMembershipRepo.find({
-          where: { tenantId, role },
-          select: ["userId"],
-        });
-        foundIds = members.map((m) => m.userId);
-        if (foundIds.length > 0)
-          this.logger.log(`Found ${foundIds.length} users with role ${role}`);
-      }
-
-      if (foundIds.length > 0) {
-        return foundIds;
-      }
-    }
-
-    // When no teamId was sent: fallback to default team's members so handovers still get assigned
-    if (!teamId) {
-      const defaultTeam = await this.teamRepo.findOne({
-        where: { tenantId, isDefault: true },
-        select: ["id"],
+    if (teamId) {
+      const teamMembers = await this.memberRepo.find({
+        where: { teamId },
+        select: ["userId"],
       });
-      if (defaultTeam) {
-        const teamMembers = await this.memberRepo.find({
-          where: { teamId: defaultTeam.id },
-          select: ["userId"],
-        });
-        const ids = teamMembers.map((m) => m.userId);
-        if (ids.length > 0) {
-          this.logger.log(
-            `No agents from tenant roles; using default team ${defaultTeam.id} (${ids.length} members)`,
-          );
-          return ids;
-        }
+      const ids = teamMembers.map((m) => m.userId);
+      if (ids.length > 0) {
+        this.logger.log(`Found ${ids.length} agents in Team ${teamId}`);
+        return ids;
+      }
+      return [];
+    }
+
+    // No team specified: default team with members, else first team with members
+    const defaultTeam = await this.teamRepo.findOne({
+      where: { tenantId, isDefault: true, isActive: true },
+      select: ["id"],
+    });
+    if (defaultTeam) {
+      const members = await this.memberRepo.find({
+        where: { teamId: defaultTeam.id },
+        select: ["userId"],
+      });
+      const ids = members.map((m) => m.userId);
+      if (ids.length > 0) {
+        this.logger.log(
+          `Using default team ${defaultTeam.id} (${ids.length} members)`,
+        );
+        return ids;
       }
     }
 
-    this.logger.warn("No agents found in configurable waterfall");
+    const teams = await this.teamRepo.find({
+      where: { tenantId, isActive: true },
+      select: ["id"],
+      order: { isDefault: "DESC", createdAt: "ASC" },
+    });
+    for (const team of teams) {
+      const teamMembers = await this.memberRepo.find({
+        where: { teamId: team.id },
+        select: ["userId"],
+      });
+      const ids = teamMembers.map((m) => m.userId);
+      if (ids.length > 0) {
+        this.logger.log(
+          `Using first team with members: ${team.id} (${ids.length} members)`,
+        );
+        return ids;
+      }
+    }
+
+    this.logger.warn(
+      "No teams with members found for tenant; session left unassigned",
+    );
     return [];
   }
 
@@ -700,7 +681,7 @@ export class AssignmentService {
       session.assignedTeamId || undefined,
     );
     this.logger.warn(
-      `Handover session ${session.id} left unassigned. Strategy=${strategy}, availableAgents=${agentIds.length} (tenantId=${session.tenantId}, teamId=${session.assignedTeamId ?? "none"}). Check: strategy is "manual", team has no members, or tenant has no member/admin/super_admin roles.`,
+      `Handover session ${session.id} left unassigned. Strategy=${strategy}, availableAgents=${agentIds.length} (tenantId=${session.tenantId}, teamId=${session.assignedTeamId ?? "none"}). Check: strategy is "manual" or no team has members.`,
     );
 
     // --- NO AGENT AVAILABLE HANDLING ---
