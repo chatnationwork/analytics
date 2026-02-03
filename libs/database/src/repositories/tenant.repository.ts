@@ -59,22 +59,22 @@ export class TenantRepository {
     return count > 0;
   }
 
-  /** Get all tenants for a user */
+  /** Get all tenants for a user (only active memberships) */
   async findByUserId(userId: string): Promise<TenantEntity[]> {
     const memberships = await this.membershipRepo.find({
-      where: { userId },
+      where: { userId, isActive: true },
       relations: ["tenant"],
     });
     return memberships.map((m) => m.tenant);
   }
 
-  /** Get user's role in a tenant */
+  /** Get user's role in a tenant (null if deactivated) */
   async getUserRole(
     userId: string,
     tenantId: string,
   ): Promise<MembershipRole | null> {
     const membership = await this.membershipRepo.findOne({
-      where: { userId, tenantId },
+      where: { userId, tenantId, isActive: true },
     });
     return membership?.role ?? null;
   }
@@ -124,12 +124,29 @@ export class TenantRepository {
     return (result.affected ?? 0) > 0;
   }
 
-  /** Count members with a given role in a tenant */
+  /** Count members with a given role in a tenant (active only) */
   async countMembersWithRole(
     tenantId: string,
     role: MembershipRole,
   ): Promise<number> {
-    return this.membershipRepo.count({ where: { tenantId, role } });
+    return this.membershipRepo.count({
+      where: { tenantId, role, isActive: true },
+    });
+  }
+
+  /** Set membership active flag (deactivate/reactivate) */
+  async setMemberActive(
+    tenantId: string,
+    userId: string,
+    isActive: boolean,
+  ): Promise<TenantMembershipEntity | null> {
+    const membership = await this.membershipRepo.findOne({
+      where: { tenantId, userId },
+    });
+    if (!membership) return null;
+    membership.isActive = isActive;
+    await this.membershipRepo.save(membership);
+    return membership;
   }
 
   /** Get a single membership */

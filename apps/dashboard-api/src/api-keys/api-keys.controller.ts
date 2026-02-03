@@ -2,7 +2,7 @@
  * =============================================================================
  * API KEYS CONTROLLER
  * =============================================================================
- * 
+ *
  * REST API endpoints for managing API keys.
  */
 
@@ -10,19 +10,17 @@ import {
   Controller,
   Get,
   Post,
-  Delete,
+  Patch,
   Body,
   Param,
   UseGuards,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
-import { JwtAuthGuard, CurrentUser, AuthUser } from '../auth';
-import { TenantContextService } from '../tenants';
-import { ApiKeysService, GeneratedApiKey } from './api-keys.service';
-import { CreateApiKeyDto } from './dto';
+} from "@nestjs/common";
+import { JwtAuthGuard, CurrentUser, AuthUser } from "../auth";
+import { TenantContextService } from "../tenants";
+import { ApiKeysService, GeneratedApiKey } from "./api-keys.service";
+import { CreateApiKeyDto } from "./dto";
 
-@Controller('api-keys')
+@Controller("api-keys")
 @UseGuards(JwtAuthGuard)
 export class ApiKeysController {
   constructor(
@@ -49,26 +47,26 @@ export class ApiKeysController {
     @Body() dto: CreateApiKeyDto,
   ): Promise<GeneratedApiKey> {
     const context = await this.tenantContextService.getTenantForUser(user.id);
-    
+
     return this.apiKeysService.generateKey(
       context.tenantId,
       dto.name,
-      dto.type || 'write',
+      dto.type || "write",
       dto.projectId,
       user.id,
     );
   }
 
   /**
-   * Revoke an API key.
+   * Deactivate an API key (soft disable; key stops working but record remains).
    */
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async revoke(
-    @Param('id') id: string,
+  @Patch(":id/deactivate")
+  async deactivate(
+    @Param("id") id: string,
     @CurrentUser() user: AuthUser,
-  ): Promise<void> {
+  ): Promise<{ success: boolean }> {
     const context = await this.tenantContextService.getTenantForUser(user.id);
-    return this.apiKeysService.revokeKey(id, context.tenantId);
+    await this.apiKeysService.deactivateKey(id, context.tenantId);
+    return { success: true };
   }
 }

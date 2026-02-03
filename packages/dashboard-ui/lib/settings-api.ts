@@ -86,35 +86,27 @@ export const settingsApi = {
     return json.data;
   },
 
-  // API Keys
+  // API Keys (use fetchWithAuth for cookie auth)
   async getApiKeys(): Promise<ApiKey[]> {
-    const res = await fetch(`${API_BASE_URL}/api/dashboard/api-keys`, {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error("Failed to fetch API keys");
-    const json = await res.json();
-    return json.data;
+    const { fetchWithAuth } = await import("@/lib/api");
+    return fetchWithAuth<ApiKey[]>("/api-keys");
   },
 
   async generateApiKey(data: {
     name: string;
     type: "write" | "read";
   }): Promise<{ id: string; key: string }> {
-    const res = await fetch(`${API_BASE_URL}/api/dashboard/api-keys`, {
+    const { fetchWithAuth } = await import("@/lib/api");
+    return fetchWithAuth<{ id: string; key: string }>("/api-keys", {
       method: "POST",
-      headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error("Failed to generate API key");
-    const json = await res.json();
-    return json.data;
   },
 
-  async revokeApiKey(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/api/dashboard/api-keys/${id}`, {
-      method: "DELETE",
-      headers: getHeaders(),
+  async deactivateApiKey(id: string): Promise<{ success: boolean }> {
+    const { fetchWithAuth } = await import("@/lib/api");
+    return fetchWithAuth<{ success: boolean }>(`/api-keys/${id}/deactivate`, {
+      method: "PATCH",
     });
-    if (!res.ok) throw new Error("Failed to revoke API key");
   },
 };

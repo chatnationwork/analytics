@@ -17,11 +17,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   Mail,
-  Trash2,
   Copy,
   Search,
   Circle,
   Loader2,
+  UserX,
+  UserCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -51,6 +52,7 @@ interface Member {
   email: string;
   role: string;
   joinedAt: string;
+  isActive: boolean;
   invitedBy?: string;
   invitedByName?: string | null;
   avatarUrl?: string | null;
@@ -88,6 +90,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [onlineFilter, setOnlineFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: members = [], isLoading: membersLoading } = useQuery({
     queryKey: ["tenant-members"],
@@ -116,11 +119,20 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const removeMemberMutation = useMutation({
-    mutationFn: (userId: string) => api.removeMember(userId),
+  const deactivateMemberMutation = useMutation({
+    mutationFn: (userId: string) => api.deactivateMember(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenant-members"] });
-      toast.success("Member removed from workspace");
+      toast.success("Member deactivated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reactivateMemberMutation = useMutation({
+    mutationFn: (userId: string) => api.reactivateMember(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-members"] });
+      toast.success("Member reactivated");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -135,6 +147,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
     () =>
       members.map((m) => ({
         ...m,
+        isActive: m.isActive !== false,
         isOnline: statusByUserId.get(m.userId) === "online",
       })),
     [members, statusByUserId],
@@ -153,6 +166,12 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
     if (roleFilter !== "all") {
       list = list.filter((m) => m.role === roleFilter);
     }
+    if (statusFilter === "active") {
+      list = list.filter((m) => m.isActive);
+    }
+    if (statusFilter === "deactivated") {
+      list = list.filter((m) => !m.isActive);
+    }
     if (onlineFilter === "online") {
       list = list.filter((m) => m.isOnline);
     }
@@ -160,7 +179,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
       list = list.filter((m) => !m.isOnline);
     }
     return list;
-  }, [membersWithStatus, search, roleFilter, onlineFilter]);
+  }, [membersWithStatus, search, roleFilter, statusFilter, onlineFilter]);
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
@@ -206,20 +225,6 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
     } catch {
       toast.error("Failed to revoke");
     }
-  };
-
-  const handleRemoveMember = (member: Member) => {
-    if (member.userId === currentUserId) {
-      toast.error("You cannot remove yourself");
-      return;
-    }
-    if (
-      !confirm(
-        `Remove ${member.name || member.email} from the workspace? They will lose access.`,
-      )
-    )
-      return;
-    removeMemberMutation.mutate(member.userId);
   };
 
   if (membersLoading) {
@@ -311,9 +316,19 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
             ))}
           </SelectContent>
         </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Access" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="deactivated">Deactivated</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={onlineFilter} onValueChange={setOnlineFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Online" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -332,7 +347,8 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
                 <TableHead>Role</TableHead>
                 <TableHead>Invited by</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Access</TableHead>
+                <TableHead>Online</TableHead>
                 {canManage && (
                   <TableHead className="text-right">Actions</TableHead>
                 )}
@@ -342,7 +358,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
               {filteredMembers.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={canManage ? 6 : 5}
+                    colSpan={canManage ? 7 : 6}
                     className="text-center text-muted-foreground py-8"
                   >
                     {members.length === 0
@@ -409,6 +425,27 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
                       })}
                     </TableCell>
                     <TableCell>
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs ${
+                          m.isActive
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {m.isActive ? (
+                          <>
+                            <UserCheck className="h-3.5 w-3.5" />
+                            Active
+                          </>
+                        ) : (
+                          <>
+                            <UserX className="h-3.5 w-3.5" />
+                            Deactivated
+                          </>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell>
                       {statusByUserId.has(m.userId) ? (
                         <span
                           className={`inline-flex items-center gap-1.5 text-xs ${
@@ -432,19 +469,42 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
                     </TableCell>
                     {canManage && (
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          disabled={
-                            m.userId === currentUserId ||
-                            removeMemberMutation.isPending
-                          }
-                          onClick={() => handleRemoveMember(m)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Remove
-                        </Button>
+                        {m.isActive ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                            disabled={
+                              m.userId === currentUserId ||
+                              deactivateMemberMutation.isPending
+                            }
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Deactivate ${m.name || m.email}? They will lose access to this workspace until reactivated.`,
+                                )
+                              ) {
+                                deactivateMemberMutation.mutate(m.userId);
+                              }
+                            }}
+                          >
+                            <UserX className="h-4 w-4 mr-1" />
+                            Deactivate
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                            disabled={reactivateMemberMutation.isPending}
+                            onClick={() =>
+                              reactivateMemberMutation.mutate(m.userId)
+                            }
+                          >
+                            <UserCheck className="h-4 w-4 mr-1" />
+                            Reactivate
+                          </Button>
+                        )}
                       </TableCell>
                     )}
                   </TableRow>

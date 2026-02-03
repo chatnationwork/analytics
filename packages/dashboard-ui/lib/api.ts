@@ -299,7 +299,7 @@ export const api = {
   },
 
   /**
-   * List current tenant members (with inviter info)
+   * List current tenant members (with inviter info and active status)
    */
   async getTenantMembers(): Promise<
     {
@@ -308,6 +308,7 @@ export const api = {
       email: string;
       role: string;
       joinedAt: string;
+      isActive: boolean;
       avatarUrl?: string | null;
       invitedBy?: string;
       invitedByName?: string | null;
@@ -330,11 +331,26 @@ export const api = {
   },
 
   /**
-   * Remove a member from the current tenant
+   * Deactivate a member (revoke access; they remain in the list and can be reactivated).
    */
-  async removeMember(userId: string): Promise<{ success: boolean }> {
-    return fetchWithAuth(`/tenants/current/members/${userId}`, {
-      method: "DELETE",
+  async deactivateMember(userId: string): Promise<{
+    success: boolean;
+    isActive: boolean;
+  }> {
+    return fetchWithAuth(`/tenants/current/members/${userId}/deactivate`, {
+      method: "PATCH",
+    });
+  },
+
+  /**
+   * Reactivate a deactivated member.
+   */
+  async reactivateMember(userId: string): Promise<{
+    success: boolean;
+    isActive: boolean;
+  }> {
+    return fetchWithAuth(`/tenants/current/members/${userId}/reactivate`, {
+      method: "PATCH",
     });
   },
 

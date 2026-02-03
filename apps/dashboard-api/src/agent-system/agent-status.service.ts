@@ -85,11 +85,19 @@ export class AgentStatusService {
       const profile = profileMap.get(agentId);
       const open = openMap.get(agentId);
       const user = userMap.get(agentId);
+      // Treat open agent session as online even if profile is missing or stale
+      const profileStatus = profile?.status ?? "offline";
+      const status =
+        open != null
+          ? "online"
+          : typeof profileStatus === "string"
+            ? profileStatus
+            : "offline";
       return {
         agentId,
         name: user?.name ?? null,
         email: user?.email ?? "",
-        status: profile?.status ?? "offline",
+        status,
         currentSessionStartedAt: open?.startedAt ?? null,
         lastSessionEndedAt: lastEnded.get(agentId) ?? null,
       };

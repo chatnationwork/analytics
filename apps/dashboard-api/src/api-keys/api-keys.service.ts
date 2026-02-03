@@ -2,21 +2,26 @@
  * =============================================================================
  * API KEYS SERVICE
  * =============================================================================
- * 
+ *
  * Business logic for API key management.
  * Generates, validates, and revokes API keys for SDK authentication.
  */
 
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
-import { ApiKeyRepository } from '@lib/database';
-import * as crypto from 'crypto';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from "@nestjs/common";
+import { ApiKeyRepository } from "@lib/database";
+import * as crypto from "crypto";
 
 export interface GeneratedApiKey {
   id: string;
   name: string;
   key: string; // Full key - only shown once!
   keyPrefix: string;
-  type: 'write' | 'read';
+  type: "write" | "read";
   createdAt: string;
 }
 
@@ -33,18 +38,18 @@ export class ApiKeysService {
   async generateKey(
     tenantId: string,
     name: string,
-    type: 'write' | 'read' = 'write',
+    type: "write" | "read" = "write",
     projectId?: string,
     createdBy?: string,
   ): Promise<GeneratedApiKey> {
     // Generate random key: prefix_randomBytes
-    const prefix = type === 'write' ? 'wk' : 'rk';
-    const randomPart = crypto.randomBytes(24).toString('base64url');
+    const prefix = type === "write" ? "wk" : "rk";
+    const randomPart = crypto.randomBytes(24).toString("base64url");
     const fullKey = `${prefix}_${randomPart}`;
-    
+
     // Store only the prefix (for identification) and hash (for validation)
     const keyPrefix = fullKey.substring(0, 10);
-    const keyHash = crypto.createHash('sha256').update(fullKey).digest('hex');
+    const keyHash = crypto.createHash("sha256").update(fullKey).digest("hex");
 
     const apiKey = await this.apiKeyRepository.create({
       tenantId,
@@ -57,7 +62,9 @@ export class ApiKeysService {
       createdBy: createdBy || null,
     });
 
-    this.logger.log(`Generated new ${type} API key: ${keyPrefix}... for tenant ${tenantId}`);
+    this.logger.log(
+      `Generated new ${type} API key: ${keyPrefix}... for tenant ${tenantId}`,
+    );
 
     return {
       id: apiKey.id,
@@ -78,7 +85,7 @@ export class ApiKeysService {
     return keys.map((k) => ({
       id: k.id,
       name: k.name,
-      keyPrefix: k.keyPrefix + '...',
+      keyPrefix: k.keyPrefix + "...",
       type: k.type,
       isActive: k.isActive,
       lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
@@ -87,26 +94,22 @@ export class ApiKeysService {
   }
 
   /**
-   * Revoke an API key.
+   * Deactivate an API key (soft disable; key stops working but record remains).
    */
-  async revokeKey(id: string, tenantId: string): Promise<void> {
-    const key = await this.apiKeyRepository.findByPrefix(id);
-    
-    // For now, use the prefix as lookup - in production, lookup by ID
+  async deactivateKey(id: string, tenantId: string): Promise<void> {
     const keys = await this.apiKeyRepository.findByTenantId(tenantId);
-    const keyToRevoke = keys.find((k) => k.id === id);
+    const keyToDeactivate = keys.find((k) => k.id === id);
 
-    if (!keyToRevoke) {
-      throw new NotFoundException('API key not found');
+    if (!keyToDeactivate) {
+      throw new NotFoundException("API key not found");
     }
 
-    if (keyToRevoke.tenantId !== tenantId) {
-      throw new ForbiddenException('Access denied');
+    if (keyToDeactivate.tenantId !== tenantId) {
+      throw new ForbiddenException("Access denied");
     }
 
     await this.apiKeyRepository.revoke(id);
-    
-    this.logger.log(`Revoked API key: ${id}`);
+    this.logger.log(`Deactivated API key: ${id}`);
   }
 
   /**
@@ -118,7 +121,7 @@ export class ApiKeysService {
     projectId: string | null;
     keyId: string;
   } | null> {
-    const keyHash = crypto.createHash('sha256').update(key).digest('hex');
+    const keyHash = crypto.createHash("sha256").update(key).digest("hex");
     const apiKey = await this.apiKeyRepository.findByHash(keyHash);
 
     if (!apiKey || !apiKey.isActive) {

@@ -9,9 +9,8 @@
 import {
   Controller,
   Get,
-  Post,
   Patch,
-  Delete,
+  Post,
   Body,
   UseGuards,
   Param,
@@ -118,6 +117,7 @@ export class TenantsController {
       email: m.user.email,
       role: m.role,
       joinedAt: m.joinedAt,
+      isActive: m.isActive,
       avatarUrl: m.user.avatarUrl,
       invitedBy: m.invitedBy ?? undefined,
       invitedByName: m.invitedBy
@@ -161,10 +161,10 @@ export class TenantsController {
   }
 
   /**
-   * Remove a member from the current tenant (requires admin or super_admin).
+   * Deactivate a member (revoke access; they stay in the list and can be reactivated).
    */
-  @Delete("current/members/:userId")
-  async removeMember(
+  @Patch("current/members/:userId/deactivate")
+  async deactivateMember(
     @CurrentUser() user: AuthUser,
     @Param("userId") targetUserId: string,
   ) {
@@ -173,7 +173,7 @@ export class TenantsController {
       throw new ForbiddenException("Insufficient permissions");
     }
     if (targetUserId === user.id) {
-      throw new BadRequestException("You cannot remove yourself");
+      throw new BadRequestException("You cannot deactivate yourself");
     }
     const targetMembership = await this.tenantRepository.getMembership(
       context.tenantId,
@@ -185,9 +185,35 @@ export class TenantsController {
       "super_admin",
     );
     if (targetMembership.role === "super_admin" && superAdminCount <= 1) {
-      throw new BadRequestException("Cannot remove the last super admin");
+      throw new BadRequestException("Cannot deactivate the last super admin");
     }
-    await this.tenantRepository.removeMember(context.tenantId, targetUserId);
-    return { success: true };
+    const updated = await this.tenantRepository.setMemberActive(
+      context.tenantId,
+      targetUserId,
+      false,
+    );
+    if (!updated) throw new NotFoundException("Member not found");
+    return { success: true, isActive: false };
+  }
+
+  /**
+   * Reactivate a deactivated member.
+   */
+  @Patch("current/members/:userId/reactivate")
+  async reactivateMember(
+    @CurrentUser() user: AuthUser,
+    @Param("userId") targetUserId: string,
+  ) {
+    const context = await this.tenantContextService.getTenantForUser(user.id);
+    if (context.role !== "super_admin" && context.role !== "admin") {
+      throw new ForbiddenException("Insufficient permissions");
+    }
+    const updated = await this.tenantRepository.setMemberActive(
+      context.tenantId,
+      targetUserId,
+      true,
+    );
+    if (!updated) throw new NotFoundException("Member not found");
+    return { success: true, isActive: true };
   }
 }
