@@ -184,6 +184,7 @@ export const agentApi = {
   acceptSession: async (sessionId: string) => {
     return fetchWithAuth<InboxSession>(`/agent/inbox/${sessionId}/accept`, {
       method: "POST",
+      body: JSON.stringify({}),
     });
   },
 
