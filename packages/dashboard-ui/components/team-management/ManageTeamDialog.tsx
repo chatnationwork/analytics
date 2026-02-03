@@ -226,7 +226,9 @@ export function ManageTeamDialog({
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      toast.error("Failed to deactivate team");
+      const message =
+        error instanceof Error ? error.message : "Failed to deactivate team";
+      toast.error(message);
     }
   };
 

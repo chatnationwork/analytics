@@ -228,7 +228,9 @@ export class TeamController {
     if (!team) {
       throw new NotFoundException("Team not found");
     }
-
+    if (team.tenantId !== req.user.tenantId) {
+      throw new ForbiddenException("Access denied");
+    }
     if (team.isDefault) {
       throw new ForbiddenException("Cannot disable the default team");
     }
@@ -259,6 +261,9 @@ export class TeamController {
     const team = await this.teamRepo.findOne({ where: { id: teamId } });
     if (!team) {
       throw new NotFoundException("Team not found");
+    }
+    if (team.tenantId !== req.user.tenantId) {
+      throw new ForbiddenException("Access denied");
     }
 
     await this.teamRepo.update(teamId, { isActive: true });

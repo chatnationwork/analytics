@@ -32,14 +32,10 @@ export interface ApiKey {
 }
 
 export const settingsApi = {
-  // CRM Integrations
+  // CRM Integrations (use fetchWithAuth so cookies are sent and 401 is handled)
   async getCrmIntegrations(): Promise<CrmIntegration[]> {
-    const res = await fetch(`${API_BASE_URL}/api/dashboard/crm-integrations`, {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error("Failed to fetch CRM integrations");
-    const json = await res.json();
-    return json.data;
+    const { fetchWithAuth } = await import("@/lib/api");
+    return fetchWithAuth<CrmIntegration[]>("/crm-integrations");
   },
 
   async createCrmIntegration(data: {
@@ -50,14 +46,11 @@ export const settingsApi = {
     csatLink?: string;
     config?: Record<string, any>;
   }): Promise<CrmIntegration> {
-    const res = await fetch(`${API_BASE_URL}/api/dashboard/crm-integrations`, {
+    const { fetchWithAuth } = await import("@/lib/api");
+    return fetchWithAuth<CrmIntegration>("/crm-integrations", {
       method: "POST",
-      headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error("Failed to create CRM integration");
-    const json = await res.json();
-    return json.data;
   },
 
   async deleteCrmIntegration(id: string): Promise<void> {
@@ -66,24 +59,26 @@ export const settingsApi = {
       {
         method: "DELETE",
         headers: getHeaders(),
+        credentials: "include",
       },
     );
-    if (!res.ok) throw new Error("Failed to delete CRM integration");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg =
+        err?.message ?? err?.error ?? "Failed to delete CRM integration";
+      throw new Error(
+        typeof msg === "string" ? msg : "Failed to delete CRM integration",
+      );
+    }
   },
 
   async testCrmConnection(
     id: string,
   ): Promise<{ success: boolean; message: string }> {
-    const res = await fetch(
-      `${API_BASE_URL}/api/dashboard/crm-integrations/${id}/test`,
-      {
-        method: "POST",
-        headers: getHeaders(),
-      },
+    const { fetchWithAuth } = await import("@/lib/api");
+    return fetchWithAuth<{ success: boolean; message: string }>(
+      `/crm-integrations/${id}/test`,
     );
-    if (!res.ok) throw new Error("Failed to test connection");
-    const json = await res.json();
-    return json.data;
   },
 
   // API Keys (use fetchWithAuth for cookie auth)
