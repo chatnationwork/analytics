@@ -79,4 +79,27 @@ export class CsatAnalyticsService {
       granularity,
     };
   }
+
+  /**
+   * CSAT metrics grouped by journey (from session context: journeyStep or issue).
+   */
+  async getCsatByJourney(
+    tenantId: string,
+    granularity: Granularity = "day",
+    periods: number = 30,
+  ) {
+    const endDate = new Date();
+    const startDate = this.calculateStartDate(granularity, periods);
+    const byJourney = await this.eventRepository.getCsatByJourney(
+      tenantId,
+      startDate,
+      endDate,
+    );
+    return {
+      data: byJourney,
+      startDate,
+      endDate,
+      granularity,
+    };
+  }
 }

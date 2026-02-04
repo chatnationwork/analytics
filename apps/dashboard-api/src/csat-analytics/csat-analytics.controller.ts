@@ -26,4 +26,17 @@ export class CsatAnalyticsController {
       parseInt(periods, 10) || 30,
     );
   }
+
+  @Get("by-journey")
+  async getByJourney(
+    @Request() req: { user: { tenantId: string } },
+    @Query("granularity") granularity: Granularity = "day",
+    @Query("periods") periods: string = "30",
+  ) {
+    return this.csatAnalyticsService.getCsatByJourney(
+      req.user.tenantId,
+      granularity,
+      parseInt(periods, 10) || 30,
+    );
+  }
 }

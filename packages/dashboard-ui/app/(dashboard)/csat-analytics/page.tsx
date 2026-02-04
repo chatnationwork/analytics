@@ -11,8 +11,15 @@ import { Star, MessageSquare, TrendingUp, ThumbsUp } from "lucide-react";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import {
   getCsatDashboard,
+  getCsatByJourney,
   type CsatGranularity,
+  type CsatByJourneyItem,
 } from "@/lib/csat-analytics-api";
+
+function getJourneyLabel(journey: string): string {
+  if (journey === "Unknown" || !journey) return "Other";
+  return journey.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function StatCard({
   label,
@@ -58,9 +65,15 @@ export default function CsatAnalyticsPage() {
     queryFn: () => getCsatDashboard(granularity, periods),
   });
 
+  const { data: byJourneyData } = useQuery({
+    queryKey: ["csat-by-journey", granularity, periods],
+    queryFn: () => getCsatByJourney(granularity, periods),
+  });
+
   const summary = data?.summary;
   const recentFeedback = data?.recentFeedback ?? [];
   const distribution = summary?.distribution ?? [];
+  const byJourney = byJourneyData?.data ?? [];
 
   return (
     <RouteGuard permission="analytics.view">
@@ -232,6 +245,87 @@ export default function CsatAnalyticsPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* CSAT per journey */}
+            <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+              <h3 className="font-medium text-foreground mb-2">
+                CSAT per Journey
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Satisfaction by journey step (from session context when CSAT is
+                linked to an inbox session).
+              </p>
+              {byJourney.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No CSAT by journey yet. Journey is derived from the session
+                  (e.g. handoff journeyStep) when the survey is tied to a
+                  session.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-3 px-2 font-medium text-foreground">
+                          Journey
+                        </th>
+                        <th className="text-right py-3 px-2 font-medium text-foreground">
+                          Responses
+                        </th>
+                        <th className="text-right py-3 px-2 font-medium text-foreground">
+                          Avg
+                        </th>
+                        <th className="text-right py-3 px-2 font-medium text-foreground">
+                          5-Star %
+                        </th>
+                        <th className="text-left py-3 px-2 font-medium text-foreground min-w-[140px]">
+                          Distribution
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byJourney.map((row: CsatByJourneyItem) => (
+                        <tr
+                          key={row.journey}
+                          className="border-b border-border/50"
+                        >
+                          <td className="py-3 px-2 text-foreground">
+                            {getJourneyLabel(row.journey)}
+                          </td>
+                          <td className="py-3 px-2 text-right text-muted-foreground">
+                            {row.totalResponses.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-2 text-right text-foreground">
+                            {row.averageScore.toFixed(1)}
+                          </td>
+                          <td className="py-3 px-2 text-right text-muted-foreground">
+                            {row.fiveStarPercent}%
+                          </td>
+                          <td className="py-3 px-2">
+                            <div className="flex gap-0.5 items-center min-w-[120px]">
+                              {[1, 2, 3, 4, 5].map((score) => (
+                                <div
+                                  key={score}
+                                  className="h-2 flex-1 rounded-sm bg-muted overflow-hidden"
+                                  title={`${score}: ${row.distribution.find((d) => d.score === score)?.count ?? 0}`}
+                                >
+                                  <div
+                                    className="h-full bg-amber-500 rounded-sm"
+                                    style={{
+                                      width: `${row.distribution.find((d) => d.score === score)?.percentage ?? 0}%`,
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </>
         )}

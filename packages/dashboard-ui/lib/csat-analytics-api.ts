@@ -29,11 +29,35 @@ export interface CsatDashboardResponse {
   granularity: string;
 }
 
+export interface CsatByJourneyItem {
+  journey: string;
+  totalResponses: number;
+  averageScore: number;
+  distribution: Array<{ score: number; count: number; percentage: number }>;
+  fiveStarPercent: number;
+}
+
+export interface CsatByJourneyResponse {
+  data: CsatByJourneyItem[];
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
 export async function getCsatDashboard(
   granularity: CsatGranularity = "day",
   periods: number = 30,
 ): Promise<CsatDashboardResponse> {
   return fetchWithAuth<CsatDashboardResponse>(
     `/csat-analytics/dashboard?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getCsatByJourney(
+  granularity: CsatGranularity = "day",
+  periods: number = 30,
+): Promise<CsatByJourneyResponse> {
+  return fetchWithAuth<CsatByJourneyResponse>(
+    `/csat-analytics/by-journey?granularity=${granularity}&periods=${periods}`,
   );
 }

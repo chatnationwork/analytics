@@ -1896,6 +1896,81 @@ export class EventRepository {
     }));
   }
 
+  /**
+   * CSAT grouped by journey (from inbox_sessions.context.journeyStep or issue).
+   * Left-joins csat_submitted events to inbox_sessions so sessions without a match appear as "Unknown".
+   */
+  async getCsatByJourney(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<
+    Array<{
+      journey: string;
+      totalResponses: number;
+      averageScore: number;
+      distribution: Array<{ score: number; count: number; percentage: number }>;
+      fiveStarPercent: number;
+    }>
+  > {
+    const rows = await this.repo.query(
+      `
+      SELECT 
+        COALESCE(NULLIF(TRIM(s.context->>'journeyStep'), ''), NULLIF(TRIM(s.context->>'issue'), ''), 'Unknown') as journey,
+        (e.properties->>'rating')::int as score,
+        COUNT(*)::int as count
+      FROM events e
+      LEFT JOIN inbox_sessions s ON s.id::text = e."sessionId" AND s."tenantId" = e."tenantId"
+      WHERE e."tenantId" = $1
+        AND e."eventName" = 'csat_submitted'
+        AND e.timestamp BETWEEN $2 AND $3
+        AND (e.properties->>'rating')::text ~ '^[1-5]$'
+      GROUP BY COALESCE(NULLIF(TRIM(s.context->>'journeyStep'), ''), NULLIF(TRIM(s.context->>'issue'), ''), 'Unknown'), (e.properties->>'rating')::int
+      ORDER BY journey, score
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const byJourney = new Map<
+      string,
+      { total: number; sumScore: number; dist: Map<number, number> }
+    >();
+    for (const r of rows) {
+      const journey = String(r.journey ?? "Unknown");
+      const score = Math.min(5, Math.max(1, parseInt(r.score, 10) || 0));
+      const count = parseInt(r.count, 10) || 0;
+      if (!byJourney.has(journey)) {
+        byJourney.set(journey, { total: 0, sumScore: 0, dist: new Map() });
+      }
+      const rec = byJourney.get(journey)!;
+      rec.total += count;
+      rec.sumScore += score * count;
+      rec.dist.set(score, (rec.dist.get(score) ?? 0) + count);
+    }
+
+    return Array.from(byJourney.entries())
+      .map(([journey, { total, sumScore, dist }]) => {
+        const distribution = [1, 2, 3, 4, 5].map((score) => {
+          const count = dist.get(score) ?? 0;
+          const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+          return { score, count, percentage };
+        });
+        const fiveCount = dist.get(5) ?? 0;
+        const fiveStarPercent =
+          total > 0 ? Math.round((fiveCount / total) * 100) : 0;
+        const averageScore =
+          total > 0 ? Math.round((sumScore / total) * 10) / 10 : 0;
+        return {
+          journey,
+          totalResponses: total,
+          averageScore,
+          distribution,
+          fiveStarPercent,
+        };
+      })
+      .sort((a, b) => b.totalResponses - a.totalResponses);
+  }
+
   // ===========================================================================
   // AI ANALYTICS TRENDS
   // ===========================================================================

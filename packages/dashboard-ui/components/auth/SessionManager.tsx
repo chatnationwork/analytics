@@ -52,9 +52,17 @@ export function SessionManager() {
       return;
     }
 
+    const isLocalDev =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1");
+    const defaultTimeoutMinutes = isLocalDev ? 480 : 30;
+
     fetchWithAuth("/tenants/current")
       .then((data) => {
-        const timeout = data?.settings?.session?.inactivityTimeoutMinutes ?? 30;
+        const timeout =
+          data?.settings?.session?.inactivityTimeoutMinutes ??
+          defaultTimeoutMinutes;
         console.log(`[SessionManager] Inactivity timeout: ${timeout} minutes`);
         setTimeoutMinutes(timeout);
       })
@@ -64,8 +72,8 @@ export function SessionManager() {
           return;
         }
         console.error("[SessionManager] Failed to fetch settings:", err);
-        // Use default timeout for authenticated users when fetch fails for other reasons
-        setTimeoutMinutes(30);
+        // Use longer default in local dev so you don't get logged out every 30 min
+        setTimeoutMinutes(defaultTimeoutMinutes);
       });
   }, [isLoading, user]);
 

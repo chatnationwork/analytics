@@ -1,14 +1,14 @@
-/** API base URL. When NEXT_PUBLIC_API_URL is set but same-origin, use "" to avoid CORS. */
+/**
+ * API base URL for fetch calls.
+ * - In the browser: always use "" (same origin) so the auth cookie is sent to our Next.js
+ *   proxy, which then forwards to the backend with the token. If we used a different origin
+ *   (e.g. NEXT_PUBLIC_API_URL=http://localhost:3001 while the app is on :3002), the cookie
+ *   would not be sent and every request would get 401 in local.
+ * - On the server: use NEXT_PUBLIC_API_URL or "" (server-side auth uses SERVER_API_URL elsewhere).
+ */
 function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") return "";
   const env = process.env.NEXT_PUBLIC_API_URL ?? "";
-  if (typeof window === "undefined") return env;
-  if (!env) return "";
-  try {
-    const u = new URL(env);
-    if (window.location.origin === u.origin) return "";
-  } catch {
-    /* ignore */
-  }
   return env;
 }
 
