@@ -316,6 +316,7 @@ export class EventProcessorService {
     }
 
     const message = this.messageRepo.create({
+      contactId: session.contactId,
       sessionId: session.id,
       tenantId: event.tenantId,
       externalId: (props.message_id as string) || event.messageId,
@@ -326,6 +327,7 @@ export class EventProcessorService {
       metadata: props,
       createdAt: event.timestamp,
     });
+
 
     await this.messageRepo.save(message);
     this.logger.log(`Synced message to Inbox: ${message.id} (${direction})`);

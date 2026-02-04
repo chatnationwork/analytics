@@ -107,6 +107,7 @@ export class MessageStorageService {
         "text") as MessageType;
 
       const message = this.messageRepo.create({
+        contactId: session.contactId,
         sessionId: session.id,
         tenantId,
         externalId: properties.messageId as string,
@@ -121,6 +122,7 @@ export class MessageStorageService {
             ? properties.agentId
             : undefined,
       });
+
 
       await this.messageRepo.save(message);
 

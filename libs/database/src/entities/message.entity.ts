@@ -9,11 +9,19 @@ import {
 } from "typeorm";
 import { InboxSessionEntity } from "./inbox-session.entity";
 
+/**
+ * Enum for message direction.
+ * INBOUND = message from user to system
+ * OUTBOUND = message from system/agent to user
+ */
 export enum MessageDirection {
   INBOUND = "inbound",
   OUTBOUND = "outbound",
 }
 
+/**
+ * Enum for message content types.
+ */
 export enum MessageType {
   TEXT = "text",
   IMAGE = "image",
@@ -23,18 +31,36 @@ export enum MessageType {
   LOCATION = "location",
 }
 
+/**
+ * Message entity representing a single message in a conversation.
+ * Messages are tied to a contact (permanent) and optionally to a session (temporary view).
+ * Deleting a session does NOT delete messages - they remain tied to the contact.
+ */
 @Entity("messages")
+@Index(["contactId", "createdAt"])
 @Index(["sessionId", "createdAt"])
 export class MessageEntity {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column("uuid")
-  sessionId: string;
+  /**
+   * Contact ID (normalized phone number, digits only).
+   * This is the primary relationship - messages belong to the contact.
+   */
+  @Column({ length: 50 })
+  contactId: string;
 
-  @ManyToOne(() => InboxSessionEntity, { onDelete: "CASCADE" })
+  /**
+   * Session ID (optional).
+   * Links to the inbox session when the message was created.
+   * SET NULL on session delete - messages persist.
+   */
+  @Column("uuid", { nullable: true })
+  sessionId: string | null;
+
+  @ManyToOne(() => InboxSessionEntity, { onDelete: "SET NULL", nullable: true })
   @JoinColumn({ name: "sessionId" })
-  session: InboxSessionEntity;
+  session: InboxSessionEntity | null;
 
   @Column({ length: 50 })
   tenantId: string;
@@ -60,7 +86,7 @@ export class MessageEntity {
   content: string;
 
   @Column("jsonb", { nullable: true })
-  metadata: Record<string, any>; // For media URLs, captions, etc.
+  metadata: Record<string, unknown>; // For media URLs, captions, etc.
 
   @Column("uuid", { nullable: true })
   senderId: string; // If outbound, the agent's User ID

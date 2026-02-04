@@ -143,6 +143,7 @@ export class InboxService {
 
     // Create message
     const message = this.messageRepo.create({
+      contactId: session.contactId,
       sessionId: session.id,
       tenantId: dto.tenantId,
       externalId: dto.externalId,
@@ -162,6 +163,7 @@ export class InboxService {
 
     return savedMessage;
   }
+
 
   /**
    * Get inbox sessions for an agent.
@@ -309,33 +311,36 @@ export class InboxService {
   }
 
   /**
-   * Get messages for a session (only messages stored under that sessionId).
+   * Get messages for a session (returns full contact history).
+   * Since messages are tied to the contact, a session is just a view into that history.
    */
   async getSessionMessages(sessionId: string): Promise<MessageEntity[]> {
+    const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
+    if (!session) {
+      throw new NotFoundException(`Session ${sessionId} not found`);
+    }
+
     return this.messageRepo.find({
-      where: { sessionId },
+      where: {
+        tenantId: session.tenantId,
+        contactId: session.contactId,
+      },
       order: { createdAt: "ASC" },
     });
   }
 
   /**
-   * Get full chat history for a contact across all their sessions.
-   * Use this when displaying a session so that duplicate/open sessions for the same
-   * contact all show the entire conversation.
+   * Get full chat history for a contact.
    */
   async getMessagesForContact(
     tenantId: string,
     contactId: string,
   ): Promise<MessageEntity[]> {
     const normalizedContactId = normalizeContactIdDigits(contactId);
-    const sessions = await this.sessionRepo.find({
-      where: { tenantId, contactId: normalizedContactId },
-      select: { id: true },
-    });
-    const sessionIds = sessions.map((s) => s.id);
-    if (sessionIds.length === 0) return [];
+    if (!normalizedContactId) return [];
+
     return this.messageRepo.find({
-      where: { sessionId: In(sessionIds) },
+      where: { tenantId, contactId: normalizedContactId },
       order: { createdAt: "ASC" },
     });
   }

@@ -104,6 +104,7 @@ BEGIN
         INSERT INTO messages (
             id,
             "sessionId",
+            "contactId",
             "tenantId",
             "externalId",
             direction,
@@ -114,6 +115,7 @@ BEGIN
         ) VALUES (
             gen_random_uuid(),
             session_id,
+            normalized_contact_id,
             event_record."tenantId",
             event_record."messageId"::text,
             CASE WHEN event_record."eventName" = 'message.received' THEN 'inbound'::messages_direction_enum ELSE 'outbound'::messages_direction_enum END,
