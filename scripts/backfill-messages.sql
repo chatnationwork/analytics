@@ -18,6 +18,7 @@ DECLARE
     session_id UUID;
     normalized_contact_id TEXT;
     msg_exists BOOLEAN;
+    raw_contact_id TEXT;
 BEGIN
     -- Loop through all message events that might not have been synced
     FOR event_record IN 
@@ -31,17 +32,25 @@ BEGIN
             e."messageId"
         FROM events e
         WHERE e."eventName" IN ('message.received', 'message.sent')
-          AND e."externalId" IS NOT NULL
-          AND e."externalId" != ''
         ORDER BY e.timestamp ASC
     LOOP
+        -- Get contact ID: use externalId, or fallback to properties->from/to
+        raw_contact_id := COALESCE(
+            NULLIF(event_record."externalId", ''),
+            CASE 
+                WHEN event_record."eventName" = 'message.received' THEN event_record.properties->>'from'
+                ELSE event_record.properties->>'to'
+            END
+        );
+        
         -- Normalize contact ID (digits only)
-        normalized_contact_id := regexp_replace(event_record."externalId", '\D', '', 'g');
+        normalized_contact_id := regexp_replace(COALESCE(raw_contact_id, ''), '\D', '', 'g');
         
         -- Skip if contact ID is empty after normalization
         IF normalized_contact_id = '' THEN
             CONTINUE;
         END IF;
+
         
         -- Check if message already exists (by eventId stored in externalId or by messageId match)
         SELECT EXISTS (
@@ -133,3 +142,19 @@ END $$;
 -- Verify results
 SELECT 'Messages after backfill:' as info, COUNT(*) as count FROM messages;
 SELECT 'Events with messages:' as info, COUNT(*) as count FROM events WHERE "eventName" IN ('message.received', 'message.sent');
+
+-- =============================================================================
+-- CLEANUP: Normalize contactId in existing records (remove + and non-digits)
+-- =============================================================================
+
+-- Clean up inbox_sessions contactId
+UPDATE inbox_sessions 
+SET "contactId" = regexp_replace("contactId", '\D', '', 'g')
+WHERE "contactId" ~ '\D';
+
+-- Clean up contacts contactId  
+UPDATE contacts 
+SET "contactId" = regexp_replace("contactId", '\D', '', 'g')
+WHERE "contactId" ~ '\D';
+
+SELECT 'Cleanup complete!' as info;
