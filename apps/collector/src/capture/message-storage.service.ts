@@ -1,21 +1,23 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, In } from "typeorm";
+import { Repository } from "typeorm";
 import {
   InboxSessionEntity,
   MessageEntity,
-  SessionStatus,
   MessageDirection,
   MessageType,
   ContactRepository,
-  toCanonicalContactId,
+  InboxSessionHelper,
+  normalizeContactIdDigits,
 } from "@lib/database";
+
 import { CaptureEventDto } from "@lib/events";
 import { Project } from "@lib/common";
 
 @Injectable()
 export class MessageStorageService {
   private readonly logger = new Logger(MessageStorageService.name);
+  private readonly sessionHelper: InboxSessionHelper;
 
   constructor(
     @InjectRepository(InboxSessionEntity)
@@ -23,7 +25,10 @@ export class MessageStorageService {
     @InjectRepository(MessageEntity)
     private readonly messageRepo: Repository<MessageEntity>,
     private readonly contactRepo: ContactRepository,
-  ) {}
+  ) {
+    this.sessionHelper = new InboxSessionHelper(this.sessionRepo);
+  }
+
 
   /**
    * Process and store message events.
@@ -39,50 +44,56 @@ export class MessageStorageService {
 
     try {
       const tenantId = project.tenantId;
-      const contactId = toCanonicalContactId(event.user_id); // Phone number, normalized to avoid duplicate contacts
       const properties = event.properties as Record<string, any>;
+      const rawContactId = event.user_id;
 
-      this.logger.debug(
-        `Storing message event: ${event.event_name} for ${contactId}`,
-      );
-
-      // 1. Get or Create Session – reuse existing pending session so we never open a new chat while one is open
-      let session = await this.sessionRepo.findOne({
-        where: {
-          tenantId,
-          contactId,
-          status: In([SessionStatus.ASSIGNED, SessionStatus.UNASSIGNED]),
-        },
-        order: { lastMessageAt: "DESC" },
-      });
-
-      if (!session) {
-        session = this.sessionRepo.create({
-          tenantId,
-          contactId,
-          status: SessionStatus.UNASSIGNED,
-          channel: (event.context as any)?.channel || "whatsapp",
-          lastMessageAt: new Date(),
-        });
-        session = await this.sessionRepo.save(session);
-      } else {
-        // Update timestamp
-        await this.sessionRepo.update(session.id, {
-          lastMessageAt: new Date(),
-        });
+      // Skip if no user_id (contactId) provided
+      if (!rawContactId) {
+        this.logger.warn(
+          `Skipping message storage for event ${event.event_name}: No user_id provided`,
+        );
+        return;
       }
 
+      const contactName = (properties?.name ??
+        properties?.profileName ??
+        (event.context as any)?.name) as string | undefined;
+
+      this.logger.debug(
+        `Storing message event: ${event.event_name} for ${rawContactId}`,
+      );
+
+      // 1. Get or Create Session via shared helper (handles normalization + dedup)
+      let session: InboxSessionEntity;
+      try {
+        session = await this.sessionHelper.getOrCreateSession(
+          tenantId,
+          rawContactId,
+          {
+            contactName,
+            channel: (event.context as any)?.channel || "whatsapp",
+          },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Skipping message storage: ${(err as Error).message}`,
+        );
+        return;
+      }
+
+      // Update lastMessageAt
+      await this.sessionRepo.update(session.id, { lastMessageAt: new Date() });
+
       // Upsert contact when we receive a message (creates or updates contacts table)
-      if (event.event_name === "message.received" && contactId) {
-        const name = (properties?.name ??
-          properties?.profileName ??
-          (event.context as any)?.name) as string | undefined;
+      const normalizedContactId = normalizeContactIdDigits(rawContactId);
+      if (event.event_name === "message.received" && normalizedContactId) {
         await this.contactRepo.upsertFromMessageReceived(
           tenantId,
-          contactId,
+          normalizedContactId,
           new Date(),
-          name || undefined,
+          contactName || undefined,
         );
+
       }
 
       // 2. Create Message
