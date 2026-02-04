@@ -50,6 +50,7 @@ import {
   MessageType,
   InboxSessionHelper,
 } from "@lib/database";
+import { isMessageEvent, isInboundMessage, WhatsAppEventNames } from "@lib/events";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { GeoipEnricher } from "../enrichers/geoip.enricher";
@@ -233,10 +234,7 @@ export class EventProcessorService {
    */
   private async syncToAgentSystem(events: CreateEventDto[]): Promise<void> {
     for (const event of events) {
-      if (
-        event.eventName === "messages received" ||
-        event.eventName === "messages sent"
-      ) {
+      if (isMessageEvent(event.eventName)) {
         try {
           await this.processInboxMessage(event);
         } catch (err) {
@@ -281,7 +279,7 @@ export class EventProcessorService {
       lastMessageAt: event.timestamp,
     });
 
-    const isInbound = event.eventName === "messages received";
+    const isInbound = isInboundMessage(event.eventName);
     const direction = isInbound
       ? MessageDirection.INBOUND
       : MessageDirection.OUTBOUND;
@@ -389,12 +387,13 @@ export class EventProcessorService {
 
     if (!externalId && channelType === "whatsapp") {
       const props = event.properties || {};
-      if (event.eventName === "messages received") {
+      if (isInboundMessage(event.eventName)) {
         externalId = props.from;
-      } else if (event.eventName === "messages sent") {
+      } else if (event.eventName === WhatsAppEventNames.MESSAGE_SENT) {
         externalId = props.to;
       }
     }
+
 
     // Run enrichers only for web channel (UA/GeoIP not applicable for WhatsApp)
     const geo = isWebChannel
