@@ -34,12 +34,11 @@ export class ContactProfileController {
     @Param("contactId") contactId: string,
     @Query("name") name?: string,
   ) {
-    const contact = await this.contactProfileService.getContact(
+    return this.contactProfileService.getContact(
       user.tenantId,
       contactId,
       name ?? undefined,
     );
-    return { data: contact };
   }
 
   @Patch(":contactId")
@@ -50,14 +49,13 @@ export class ContactProfileController {
     @Req() req: RequestLike,
   ) {
     const requestContext = getRequestContext(req);
-    const contact = await this.contactProfileService.updateContact(
+    return this.contactProfileService.updateContact(
       user.tenantId,
       contactId,
       user.id,
       dto,
       requestContext,
     );
-    return { data: contact };
   }
 
   @Get(":contactId/notes")
@@ -66,12 +64,11 @@ export class ContactProfileController {
     @Param("contactId") contactId: string,
     @Query("limit") limit?: string,
   ) {
-    const data = await this.contactProfileService.getNotes(
+    return this.contactProfileService.getNotes(
       user.tenantId,
       contactId,
       limit ? Math.min(parseInt(limit, 10) || 50, 100) : 50,
     );
-    return { data };
   }
 
   @Post(":contactId/notes")
@@ -87,13 +84,12 @@ export class ContactProfileController {
     if (!content) {
       throw new BadRequestException("content is required");
     }
-    const note = await this.contactProfileService.addNote(
+    return this.contactProfileService.addNote(
       user.tenantId,
       contactId,
       user.id,
       content,
     );
-    return { data: note };
   }
 
   @Get(":contactId/history")
@@ -103,12 +99,11 @@ export class ContactProfileController {
     @Query("page") page?: string,
     @Query("limit") limit?: string,
   ) {
-    const result = await this.contactProfileService.getContactHistory(
+    return this.contactProfileService.getContactHistory(
       user.tenantId,
       contactId,
       page ? parseInt(page, 10) || 1 : 1,
       limit ? Math.min(parseInt(limit, 10) || 20, 50) : 20,
     );
-    return { data: result.data, total: result.total };
   }
 }

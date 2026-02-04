@@ -65,14 +65,18 @@ export function ContactProfilePanel({
         contactId,
         contactName ?? undefined,
       );
-      setProfile(data);
-      setEditName(data.name ?? "");
-      setEditPin(data.pin ?? "");
+      const contact: ContactProfile | null =
+        data && typeof data === "object" && "contactId" in data
+          ? (data as ContactProfile)
+          : ((data as { data?: ContactProfile })?.data ?? null);
+      setProfile(contact);
+      setEditName(contact?.name ?? "");
+      setEditPin(contact?.pin ?? "");
       setEditYearOfBirth(
-        data.yearOfBirth != null ? String(data.yearOfBirth) : "",
+        contact?.yearOfBirth != null ? String(contact.yearOfBirth) : "",
       );
-      setEditEmail(data.email ?? "");
-      setEditMetadata(data.metadata ?? {});
+      setEditEmail(contact?.email ?? "");
+      setEditMetadata(contact?.metadata ?? {});
     } catch (e) {
       console.error("Failed to fetch contact profile:", e);
       toast.error("Failed to load contact profile");
@@ -83,7 +87,13 @@ export function ContactProfilePanel({
   const fetchNotes = useCallback(async () => {
     try {
       const data = await agentApi.getContactNotes(contactId, NOTES_LIMIT);
-      setNotes(Array.isArray(data) ? data : []);
+      setNotes(
+        Array.isArray(data)
+          ? data
+          : data && typeof data === "object" && "data" in data
+            ? (data as { data: ContactNote[] }).data
+            : [],
+      );
     } catch (e) {
       console.error("Failed to fetch notes:", e);
       setNotes([]);
@@ -158,7 +168,11 @@ export function ContactProfilePanel({
     if (!content) return;
     setAddingNote(true);
     try {
-      const note = await agentApi.addContactNote(contactId, content);
+      const raw = await agentApi.addContactNote(contactId, content);
+      const note: ContactNote =
+        raw && typeof raw === "object" && "id" in raw
+          ? (raw as ContactNote)
+          : ((raw as { data?: ContactNote })?.data ?? raw);
       setNotes((prev) => [note, ...prev]);
       setNewNoteContent("");
       toast.success("Note added");
@@ -357,7 +371,7 @@ export function ContactProfilePanel({
                       {note.content}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1.5">
-                      {note.authorName ?? "Unknown"} ·{" "}
+                      {note.authorName ?? "Agent"} ·{" "}
                       {formatDate(note.createdAt)}
                     </p>
                   </div>
@@ -431,9 +445,11 @@ export function ContactProfilePanel({
   );
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string | undefined): string {
+  if (iso == null || iso === "") return "—";
   try {
     const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
     const now = new Date();
     const sameDay =
       d.getDate() === now.getDate() &&
@@ -453,6 +469,6 @@ function formatDate(iso: string): string {
       minute: "2-digit",
     });
   } catch {
-    return iso;
+    return "—";
   }
 }

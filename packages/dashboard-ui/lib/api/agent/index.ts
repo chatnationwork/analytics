@@ -413,12 +413,12 @@ export const agentApi = {
     if (limit != null) params.set("limit", String(limit));
     const q = params.toString() ? `?${params}` : "";
     const res = await fetchWithAuthFull<{
-      data: ContactHistoryEntry[];
-      total: number;
+      data: { data: ContactHistoryEntry[]; total: number };
     }>(`/agent/contacts/${contactId}/history${q}`);
+    const payload = res?.data;
     return {
-      data: Array.isArray(res?.data) ? res.data : [],
-      total: typeof res?.total === "number" ? res.total : 0,
+      data: Array.isArray(payload?.data) ? payload.data : [],
+      total: typeof payload?.total === "number" ? payload.total : 0,
     };
   },
 };

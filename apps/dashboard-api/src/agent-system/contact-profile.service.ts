@@ -149,7 +149,7 @@ export class ContactProfileService {
       id: n.id,
       content: n.content,
       authorId: n.authorId,
-      authorName: n.author?.name ?? null,
+      authorName: n.author?.name ?? "Agent",
       createdAt: n.createdAt.toISOString(),
     }));
   }
@@ -178,7 +178,7 @@ export class ContactProfileService {
       id: saved.id,
       content: saved.content,
       authorId: saved.authorId,
-      authorName: withAuthor?.author?.name ?? null,
+      authorName: withAuthor?.author?.name ?? "Agent",
       createdAt: saved.createdAt.toISOString(),
     };
   }

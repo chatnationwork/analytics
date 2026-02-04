@@ -142,10 +142,34 @@ export default function AgentInboxPage() {
   // Initial fetch and when filter changes
   useEffect(() => {
     fetchInbox();
-    // Poll every 10 seconds
     const interval = setInterval(fetchInbox, 10000);
     return () => clearInterval(interval);
   }, [fetchInbox]);
+
+  // Poll messages for the open chat so new inbound replies appear without manual refresh
+  const MESSAGE_POLL_MS = 4000;
+  useEffect(() => {
+    if (!selectedSessionId) return;
+    const poll = async () => {
+      try {
+        const data = await agentApi.getSession(selectedSessionId);
+        const serverMessages = Array.isArray(data?.messages)
+          ? data.messages
+          : [];
+        setMessages((prev) => {
+          const optimistic = prev.filter((m) =>
+            String(m.id).startsWith("temp-"),
+          );
+          if (optimistic.length === 0) return serverMessages;
+          return [...serverMessages, ...optimistic];
+        });
+      } catch {
+        // ignore poll errors (e.g. network); next poll will retry
+      }
+    };
+    const interval = setInterval(poll, MESSAGE_POLL_MS);
+    return () => clearInterval(interval);
+  }, [selectedSessionId]);
 
   const handleSelectSession = async (session: InboxSession) => {
     setSelectedSessionId(session.id);

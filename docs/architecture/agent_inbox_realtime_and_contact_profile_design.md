@@ -11,9 +11,129 @@ The goal is a **reliable and efficient** system, not necessarily a specific tech
 
 ---
 
-## 2. Current State (Findings from Code)
+## 2. Codebase Inventory (Files, Functions, Classes Reviewed)
 
-### 2.1 Agent Inbox Page (`packages/dashboard-ui/app/(dashboard)/agent-inbox/page.tsx`)
+The following were inspected to produce this document.
+
+### 2.1 Frontend (dashboard-ui)
+
+| File                                             | Functions / hooks / components                                                                                                                                                                                                                                        | Purpose                                                         |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `app/(dashboard)/agent-inbox/page.tsx`           | `AgentInboxPage` (component), `fetchInbox`, `handleSelectSession`, `handleSendMessage`, `handleAcceptSession`, `handleResolveSession`, `handleTransferSession`, `isSessionExpired`; `useState` / `useEffect` / `useCallback` for sessions, messages, filter, presence | Inbox page: session list, selection, messages, resolve/transfer |
+| `components/agent-inbox/ContactProfilePanel.tsx` | `ContactProfilePanel` (component), `fetchProfile`, `fetchNotes`, `fetchHistory`, `handleSaveProfile`, `handleAddNote`, `formatDate`                                                                                                                                   | Contact profile, notes, history tabs                            |
+| `lib/api/agent/index.ts`                         | `agentApi.getInbox`, `getSession`, `sendMessage`, `getContactProfile`, `updateContactProfile`, `getContactNotes`, `addContactNote`, `getContactHistory`; types `ContactProfile`, `ContactNote`, `ContactHistoryEntry`                                                 | Agent + contact API client                                      |
+| `lib/api.ts`                                     | `fetchWithAuth`, `fetchWithAuthFull`                                                                                                                                                                                                                                  | Auth fetch helpers; `fetchWithAuth` returns `json.data`         |
+
+### 2.2 Backend (dashboard-api)
+
+| File                                                   | Classes / functions                                                                                                                         | Purpose                                              |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `src/agent-system/agent-inbox.controller.ts`           | `AgentInboxController`, `getInbox`, `getSession`, `sendMessage`, `acceptSession`, `resolveSession`, `transferSession`                       | Inbox REST endpoints                                 |
+| `src/agent-system/contact-profile.controller.ts`       | `ContactProfileController`, `getContact`, `updateContact`, `getNotes`, `addNote`, `getHistory`                                              | Contact profile, notes, history endpoints            |
+| `src/agent-system/contact-profile.service.ts`          | `ContactProfileService`, `getContact`, `updateContact`, `getNotes`, `addNote`, `getContactHistory`, `toProfileDto`                          | Contact profile + notes + audit history logic        |
+| `src/agent-system/inbox.service.ts`                    | `InboxService`, `getOrCreateSession`, `getMessagesForContact`, `contactHasAssignedSession`, `getSession`, `addMessage`, `sanitizeContactId` | Sessions, messages, contact-scoped message history   |
+| `src/main.ts`                                          | (bootstrap) `ResponseInterceptor` registered globally                                                                                       | Response wrapping                                    |
+| `libs/common/src/interceptors/response.interceptor.ts` | `ResponseInterceptor`, `intercept`                                                                                                          | Wraps all responses as `{ status, data, timestamp }` |
+
+### 2.3 Backend (processor)
+
+| File                                                            | Classes / functions                        | Purpose                                     |
+| --------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
+| `apps/processor/src/event-processor/event-processor.service.ts` | `syncToAgentSystem`, `processInboxMessage` | Writes inbox messages from analytics events |
+
+### 2.4 Database / shared
+
+| File                                                     | Classes / types                                                                                | Purpose                               |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `libs/database/src/entities/contact-note.entity.ts`      | `ContactNoteEntity` (id, tenantId, contactId, authorId, content, createdAt; relation `author`) | Contact notes table                   |
+| `libs/database/src/entities/inbox-session.entity.ts`     | `InboxSessionEntity`, `SessionStatus`                                                          | Inbox sessions                        |
+| `libs/database/src/repositories/audit-log.repository.ts` | `AuditLogRepository`, `list`                                                                   | Audit log listing for contact history |
+| `apps/dashboard-api/src/audit/audit.service.ts`          | `AuditService`, `log`, `list`                                                                  | Audit logging and listing             |
+
+### 2.5 Proxy / API routing
+
+| File                                               | Functions                                               | Purpose                      |
+| -------------------------------------------------- | ------------------------------------------------------- | ---------------------------- |
+| `packages/dashboard-ui/app/api/[...path]/route.ts` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `proxyRequest` | Next.js API proxy to backend |
+
+---
+
+## 3. Current Process Flow and Problems
+
+### 3.1 Logical flow (current)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. AGENT OPENS INBOX PAGE                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+    → fetchInbox() once
+    → setInterval(fetchInbox, 10000)  ← session list poll every 10s
+    → getPresence() once (Available toggle)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 2. AGENT SELECTS A CHAT                                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+    → handleSelectSession(session)
+    → agentApi.getSession(session.id)  ← ONE-TIME fetch
+    → setMessages(data.messages)
+    → No further refresh of messages for this chat
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 3. CONTACT REPLIES (inbound message)                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+    → External system (e.g. WhatsApp) → event "messages received"
+    → Processor: syncToAgentSystem → processInboxMessage → DB (inbox_sessions, messages)
+    → UI: no refetch of open chat  ← PROBLEM: agent never sees the new message
+    → (Next inbox poll in 10s does not refetch messages for selected session)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 4. AGENT SENDS A MESSAGE                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+    → Optimistic update: append temp message to local state
+    → agentApi.sendMessage(sessionId, payload)
+    → On success: replace temp with server message  ✓ (works)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 5. AGENT OPENS CONTACT PROFILE (right panel)                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+    → Promise.all([ fetchProfile(), fetchNotes(), fetchHistory(1) ])
+
+    Profile:
+      → GET /agent/contacts/:contactId  → controller returns { data: contact }
+      → ResponseInterceptor wraps → { status, data: { data: contact }, timestamp }
+      → fetchWithAuth returns json.data → client gets { data: contact }
+      → setProfile(data)  ← profile = { data: contact }, so profile.name etc. undefined  ← PROBLEM
+
+    Notes:
+      → GET /agent/contacts/:contactId/notes  → controller returns { data: notes[] }
+      → Interceptor → { status, data: { data: notes[] }, timestamp }
+      → fetchWithAuth returns { data: notes[] }
+      → setNotes(Array.isArray(data) ? data : [])  ← data is object, so notes = []  ← PROBLEM
+      → addContactNote returns { data: note }; component appends that object  ← wrong shape
+
+    History:
+      → GET /agent/contacts/:contactId/history  → controller returns { data: array, total }
+      → Interceptor → { status, data: { data: array, total }, timestamp }
+      → getContactHistory uses res?.data (object) and res?.total (undefined)
+      → Client gets wrong/empty history and total  ← PROBLEM
+```
+
+### 3.2 Problems in order of flow
+
+| Step in flow    | What happens                | Problem                                                                                                                                                                     |
+| --------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inbox load      | Poll session list every 10s | New assignments appear only on next poll (up to 10s delay).                                                                                                                 |
+| Select chat     | Fetch messages once         | Messages for open chat are never refetched.                                                                                                                                 |
+| Contact replies | Processor writes to DB      | UI does not refetch; agent does not see reply until they change selection or wait for next list poll (which still doesn’t refresh messages).                                |
+| Send message    | Optimistic + API            | Works; no change needed.                                                                                                                                                    |
+| Open profile    | Fetch profile/notes/history | Backend double-wraps (`{ data: x }` + interceptor); frontend treats `json.data` as entity but gets controller’s `{ data: x }` → profile broken, notes empty, history wrong. |
+| Notes display   | authorName, createdAt       | Null author → “Unknown”; bad or missing date → “Invalid date”.                                                                                                              |
+
+---
+
+## 4. Current State (Findings from Code)
+
+### 4.1 Agent Inbox Page (`packages/dashboard-ui/app/(dashboard)/agent-inbox/page.tsx`)
 
 - **Session list:** Fetched once on mount and when filter changes; then **polled every 10 seconds** via `setInterval(fetchInbox, 10000)`.
 - **Messages:** Loaded **once** when a session is selected (`handleSelectSession` → `agentApi.getSession(session.id)`). There is **no polling or push** for the open chat, so:
@@ -22,32 +142,32 @@ The goal is a **reliable and efficient** system, not necessarily a specific tech
 - **Send message:** Optimistic update is correct; the sent message is replaced with the server response.
 - **Presence:** Fetched once on mount; no real-time sync.
 
-### 2.2 Backend: How Messages Get Into the Inbox
+### 4.2 Backend: How Messages Get Into the Inbox
 
 - **Processor** (`apps/processor`): Consumes analytics events; on `messages received` / `messages sent` it calls `syncToAgentSystem` → `processInboxMessage`, which writes to the inbox DB (sessions/messages). So **inbound messages are persisted** when events are processed; the gap is that the **UI does not refresh** the open chat when this happens.
 - **Dashboard API:** No WebSocket or SSE. Inbox and session/messages are REST only.
 
-### 2.3 Contact Profile Panel (`ContactProfilePanel.tsx`)
+### 4.3 Contact Profile Panel (`ContactProfilePanel.tsx`)
 
 - **Profile:** Fetched via `agentApi.getContactProfile(contactId, contactName)`. Backend returns `{ data: contact }`; global `ResponseInterceptor` wraps again as `{ status, data: { data: contact }, timestamp }`. `fetchWithAuth` returns `json.data` → so the client gets **`{ data: contact }`**, not the contact itself. The component does `setProfile(data)`, so `profile` has a nested `data` and `profile.name` / `profile.firstSeen` etc. are **undefined**, which can surface as missing or “Invalid date” when formatting.
 - **Notes:** Backend returns `{ data: notes[] }`; after interceptor, response is `{ status, data: { data: notes[] }, timestamp }`. `fetchWithAuth` returns `{ data: notes[] }`. The component does `setNotes(Array.isArray(data) ? data : [])`; `data` is the object `{ data: notes[] }`, so **notes are always set to []**. Added notes: `addContactNote` returns the same double-wrapped shape; the component appends the whole object (with `.data`) so each “note” in the list has the wrong shape; **authorName** comes from backend (relation `author`); if the relation fails or user is missing, it’s null → UI shows “Unknown”. **createdAt** is sent as ISO string from backend; if the client ever receives a non-ISO value (e.g. from a different code path), **Invalid date** can appear.
 - **History:** Backend returns `{ data: result.data, total: result.total }`; after interceptor, response is `{ status, data: { data: array, total }, timestamp }`. `getContactHistory` uses `fetchWithAuthFull` and then `return { data: res?.data ?? [], total: res?.total ?? 0 }`. Here `res.data` is **`{ data: array, total }`**, not the array, so the client ends up with **wrong or empty history** and wrong total. So history often “does not show”.
 
-### 2.4 Root Causes Summary
+### 4.4 Root Causes Summary
 
-| Area | Root cause |
-|------|------------|
-| Inbox list | Polling only every 10s; no push when a session is assigned to this agent. |
-| Open chat messages | No refresh after load; inbound replies are never fetched until user re-selects the session. |
-| Contact profile | Controller returns `{ data: x }`; interceptor wraps again; frontend uses `fetchWithAuth` and treats `json.data` as the entity, but that is still the controller’s `{ data: x }`. |
-| Notes | Same double-wrap; frontend expects an array and gets an object → empty list; added note shape wrong; author/date fallbacks missing. |
-| History | Same double-wrap; frontend reads `res.data` (object) and `res.total` (undefined) instead of `res.data.data` and `res.data.total`. |
+| Area               | Root cause                                                                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inbox list         | Polling only every 10s; no push when a session is assigned to this agent.                                                                                                        |
+| Open chat messages | No refresh after load; inbound replies are never fetched until user re-selects the session.                                                                                      |
+| Contact profile    | Controller returns `{ data: x }`; interceptor wraps again; frontend uses `fetchWithAuth` and treats `json.data` as the entity, but that is still the controller’s `{ data: x }`. |
+| Notes              | Same double-wrap; frontend expects an array and gets an object → empty list; added note shape wrong; author/date fallbacks missing.                                              |
+| History            | Same double-wrap; frontend reads `res.data` (object) and `res.total` (undefined) instead of `res.data.data` and `res.data.total`.                                                |
 
 ---
 
-## 3. Requirements
+## 5. Requirements
 
-### 3.1 Functional
+### 5.1 Functional
 
 - **R1 – New assignments:** When a session is assigned to the current agent (handover or queue assignment), it appears in the agent’s inbox **within a few seconds** (target &lt; 5s without manual refresh).
 - **R2 – New messages in open chat:** When the agent has a conversation open and the contact (or system) sends a message, that message appears in the chat **within a few seconds** (target &lt; 5s).
@@ -56,7 +176,7 @@ The goal is a **reliable and efficient** system, not necessarily a specific tech
 - **R5 – Notes:** Notes list shows all notes; each note shows author (name or fallback “Agent”) and a valid date/time; adding a note appends one correctly shaped item.
 - **R6 – History:** History tab shows audit entries for the contact (profile updates, etc.) with correct actor and date; pagination works.
 
-### 3.2 Non-Functional
+### 5.2 Non-Functional
 
 - **NF1 – Consistency:** One clear pattern for “when to refetch / when to push” so the system is easy to reason about and extend.
 - **NF2 – Efficiency:** Prefer pushing only when something changed (or short-interval poll for open chat) instead of heavy full-list polling where not needed.
@@ -64,9 +184,9 @@ The goal is a **reliable and efficient** system, not necessarily a specific tech
 
 ---
 
-## 4. Design
+## 6. Design
 
-### 4.1 Response Shape (Contact Profile, Notes, History)
+### 6.1 Response Shape (Contact Profile, Notes, History)
 
 **Option A – Backend returns raw value (recommended)**  
 Controllers return the **entity or payload** directly (e.g. `return contact`, `return notes`, `return { data: list, total }`). The global `ResponseInterceptor` already wraps in `{ status, data, timestamp }`, so the client gets a single wrap. Then:
@@ -81,7 +201,7 @@ Every contact-profile API client strips one level (e.g. `(res) => res?.data ?? r
 
 **Decision:** **Option A.** Change contact-profile controllers to return the value directly (contact, array, or `{ data, total }`). No change to interceptor. Update frontend to assume a single wrap (already the case for `fetchWithAuth`/`fetchWithAuthFull` once backend is fixed).
 
-### 4.2 Real-Time / Near-Real-Time Strategy
+### 6.2 Real-Time / Near-Real-Time Strategy
 
 **Options:**
 
@@ -96,71 +216,71 @@ Given “reliable and efficient” and that the codebase has no existing real-ti
 
 Design below assumes **Phase 1** as the first deliverable; Phase 2 can be a follow-on design (channel format, auth, reconnection).
 
-### 4.3 Inbox List Updates (Phase 1)
+### 6.3 Inbox List Updates (Phase 1)
 
 - Keep **polling** for the session list (e.g. every 10s) when the inbox is visible.
 - Ensure that when the user **accepts** a session or the backend assigns one, the next poll (or an immediate `fetchInbox()` after accept) updates the list so the new/updated session appears. No change required if we already call `fetchInbox()` after accept; otherwise add it.
 - No WebSocket/SSE in Phase 1.
 
-### 4.4 Open Chat Messages (Phase 1)
+### 6.4 Open Chat Messages (Phase 1)
 
 - When `selectedSessionId` is set, start a **short-interval poll** (e.g. every 4s) that calls `agentApi.getSession(selectedSessionId)` and updates `messages` (and optionally session metadata like `lastMessageAt`).
 - When the user sends a message, keep **optimistic update**; after the API returns, merge the server message into state (already done). The next poll will also bring the latest list.
 - When `selectedSessionId` is cleared, clear the poll (no need to poll when no chat is open).
 - This satisfies R2 with minimal change and no new backend endpoints.
 
-### 4.5 Contact Profile Panel (All Phases)
+### 6.5 Contact Profile Panel (All Phases)
 
-- **Backend:**  
-  - `GET :contactId` → return `contact` (the DTO) directly.  
-  - `GET :contactId/notes` → return `notes` array directly.  
-  - `POST :contactId/notes` → return the created `note` object directly.  
+- **Backend:**
+  - `GET :contactId` → return `contact` (the DTO) directly.
+  - `GET :contactId/notes` → return `notes` array directly.
+  - `POST :contactId/notes` → return the created `note` object directly.
   - `GET :contactId/history` → return `{ data: entries, total }` directly (interceptor will wrap once).
-- **Frontend:**  
-  - Assume `fetchWithAuth` returns the single-wrapped `data`: contact, array, or (for history) use `fetchWithAuthFull` and then use `res.data` as `{ data: entries, total }`.  
-  - Notes: Ensure each note has `authorName: string` (fallback to `"Agent"` if null) and `createdAt` as ISO string; in the UI, use a safe date formatter (e.g. only format if valid date).  
+- **Frontend:**
+  - Assume `fetchWithAuth` returns the single-wrapped `data`: contact, array, or (for history) use `fetchWithAuthFull` and then use `res.data` as `{ data: entries, total }`.
+  - Notes: Ensure each note has `authorName: string` (fallback to `"Agent"` if null) and `createdAt` as ISO string; in the UI, use a safe date formatter (e.g. only format if valid date).
   - History: Use `res.data.data` and `res.data.total` until backend is changed; after backend change, `res.data` will be `{ data, total }` from the single wrap.
 
 This fixes R4, R5, R6.
 
-### 4.6 Notes “Unknown” and “Invalid date”
+### 6.6 Notes “Unknown” and “Invalid date”
 
 - **Backend:** Ensure notes API always returns `authorName` (resolve `author` relation; if missing, set to `"Agent"`) and `createdAt` as ISO string.
 - **Frontend:** Use a single `formatDate(iso)` that returns a sensible fallback (e.g. `"Invalid date"` → show raw string or “—”) so we never show “Invalid date” as-is; and use `note.authorName ?? "Agent"` for display.
 
 ---
 
-## 5. Implementation Plan
+## 7. Implementation Plan
 
 ### Phase 1 – Contact Profile Fixes & Targeted Message Polling (No New Real-Time Infra)
 
-| Step | Task | Owner / Notes |
-|------|------|----------------|
-| 1.1 | **Backend: Contact profile response shape** | |
-| | In `ContactProfileController`: `getContact` return `contact` (not `{ data: contact }`). | |
-| | `getNotes` return the array (not `{ data }`). | |
-| | `addNote` return the note object (not `{ data: note }`). | |
-| | `getHistory` return `{ data: result.data, total: result.total }` (same shape, but it’s the only return; interceptor wraps once). | |
-| 1.2 | **Backend: Notes author and date** | |
-| | In `ContactProfileService.getNotes` and `addNote`, ensure `authorName` is never null when returning (e.g. `author?.name ?? "Agent"`). | |
-| | Ensure `createdAt` is always ISO string. | |
-| 1.3 | **Frontend: Agent API contact profile** | |
-| | `getContactProfile`: after `fetchWithAuth`, return value is the contact (single wrap). If any legacy double-wrap remains, add `(res) => res?.data ?? res` until backend is deployed. | |
-| | `getContactNotes`: return array; if response is object with `data`, use `(res) => Array.isArray(res) ? res : (res?.data ?? [])`. | |
-| | `addContactNote`: return the note object; same unwrap if needed. | |
-| | `getContactHistory`: use `fetchWithAuthFull`; after backend change, `res.data` is `{ data, total }`; return `{ data: res.data?.data ?? [], total: res.data?.total ?? 0 }`. | |
-| 1.4 | **Frontend: ContactProfilePanel** | |
-| | Use `profile` as the contact object (no `.data`). | |
-| | Notes: display `note.authorName ?? "Agent"` and safe date format (fallback for invalid). | |
-| | History: consume `{ data, total }` from API; ensure pagination uses `total`. | |
-| 1.5 | **Frontend: Open chat message polling** | |
-| | In agent-inbox page, when `selectedSessionId` is set, start an interval (e.g. 4s) that calls `agentApi.getSession(selectedSessionId)` and sets `messages` from the response. | |
-| | Clear the interval when `selectedSessionId` is null or on unmount. | |
-| | Preserve optimistic updates for send; avoid flicker (e.g. merge by id, or replace list and keep optimistic id until server confirms). | |
-| 1.6 | **Frontend: Inbox list** | |
-| | Ensure after accept/assign we call `fetchInbox()` so the list updates (already may be there; verify). Keep 10s poll or reduce to 15s if desired. | |
-| 1.7 | **Tests & manual QA** | |
-| | Manual: profile loads, notes show author/date, history shows and paginates; open chat gets new messages within a few seconds. | |
+| Step | Task                                                                                                                                                                                 | Owner / Notes |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| 1.1  | **Backend: Contact profile response shape**                                                                                                                                          |               |
+|      | In `ContactProfileController`: `getContact` return `contact` (not `{ data: contact }`).                                                                                              |               |
+|      | `getNotes` return the array (not `{ data }`).                                                                                                                                        |               |
+|      | `addNote` return the note object (not `{ data: note }`).                                                                                                                             |               |
+|      | `getHistory` return `{ data: result.data, total: result.total }` (same shape, but it’s the only return; interceptor wraps once).                                                     |               |
+| 1.2  | **Backend: Notes author and date**                                                                                                                                                   |               |
+|      | In `ContactProfileService.getNotes` and `addNote`, ensure `authorName` is never null when returning (e.g. `author?.name ?? "Agent"`).                                                |               |
+|      | Ensure `createdAt` is always ISO string.                                                                                                                                             |               |
+| 1.3  | **Frontend: Agent API contact profile**                                                                                                                                              |               |
+|      | `getContactProfile`: after `fetchWithAuth`, return value is the contact (single wrap). If any legacy double-wrap remains, add `(res) => res?.data ?? res` until backend is deployed. |               |
+|      | `getContactNotes`: return array; if response is object with `data`, use `(res) => Array.isArray(res) ? res : (res?.data ?? [])`.                                                     |               |
+|      | `addContactNote`: return the note object; same unwrap if needed.                                                                                                                     |               |
+|      | `getContactHistory`: use `fetchWithAuthFull`; after backend change, `res.data` is `{ data, total }`; return `{ data: res.data?.data ?? [], total: res.data?.total ?? 0 }`.           |               |
+| 1.4  | **Frontend: ContactProfilePanel**                                                                                                                                                    |               |
+|      | Use `profile` as the contact object (no `.data`).                                                                                                                                    |               |
+|      | Notes: display `note.authorName ?? "Agent"` and safe date format (fallback for invalid).                                                                                             |               |
+|      | History: consume `{ data, total }` from API; ensure pagination uses `total`.                                                                                                         |               |
+| 1.5  | **Frontend: Open chat message polling**                                                                                                                                              |               |
+|      | In agent-inbox page, when `selectedSessionId` is set, start an interval (e.g. 4s) that calls `agentApi.getSession(selectedSessionId)` and sets `messages` from the response.         |               |
+|      | Clear the interval when `selectedSessionId` is null or on unmount.                                                                                                                   |               |
+|      | Preserve optimistic updates for send; avoid flicker (e.g. merge by id, or replace list and keep optimistic id until server confirms).                                                |               |
+| 1.6  | **Frontend: Inbox list**                                                                                                                                                             |               |
+|      | Ensure after accept/assign we call `fetchInbox()` so the list updates (already may be there; verify). Keep 10s poll or reduce to 15s if desired.                                     |               |
+| 1.7  | **Tests & manual QA**                                                                                                                                                                |               |
+|      | Manual: profile loads, notes show author/date, history shows and paginates; open chat gets new messages within a few seconds.                                                        |               |
 
 ### Phase 2 (Optional) – Push-Based Real-Time
 
@@ -171,13 +291,13 @@ This fixes R4, R5, R6.
 
 ---
 
-## 6. Summary
+## 8. Summary
 
-| Problem | Cause | Fix (Phase 1) |
-|--------|--------|----------------|
-| New assignments not visible soon | Only 10s poll | Keep poll; ensure fetch after accept; optional Phase 2 push. |
-| New messages in open chat not visible | No refresh after load | Poll messages for selected session every 4s. |
-| Profile/notes/history broken | Double-wrap + wrong client unwrap | Backend return raw value; frontend use single wrap; fix history `data`/`total` handling. |
-| Notes “Unknown” / “Invalid date” | authorName null; date format edge case | Backend fallback “Agent”; frontend safe formatter and author fallback. |
+| Problem                               | Cause                                  | Fix (Phase 1)                                                                            |
+| ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| New assignments not visible soon      | Only 10s poll                          | Keep poll; ensure fetch after accept; optional Phase 2 push.                             |
+| New messages in open chat not visible | No refresh after load                  | Poll messages for selected session every 4s.                                             |
+| Profile/notes/history broken          | Double-wrap + wrong client unwrap      | Backend return raw value; frontend use single wrap; fix history `data`/`total` handling. |
+| Notes “Unknown” / “Invalid date”      | authorName null; date format edge case | Backend fallback “Agent”; frontend safe formatter and author fallback.                   |
 
 Phase 1 gives a **reliable and efficient** inbox and contact profile without new infrastructure; Phase 2 can add push for lower latency and fewer requests.
