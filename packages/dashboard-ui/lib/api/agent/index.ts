@@ -143,22 +143,17 @@ export const agentApi = {
   },
 
   /**
-   * Get session with messages. Supports both response shapes:
-   * - { data: { session, messages } } (wrapped)
-   * - { session, messages } (legacy unwrapped)
+   * Get session with messages.
+   * Backend ResponseInterceptor wraps the controller response in { status, data, timestamp },
+   * so the actual body is { data: { session, messages } } and we read from res.data.
    */
   getSession: async (sessionId: string) => {
     const res = await fetchWithAuthFull<{
       data?: { session?: InboxSession; messages?: Message[] };
-      session?: InboxSession;
-      messages?: Message[];
     }>(`/agent/inbox/${sessionId}`);
-    const messages = Array.isArray(res?.data?.messages)
-      ? res.data.messages
-      : Array.isArray(res?.messages)
-        ? res.messages
-        : [];
-    const session = res?.data?.session ?? res?.session;
+    const payload = res?.data ?? {};
+    const messages = Array.isArray(payload.messages) ? payload.messages : [];
+    const session = payload.session;
     return { session, messages };
   },
 

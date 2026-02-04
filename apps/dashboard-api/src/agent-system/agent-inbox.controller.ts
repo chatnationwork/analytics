@@ -174,11 +174,10 @@ export class AgentInboxController {
     const session = await this.inboxService.getSession(sessionId);
     const messages = await this.inboxService.getSessionMessages(sessionId);
 
+    // Return plain object; ResponseInterceptor wraps it in { status, data, timestamp }
     return {
-      data: {
-        session,
-        messages,
-      },
+      session,
+      messages,
     };
   }
 
