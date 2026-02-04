@@ -12,6 +12,7 @@
 
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import Redis from "ioredis";
 import {
   InboxSessionEntity,
   MessageEntity,
@@ -29,6 +30,11 @@ import {
   DatabaseModule,
 } from "@lib/database";
 
+import {
+  ROUND_ROBIN_CONTEXT_PROVIDER,
+  InMemoryRoundRobinContextProvider,
+  RedisRoundRobinContextProvider,
+} from "./assignment-engine";
 import { InboxService } from "./inbox.service";
 import { AssignmentService } from "./assignment.service";
 import { RbacModule } from "./rbac.module";
@@ -74,6 +80,23 @@ import { AuditModule } from "../audit/audit.module";
     ContactProfileController,
   ],
   providers: [
+    {
+      provide: ROUND_ROBIN_CONTEXT_PROVIDER,
+      useFactory():
+        | InMemoryRoundRobinContextProvider
+        | RedisRoundRobinContextProvider {
+        const host = process.env.REDIS_HOST;
+        const port = process.env.REDIS_PORT;
+        if (host && port) {
+          const redis = new Redis({
+            host,
+            port: parseInt(port, 10),
+          });
+          return new RedisRoundRobinContextProvider(redis);
+        }
+        return new InMemoryRoundRobinContextProvider();
+      },
+    },
     InboxService,
     AssignmentService,
     PresenceService,

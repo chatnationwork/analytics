@@ -7,7 +7,7 @@
  * Supports multiple strategies: Round Robin, Load Balanced, Manual/Queue.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import {
@@ -24,6 +24,12 @@ import {
 } from "@lib/database";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { InboxService } from "./inbox.service";
+import {
+  AssignmentEngine,
+  ASSIGNMENT_ENGINE_RULES,
+  ROUND_ROBIN_CONTEXT_PROVIDER,
+  type RoundRobinContextProvider,
+} from "./assignment-engine";
 
 export type AssignmentStrategy =
   | "round_robin"
@@ -32,14 +38,6 @@ export type AssignmentStrategy =
   | "hybrid"
   | "load_balanced"
   | "manual";
-
-/**
- * Context for the round-robin strategy.
- * Tracks the last assigned agent index per team/tenant.
- */
-interface RoundRobinContext {
-  [teamOrTenantId: string]: number;
-}
 
 interface AgentMetrics {
   activeCount: number;
@@ -59,7 +57,7 @@ interface AgentDetail {
 @Injectable()
 export class AssignmentService {
   private readonly logger = new Logger(AssignmentService.name);
-  private roundRobinContext: RoundRobinContext = {};
+  private readonly engine: AssignmentEngine;
 
   constructor(
     @InjectRepository(InboxSessionEntity)
@@ -76,7 +74,29 @@ export class AssignmentService {
     private readonly tenantMembershipRepo: Repository<TenantMembershipEntity>,
     private readonly whatsappService: WhatsappService,
     private readonly inboxService: InboxService,
-  ) {}
+    @Inject(ROUND_ROBIN_CONTEXT_PROVIDER)
+    private readonly rrContext: RoundRobinContextProvider,
+  ) {
+    this.engine = new AssignmentEngine({
+      sessionRepo: this.sessionRepo,
+      teamRepo: this.teamRepo,
+      memberRepo: this.memberRepo,
+      agentRepo: this.agentRepo,
+      configRepo: this.configRepo,
+      inboxService: this.inboxService,
+      whatsappService: this.whatsappService,
+      checkScheduleAvailability: (teamId) =>
+        this.checkScheduleAvailability(teamId),
+      getStrategyWithType: (tenantId, teamId) =>
+        this.getStrategyWithType(tenantId, teamId),
+      getAvailableAgents: (tenantId, teamId) =>
+        this.getAvailableAgents(tenantId, teamId),
+      pickAgentForSession: (session, strategy, config, agentIds) =>
+        this.pickAgentForSession(session, strategy, config, agentIds),
+      runNoAgentFallback: (session) => this.runNoAgentFallback(session),
+    });
+    this.engine.setRules(ASSIGNMENT_ENGINE_RULES);
+  }
 
   /**
    * Assigns a session to an agent based on the configured strategy.
@@ -130,8 +150,9 @@ export class AssignmentService {
   /**
    * Gets the assignment strategy and config for a team or tenant.
    * When team exists, falsy or invalid strategy defaults to round_robin so handovers still get assigned.
+   * Public for use by assignment engine rules.
    */
-  private async getStrategyWithType(
+  async getStrategyWithType(
     tenantId: string,
     teamId?: string,
   ): Promise<{ strategy: AssignmentStrategy; config?: any }> {
@@ -315,8 +336,9 @@ export class AssignmentService {
    * - When no teamId: use default team with members, else first team with members.
    * - Only returns agents who are online (agent_profiles.status = ONLINE).
    * - If team has routingConfig.maxLoad set, excludes agents with current assigned chat count >= maxLoad.
+   * Public for use by assignment engine rules.
    */
-  private async getAvailableAgents(
+  async getAvailableAgents(
     tenantId: string,
     teamId?: string,
   ): Promise<string[]> {
@@ -473,18 +495,18 @@ export class AssignmentService {
       });
     }
 
-    const lastIndex = this.roundRobinContext[contextKey] ?? -1;
-    const nextIndex = (lastIndex + 1) % agentIds.length;
-    this.roundRobinContext[contextKey] = nextIndex;
-
-    const selectedAgentId = agentIds[nextIndex];
+    const index = await this.rrContext.getNextIndex(
+      contextKey,
+      agentIds.length,
+    );
+    const selectedAgentId = agentIds[index];
 
     session.assignedAgentId = selectedAgentId;
     session.status = SessionStatus.ASSIGNED;
     session.assignedAt = new Date();
 
     this.logger.log(
-      `Assigning session ${session.id} to agent ${selectedAgentId} (round-robin index ${nextIndex})`,
+      `Assigning session ${session.id} to agent ${selectedAgentId} (round-robin index ${index})`,
     );
     try {
       const saved = await this.sessionRepo.save(session);
@@ -492,9 +514,9 @@ export class AssignmentService {
         `Session ${session.id} saved with assignedAgentId=${saved.assignedAgentId}, status=${saved.status}`,
       );
       return saved;
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.logger.error(
-        `Failed to save session ${session.id} assignment: ${err?.message ?? err}`,
+        `Failed to save session ${session.id} assignment: ${err instanceof Error ? err.message : String(err)}`,
       );
       throw err;
     }
@@ -639,27 +661,11 @@ export class AssignmentService {
     candidates.sort();
 
     const contextKey = session.assignedTeamId || session.tenantId;
-    const lastIndex = this.roundRobinContext[contextKey] ?? -1;
-
-    // We need to pick the "next" agent relative to the entire pool context,
-    // OR just round robin within this candidate list?
-    // "When equal, default to round robin".
-    // If we just RR within candidates, it works.
-
-    // Simple local RR for candidates
-    // To prevent "starvation" or sticky assignment if candidates are always the same 2 people,
-    // we need a persistent index for this group?
-    // Or just rely on random?
-    // User asked for "Round Robin".
-    // Ideally we maintain the global pointer.
-    // But candidates might change.
-    // Let's just create a hash or increment a counter for the team to rotate through ties.
-
-    const counter = this.roundRobinContext[contextKey] ?? 0;
-    const selectedId = candidates[counter % candidates.length];
-
-    // Increment global counter
-    this.roundRobinContext[contextKey] = counter + 1;
+    const index = await this.rrContext.getNextIndex(
+      contextKey,
+      candidates.length,
+    );
+    const selectedId = candidates[index];
 
     session.assignedAgentId = selectedId;
     session.status = SessionStatus.ASSIGNED;
@@ -669,9 +675,165 @@ export class AssignmentService {
   }
 
   /**
+   * Pick next agent ID from candidates using round-robin (updates context; does not save).
+   * Used by pickAgentForSession and by strategy implementations for tie-breaking.
+   */
+  private async pickNextRoundRobinId(
+    contextKey: string,
+    candidates: string[],
+  ): Promise<string> {
+    if (candidates.length === 0)
+      throw new Error("pickNextRoundRobinId: empty candidates");
+    const sorted = [...candidates].sort();
+    const index = await this.rrContext.getNextIndex(contextKey, sorted.length);
+    return sorted[index];
+  }
+
+  /**
+   * Pick one agent by strategy from the given agent list (no DB save).
+   * Public for use by assignment engine SelectorRule.
+   */
+  async pickAgentForSession(
+    session: InboxSessionEntity,
+    strategy: string,
+    config: Record<string, unknown> | undefined,
+    agentIds: string[],
+  ): Promise<string | null> {
+    if (agentIds.length === 0) return null;
+    const contextKey = session.assignedTeamId || session.tenantId;
+
+    switch (strategy) {
+      case "round_robin": {
+        const sortBy = (config?.sortBy as string) || "name";
+        let sorted = agentIds;
+        if (sortBy === "random") {
+          sorted = [...agentIds].sort();
+        } else {
+          const details = await this.getAgentDetails(agentIds);
+          sorted = [...agentIds].sort((a, b) => {
+            const detailA = details.find((d) => d.id === a);
+            const detailB = details.find((d) => d.id === b);
+            if (!detailA || !detailB) return 0;
+            if (sortBy === "created_at")
+              return detailA.createdAt.getTime() - detailB.createdAt.getTime();
+            return detailA.name.localeCompare(detailB.name);
+          });
+        }
+        return await this.pickNextRoundRobinId(contextKey, sorted);
+      }
+      case "load_balanced":
+      case "least_active": {
+        const metrics = await this.getAgentMetrics(agentIds);
+        let minActive = Infinity;
+        metrics.forEach((m) => {
+          if (m.activeCount < minActive) minActive = m.activeCount;
+        });
+        const candidates = agentIds.filter(
+          (id) => metrics.get(id)?.activeCount === minActive,
+        );
+        return await this.pickNextRoundRobinId(contextKey, candidates);
+      }
+      case "least_assigned": {
+        const timeWindow = (config?.timeWindow as string) || "all_time";
+        const metrics = await this.getAgentMetrics(agentIds, timeWindow);
+        let minTotal = Infinity;
+        metrics.forEach((m) => {
+          if (m.totalCount < minTotal) minTotal = m.totalCount;
+        });
+        const candidates = agentIds.filter(
+          (id) => metrics.get(id)?.totalCount === minTotal,
+        );
+        return await this.pickNextRoundRobinId(contextKey, candidates);
+      }
+      case "hybrid": {
+        const priorities = (config?.priority as string[]) || [
+          "least_active",
+          "least_assigned",
+        ];
+        const metrics = await this.getAgentMetrics(agentIds);
+        const sorted = [...agentIds].sort((a, b) => {
+          const metricA = metrics.get(a)!;
+          const metricB = metrics.get(b)!;
+          for (const priority of priorities) {
+            if (priority === "least_active") {
+              if (metricA.activeCount !== metricB.activeCount)
+                return metricA.activeCount - metricB.activeCount;
+            }
+            if (priority === "least_assigned") {
+              if (metricA.totalCount !== metricB.totalCount)
+                return metricA.totalCount - metricB.totalCount;
+            }
+          }
+          return 0;
+        });
+        const bestAgent = sorted[0];
+        const metricBest = metrics.get(bestAgent)!;
+        const candidates = sorted.filter((id) => {
+          const m = metrics.get(id)!;
+          for (const priority of priorities) {
+            if (
+              priority === "least_active" &&
+              m.activeCount !== metricBest.activeCount
+            )
+              return false;
+            if (
+              priority === "least_assigned" &&
+              m.totalCount !== metricBest.totalCount
+            )
+              return false;
+          }
+          return true;
+        });
+        return await this.pickNextRoundRobinId(contextKey, candidates);
+      }
+      default:
+        return await this.pickNextRoundRobinId(
+          contextKey,
+          [...agentIds].sort(),
+        );
+    }
+  }
+
+  /**
+   * Run no-agent fallback (send message and record in inbox if configured).
+   * Public for use by assignment engine rules.
+   */
+  async runNoAgentFallback(session: InboxSessionEntity): Promise<void> {
+    const config = await this.configRepo.findOne({
+      where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
+    });
+    const waterfall = config?.settings?.waterfall;
+    const noAgentAction = waterfall?.noAgentAction || "queue";
+    if (noAgentAction !== "reply") return;
+
+    const messageText =
+      waterfall?.noAgentMessage ||
+      "All of our agents are currently busy. We will get back to you shortly.";
+    try {
+      await this.whatsappService.sendMessage(
+        session.tenantId,
+        session.contactId,
+        messageText,
+      );
+      await this.inboxService.addMessage({
+        tenantId: session.tenantId,
+        sessionId: session.id,
+        contactId: session.contactId,
+        direction: MessageDirection.OUTBOUND,
+        content: messageText,
+        senderId: undefined,
+      });
+      this.logger.log(`Sent no-agent fallback message to ${session.contactId}`);
+    } catch (e) {
+      this.logger.error("Failed to send no-agent fallback message", e);
+    }
+  }
+
+  /**
    * Requests assignment for a session (used when bot hands off to agent).
    * If auto-assignment is possible, assigns immediately.
    * Otherwise, leaves in unassigned queue.
+   * §5.1 Verified engine-only: no legacy path; schedule/contact/assign/no-agent are handled by rules.
    */
   async requestAssignment(
     sessionId: string,
@@ -692,142 +854,33 @@ export class AssignmentService {
 
     await this.sessionRepo.save(session);
 
-    // CHECK SCHEDULE AVAILABILITY
-    if (teamId) {
-      const { isOpen, nextOpen, message } =
-        await this.checkScheduleAvailability(teamId);
-      if (!isOpen) {
-        this.logger.log(`Team ${teamId} is closed. Next open: ${nextOpen}`);
-
-        let action = "queue";
-        if (nextOpen) {
-          const diffMs = nextOpen.getTime() - Date.now();
-          const diffHours = diffMs / (1000 * 60 * 60);
-          if (diffHours > 24) {
-            action = "ooo";
-          }
-        } else {
-          action = "ooo"; // No known next shift
-        }
-
-        if (action === "ooo") {
-          const oooMsg = message || "We are currently closed.";
-          try {
-            await this.whatsappService.sendMessage(
-              session.tenantId,
-              session.contactId,
-              oooMsg,
-            );
-            await this.inboxService.addMessage({
-              tenantId: session.tenantId,
-              sessionId: session.id,
-              contactId: session.contactId,
-              direction: MessageDirection.OUTBOUND,
-              content: oooMsg,
-              senderId: undefined, // system
-            });
-          } catch (e) {
-            this.logger.error("Failed to send OOO message", e);
-          }
-          return session; // Stop assignment
-        }
-
-        // If 'queue', we just return the session without assigning.
-        return session;
-      }
-    }
-
-    // Do not assign if this contact already has an ASSIGNED session (avoid multiple agents for same user)
-    const alreadyAssigned = await this.inboxService.contactHasAssignedSession(
-      session.tenantId,
-      session.contactId,
-      session.id,
-    );
-    if (alreadyAssigned) {
-      this.logger.log(
-        `Skipping assignment for session ${session.id}: contact ${session.contactId} already has an assigned session`,
-      );
+    // Handover is 100% engine-driven: no legacy path (schedule/contact/assignSession/no-agent
+    // are handled inside rules). See assignment_engine_phase5_design.md §2.
+    const result = await this.engine.run({
+      session,
+      source: "handover",
+    });
+    if (result.outcome === "assign") {
+      session.assignedAgentId = result.agentId;
+      session.status = SessionStatus.ASSIGNED;
+      session.assignedAt = new Date();
+      await this.sessionRepo.save(session);
       return session;
     }
-
-    // Attempt auto-assignment
-    const assigned = await this.assignSession(session);
-
-    if (assigned) {
-      return assigned;
+    if (result.outcome === "skip") return session;
+    if (result.outcome === "error") {
+      this.logger.warn(`Assignment engine error: ${result.message}`);
+      return session; // No assign, no partial save (4.3)
     }
-
-    // Log why session was left unassigned (helps debug prod handovers)
-    const { strategy } = await this.getStrategyWithType(
-      session.tenantId,
-      session.assignedTeamId || undefined,
-    );
-    const agentIds = await this.getAvailableAgents(
-      session.tenantId,
-      session.assignedTeamId || undefined,
-    );
-    this.logger.warn(
-      `Handover session ${session.id} left unassigned. Strategy=${strategy}, availableAgents=${agentIds.length} (tenantId=${session.tenantId}, teamId=${session.assignedTeamId ?? "none"}). Check: strategy is "manual" or no team has members.`,
-    );
-
-    // --- NO AGENT AVAILABLE HANDLING ---
-
-    // Check Schedule first (if no agent was found immediately, or strictly enforce it?)
-    // Actually, we should check schedule BEFORE assignment attempts if we want to blocking OOO.
-    // But typically "Assignment" involves checking agents. If schedule says "Closed", we shouldn't even look for agents.
-    // Let's refactor to check schedule at the start of requestAssignment?
-    // User requirement: "on days where the team does now work we dont assign messages"
-    // So YES, check schedule first.
-
-    // Move logic up.
-
-    // 1. Fetch Config
-    const config = await this.configRepo.findOne({
-      where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
-    });
-
-    const waterfall = config?.settings?.waterfall;
-    const noAgentAction = waterfall?.noAgentAction || "queue"; // 'queue' | 'reply'
-
-    if (noAgentAction === "reply") {
-      const messageText =
-        waterfall?.noAgentMessage ||
-        "All of our agents are currently busy. We will get back to you shortly.";
-
-      try {
-        // Send WA message
-        await this.whatsappService.sendMessage(
-          session.tenantId,
-          session.contactId,
-          messageText,
-        );
-
-        // Record in Inbox
-        await this.inboxService.addMessage({
-          tenantId: session.tenantId,
-          sessionId: session.id,
-          contactId: session.contactId,
-          direction: MessageDirection.OUTBOUND,
-          content: messageText,
-          senderId: undefined, // system
-        });
-        this.logger.log(
-          `Sent no-agent fallback message to ${session.contactId}`,
-        );
-      } catch (e) {
-        this.logger.error("Failed to send no-agent fallback message", e);
-      }
-    }
-
+    // outcome === 'stop': schedule closed, manual strategy, or no agents (fallback already run by rules)
     return session;
   }
 
   /**
    * Assigns queued (unassigned) sessions to available agents.
    * Called when an agent goes online or via "Assign queue" action.
-   * Sessions are processed in FIFO order (oldest first); respects team max load and routing strategy.
-   * Skips any unassigned session whose contact already has an ASSIGNED session so we never have
-   * multiple agents with unresolved chats for the same user.
+   * Uses the same assignment engine as handover (source: queue), so schedule and no-agent
+   * rules apply: no assign when team is closed; no-agent fallback runs when no agents.
    */
   async assignQueuedSessionsToAvailableAgents(
     tenantId: string,
@@ -841,14 +894,23 @@ export class AssignmentService {
     let assigned = 0;
     for (let i = 0; i < Math.min(sessions.length, limit); i++) {
       const session = sessions[i];
-      const alreadyAssigned = await this.inboxService.contactHasAssignedSession(
-        session.tenantId,
-        session.contactId,
-        session.id,
-      );
-      if (alreadyAssigned) continue;
-      const result = await this.assignSession(session);
-      if (result) assigned++;
+      const result = await this.engine.run({
+        session,
+        source: "queue",
+      });
+      if (result.outcome === "assign") {
+        session.assignedAgentId = result.agentId;
+        session.status = SessionStatus.ASSIGNED;
+        session.assignedAt = new Date();
+        await this.sessionRepo.save(session);
+        assigned++;
+      }
+      if (result.outcome === "error") {
+        this.logger.warn(
+          `Assignment engine error for session ${session.id}: ${result.message}`,
+        );
+        // No assign, no partial save (4.3)
+      }
     }
     if (assigned > 0) {
       this.logger.log(
