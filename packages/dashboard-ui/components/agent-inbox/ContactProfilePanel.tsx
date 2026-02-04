@@ -38,8 +38,8 @@ export function ContactProfilePanel({
   contactId,
   contactName,
 }: ContactProfilePanelProps) {
-  if (!contactId) {
-    throw new Error("ContactProfilePanel requires contactId");
+  if (!contactId || String(contactId).trim() === "") {
+    return null;
   }
 
   const [profile, setProfile] = useState<ContactProfile | null>(null);

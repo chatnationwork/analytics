@@ -27,6 +27,8 @@ import {
   TeamEntity,
   EventRepository,
   CreateEventDto,
+  normalizeContactIdDigits,
+  InboxSessionHelper,
 } from "@lib/database";
 import { randomUUID } from "crypto";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
@@ -68,6 +70,8 @@ export interface CreateMessageDto {
 export class InboxService {
   private readonly logger = new Logger(InboxService.name);
 
+  private readonly sessionHelper: InboxSessionHelper;
+
   constructor(
     @InjectRepository(InboxSessionEntity)
     private readonly sessionRepo: Repository<InboxSessionEntity>,
@@ -80,14 +84,8 @@ export class InboxService {
     private readonly eventRepository: EventRepository,
     private readonly whatsappService: WhatsappService,
     @InjectDataSource() private readonly dataSource: DataSource,
-  ) {}
-
-  /**
-   * Sanitize phone number: trim and remove leading/trailing '+' for consistent storage and lookup.
-   */
-  private sanitizeContactId(contactId: string): string {
-    if (!contactId || typeof contactId !== "string") return contactId ?? "";
-    return contactId.trim().replace(/^\++/, "").replace(/\++$/, "");
+  ) {
+    this.sessionHelper = new InboxSessionHelper(this.sessionRepo);
   }
 
   /**
@@ -101,9 +99,7 @@ export class InboxService {
 
   /**
    * Gets or creates a session for a contact.
-   * If the contact already has a pending (unassigned/assigned) session, we reuse it
-   * so we never open a new chat while one is still open.
-   * Otherwise, creates a new one.
+   * Delegates to shared InboxSessionHelper for consistent normalization and dedup.
    */
   async getOrCreateSession(
     tenantId: string,
@@ -112,31 +108,23 @@ export class InboxService {
     channel = "whatsapp",
     context?: Record<string, unknown>,
   ): Promise<InboxSessionEntity> {
-    const normalizedContactId = this.sanitizeContactId(contactId);
-
-    const session = await this.sessionRepo.findOne({
-      where: {
-        tenantId,
-        contactId: normalizedContactId,
-        status: In([SessionStatus.ASSIGNED, SessionStatus.UNASSIGNED]),
-      },
-      order: { lastMessageAt: "DESC" },
-    });
-
-    if (session) {
-      return session;
+    try {
+      return await this.sessionHelper.getOrCreateSession(tenantId, contactId, {
+        contactName,
+        channel,
+        context,
+      });
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        err.message === "contactId must contain at least one digit"
+      ) {
+        throw new BadRequestException(
+          "contactId is required and must contain at least one digit",
+        );
+      }
+      throw err;
     }
-
-    const newSession = this.sessionRepo.create({
-      tenantId,
-      contactId: normalizedContactId,
-      contactName,
-      channel,
-      status: SessionStatus.UNASSIGNED,
-      context,
-    });
-
-    return this.sessionRepo.save(newSession);
   }
 
   /**
@@ -339,7 +327,7 @@ export class InboxService {
     tenantId: string,
     contactId: string,
   ): Promise<MessageEntity[]> {
-    const normalizedContactId = this.sanitizeContactId(contactId);
+    const normalizedContactId = normalizeContactIdDigits(contactId);
     const sessions = await this.sessionRepo.find({
       where: { tenantId, contactId: normalizedContactId },
       select: { id: true },
@@ -383,7 +371,7 @@ export class InboxService {
     contactId: string,
     excludeSessionId?: string,
   ): Promise<boolean> {
-    const normalizedContactId = this.sanitizeContactId(contactId);
+    const normalizedContactId = normalizeContactIdDigits(contactId);
     const qb = this.sessionRepo
       .createQueryBuilder("session")
       .where("session.tenantId = :tenantId", { tenantId })

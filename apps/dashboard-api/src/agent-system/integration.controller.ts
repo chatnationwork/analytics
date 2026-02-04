@@ -1,4 +1,11 @@
-import { Controller, Post, Body, Request, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Body,
+  Request,
+  UseGuards,
+  BadRequestException,
+} from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { HandoverAuthGuard } from "../auth/handover-auth.guard";
 import { InboxService } from "./inbox.service";
@@ -6,12 +13,6 @@ import { InboxService } from "./inbox.service";
 import { AssignmentService } from "./assignment.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { MessageDirection } from "@lib/database";
-
-/** Sanitize phone number: trim and remove leading/trailing '+' so storage and lookup are consistent. */
-function sanitizePhoneNumber(contactId: string): string {
-  if (!contactId || typeof contactId !== "string") return contactId ?? "";
-  return contactId.trim().replace(/^\++/, "").replace(/\++$/, "");
-}
 
 interface HandoverDto {
   contactId: string;
@@ -39,7 +40,9 @@ export class IntegrationController {
    */
   @Post("handover")
   async handover(@Request() req: any, @Body() dto: HandoverDto) {
-    const contactId = sanitizePhoneNumber(dto.contactId);
+    if (!dto.contactId || typeof dto.contactId !== "string") {
+      throw new BadRequestException("contactId is required");
+    }
     const tenantId = dto.tenantId || req.user.tenantId;
 
     const context = {
@@ -49,13 +52,13 @@ export class IntegrationController {
 
     // Only send "Connecting you to an agent..." when the user does not already have an active session
     const hadActiveSession = await this.inboxService.hasActiveAgentSession(
-      contactId,
+      dto.contactId,
       tenantId,
     );
 
     const session = await this.inboxService.getOrCreateSession(
       tenantId,
-      contactId,
+      dto.contactId,
       dto.name,
       "whatsapp", // Default channel
       context,
@@ -75,6 +78,7 @@ export class IntegrationController {
       const messageContent =
         dto.handoverMessage || "Connecting you to an agent...";
       const sessionId = session.id;
+      const contactId = session.contactId;
       Promise.all([
         this.whatsappService.sendMessage(tenantId, contactId, messageContent),
         this.inboxService.addMessage({

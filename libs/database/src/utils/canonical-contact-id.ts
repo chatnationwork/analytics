@@ -11,3 +11,15 @@ export function toCanonicalContactId(
   const trimmed = contactId.trim();
   return trimmed.replace(/^\++/, "").replace(/\++$/, "");
 }
+
+/**
+ * Normalize contact ID to digits only for storage and lookup.
+ * Ensures "254745050238", "+254745050238", "254 745 050 238" all match
+ * and avoid duplicate sessions when handover and processor use different formats.
+ */
+export function normalizeContactIdDigits(
+  contactId: string | null | undefined,
+): string {
+  if (contactId == null || typeof contactId !== "string") return "";
+  return contactId.trim().replace(/\D/g, "");
+}

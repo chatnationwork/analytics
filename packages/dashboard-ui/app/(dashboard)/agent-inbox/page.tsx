@@ -473,8 +473,8 @@ export default function AgentInboxPage() {
         )}
       </Card>
 
-      {/* Contact Profile Panel - shown when a session is selected */}
-      {selectedSession && (
+      {/* Contact Profile Panel - only when session has a valid contactId (avoids crash for malformed data) */}
+      {selectedSession && selectedSession.contactId && (
         <ContactProfilePanel
           contactId={selectedSession.contactId}
           contactName={selectedSession.contactName}

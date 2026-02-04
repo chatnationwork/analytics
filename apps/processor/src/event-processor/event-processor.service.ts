@@ -48,16 +48,17 @@ import {
   SessionStatus,
   MessageDirection,
   MessageType,
-  toCanonicalContactId,
+  InboxSessionHelper,
 } from "@lib/database";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, In } from "typeorm";
+import { Repository } from "typeorm";
 import { GeoipEnricher } from "../enrichers/geoip.enricher";
 import { UseragentEnricher } from "../enrichers/useragent.enricher";
 
 @Injectable()
 export class EventProcessorService {
   private readonly logger = new Logger(EventProcessorService.name);
+  private readonly sessionHelper: InboxSessionHelper;
 
   constructor(
     private readonly eventConsumer: EventConsumer,
@@ -71,7 +72,9 @@ export class EventProcessorService {
     private readonly messageRepo: Repository<MessageEntity>,
     @InjectRepository(ResolutionEntity)
     private readonly resolutionRepo: Repository<ResolutionEntity>,
-  ) {}
+  ) {
+    this.sessionHelper = new InboxSessionHelper(this.inboxSessionRepo);
+  }
 
   async start(): Promise<void> {
     this.eventConsumer.setHandler(this.handleMessages.bind(this));
@@ -247,22 +250,42 @@ export class EventProcessorService {
 
   private async processInboxMessage(event: CreateEventDto): Promise<void> {
     const props = event.properties || {};
-    const contactId = toCanonicalContactId(event.externalId); // Phone number, normalized to avoid duplicate contacts
+    const contactId = event.externalId;
 
-    if (!contactId) {
+    if (!contactId || typeof contactId !== "string") {
       this.logger.warn(
         `Skipping inbox sync for event ${event.eventId}: No externalId (contact phone) found.`,
       );
       return;
     }
 
-    // Determine direction and content
+    let session: InboxSessionEntity;
+    try {
+      session = await this.sessionHelper.getOrCreateSession(
+        event.tenantId,
+        contactId,
+        {
+          contactName: props.name as string,
+          channel: "whatsapp",
+          context: { source: "webhook_sync" },
+        },
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Skipping inbox sync for event ${event.eventId}: ${(err as Error).message}`,
+      );
+      return;
+    }
+
+    await this.inboxSessionRepo.update(session.id, {
+      lastMessageAt: event.timestamp,
+    });
+
     const isInbound = event.eventName === "messages received";
     const direction = isInbound
       ? MessageDirection.INBOUND
       : MessageDirection.OUTBOUND;
 
-    // Extract content
     let content = "";
     let messageType = MessageType.TEXT;
 
@@ -270,7 +293,6 @@ export class EventProcessorService {
       if (typeof props.text === "object") {
         content = (props.text as any).body || JSON.stringify(props.text);
       } else if (typeof props.text === "string") {
-        // Try to parse if it looks like JSON
         if (props.text.trim().startsWith("{")) {
           try {
             const parsed = JSON.parse(props.text);
@@ -283,7 +305,7 @@ export class EventProcessorService {
         }
       }
     } else if (props.type === "template") {
-      messageType = MessageType.TEXT; // Metadata contains template info
+      messageType = MessageType.TEXT;
       content = `Template: ${(props.template as any)?.name}`;
     } else if (
       props.type === "image" ||
@@ -292,41 +314,9 @@ export class EventProcessorService {
       props.type === "audio"
     ) {
       messageType = props.type as MessageType;
-      content = `[${props.type.toUpperCase()}]`; // Placeholder for media
+      content = `[${props.type.toUpperCase()}]`;
     }
 
-    // Get or Create Session – reuse existing pending session so we never open a new chat while one is open
-    let session = await this.inboxSessionRepo.findOne({
-      where: {
-        tenantId: event.tenantId,
-        contactId,
-        status: In([SessionStatus.ASSIGNED, SessionStatus.UNASSIGNED]),
-      },
-      order: { lastMessageAt: "DESC" },
-    });
-
-    if (!session) {
-      // Create new UNASSIGNED session only when contact has no pending session
-      session = this.inboxSessionRepo.create({
-        tenantId: event.tenantId,
-        contactId,
-        contactName: (props.name as string) || contactId,
-        channel: "whatsapp",
-        status: SessionStatus.UNASSIGNED,
-        context: {
-          source: "webhook_sync",
-        },
-        lastMessageAt: event.timestamp,
-      });
-      session = await this.inboxSessionRepo.save(session);
-    } else {
-      // Update last message time
-      await this.inboxSessionRepo.update(session.id, {
-        lastMessageAt: event.timestamp,
-      });
-    }
-
-    // Create Message
     const message = this.messageRepo.create({
       sessionId: session.id,
       tenantId: event.tenantId,
@@ -334,7 +324,7 @@ export class EventProcessorService {
       direction,
       type: messageType,
       content,
-      senderId: isInbound ? undefined : event.userId || undefined, // If outbound, userId might be agent ID
+      senderId: isInbound ? undefined : event.userId || undefined,
       metadata: props,
       createdAt: event.timestamp,
     });

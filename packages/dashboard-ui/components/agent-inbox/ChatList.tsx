@@ -98,7 +98,9 @@ export function ChatList({
             <div className="flex-1 overflow-hidden">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold truncate text-sm">
-                  {session.contactName || "Unknown User"}
+                  {session.contactName?.trim() ||
+                    session.contactId ||
+                    "Unknown User"}
                 </span>
                 {session.lastMessageAt && (
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">

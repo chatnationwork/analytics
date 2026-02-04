@@ -33,3 +33,7 @@ export * from "./entities";
 export * from "./repositories";
 export * from "./utils/canonical-contact-id";
 export * from "./utils/password-complexity";
+export {
+  InboxSessionHelper,
+  GetOrCreateSessionOptions,
+} from "./helpers/inbox-session.helper";
