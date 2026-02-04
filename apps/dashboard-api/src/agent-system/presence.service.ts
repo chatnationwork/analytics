@@ -27,16 +27,18 @@ export class PresenceService {
   async goOnline(
     tenantId: string,
     agentId: string,
+    reason?: string | null,
   ): Promise<{ sessionId: string; startedAt: Date }> {
     const existing = await this.agentSessionRepo.getActiveSession(
       tenantId,
       agentId,
     );
     if (existing) {
+      await this.upsertAgentProfileStatus(agentId, AgentStatus.ONLINE, reason);
       return { sessionId: existing.id, startedAt: existing.startedAt };
     }
     const session = await this.agentSessionRepo.startSession(tenantId, agentId);
-    await this.upsertAgentProfileStatus(agentId, AgentStatus.ONLINE);
+    await this.upsertAgentProfileStatus(agentId, AgentStatus.ONLINE, reason);
     // Assign queued sessions to available agents (including this one)
     this.assignmentService
       .assignQueuedSessionsToAvailableAgents(tenantId)
@@ -49,43 +51,57 @@ export class PresenceService {
   async goOffline(
     tenantId: string,
     agentId: string,
+    reason?: string | null,
   ): Promise<{ endedAt: Date } | null> {
     const session = await this.agentSessionRepo.endSession(tenantId, agentId);
-    await this.upsertAgentProfileStatus(agentId, AgentStatus.OFFLINE);
+    await this.upsertAgentProfileStatus(agentId, AgentStatus.OFFLINE, reason);
     return session ? { endedAt: session.endedAt! } : null;
   }
 
   /**
-   * Get current agent presence status (for inbox "Available" toggle).
+   * Get current agent presence status and reason (for header status dropdown).
    * If the agent has an open session, they are considered online regardless of profile.
    */
   async getStatus(
     tenantId: string,
     agentId: string,
-  ): Promise<"online" | "offline"> {
+  ): Promise<{ status: "online" | "offline"; reason: string | null }> {
     const activeSession = await this.agentSessionRepo.getActiveSession(
       tenantId,
       agentId,
     );
-    if (activeSession) return "online";
     const profile = await this.agentProfileRepo.findOne({
       where: { userId: agentId },
     });
-    return profile?.status === AgentStatus.ONLINE ? "online" : "offline";
+    const status: "online" | "offline" =
+      activeSession || profile?.status === AgentStatus.ONLINE
+        ? "online"
+        : "offline";
+    const reason =
+      profile?.statusReason != null && profile.statusReason !== ""
+        ? profile.statusReason
+        : null;
+    return { status, reason };
   }
 
   private async upsertAgentProfileStatus(
     agentId: string,
     status: AgentStatus,
+    reason?: string | null,
   ): Promise<void> {
     let profile = await this.agentProfileRepo.findOne({
       where: { userId: agentId },
     });
     if (!profile) {
-      profile = this.agentProfileRepo.create({ userId: agentId, status });
+      profile = this.agentProfileRepo.create({
+        userId: agentId,
+        status,
+        statusReason: reason ?? null,
+      });
       await this.agentProfileRepo.save(profile);
     } else {
       profile.status = status;
+      profile.statusReason = reason ?? null;
       await this.agentProfileRepo.save(profile);
     }
   }

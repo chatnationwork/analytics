@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  LogOut,
   LayoutDashboard,
   Filter,
   Route,
@@ -33,7 +32,6 @@ import {
   List,
   Lock,
 } from "lucide-react";
-import { logoutAction } from "@/app/(auth)/login/actions";
 import { usePermission } from "@/components/auth/PermissionContext";
 import { api } from "@/lib/api";
 
@@ -195,11 +193,6 @@ export function TopNav() {
     })
     .filter(Boolean) as typeof navGroups;
 
-  const handleLogout = async () => {
-    localStorage.removeItem("accessToken");
-    await logoutAction();
-  };
-
   if (isLoading) return null;
 
   return (
@@ -319,21 +312,6 @@ export function TopNav() {
           })}
         </div>
       </nav>
-
-      {/* Logout */}
-      <div className="p-3 border-t border-border">
-        <button
-          onClick={handleLogout}
-          title={collapsed ? "Logout" : undefined}
-          className={`
-            w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors
-            ${collapsed ? "justify-center" : ""}
-          `}
-        >
-          <LogOut className="w-5 h-5 shrink-0" />
-          {!collapsed && <span>Logout</span>}
-        </button>
-      </div>
     </aside>
   );
 }

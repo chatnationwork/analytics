@@ -73,9 +73,10 @@ interface TransferSessionDto {
   reason?: string;
 }
 
-/** DTO for presence (go online/offline) */
+/** DTO for presence (go online/offline). reason = display label (e.g. available, busy, off_shift). */
 interface PresenceDto {
   status: "online" | "offline";
+  reason?: string | null;
 }
 
 /**
@@ -128,31 +129,40 @@ export class AgentInboxController {
   }
 
   /**
-   * Get current agent presence (for inbox "Available" toggle).
+   * Get current agent presence and reason (for header status dropdown).
    */
   @Get("presence")
   async getPresence(
     @Request() req: { user: { id: string; tenantId: string } },
-  ): Promise<{ status: "online" | "offline" }> {
-    const status = await this.presenceService.getStatus(
-      req.user.tenantId,
-      req.user.id,
-    );
-    return { status };
+  ): Promise<{ status: "online" | "offline"; reason: string | null }> {
+    return this.presenceService.getStatus(req.user.tenantId, req.user.id);
   }
 
   /**
-   * Set agent presence (online/offline). Creates/ends agent_sessions and updates agent_profiles.status.
+   * Set agent presence (online/offline) and optional reason (e.g. available, busy, off_shift).
+   * Creates/ends agent_sessions and updates agent_profiles.status and statusReason.
    */
   @Post("presence")
   async setPresence(
     @Request() req: { user: { id: string; tenantId: string } },
     @Body() dto: PresenceDto,
   ) {
+    const reason =
+      dto.reason != null && String(dto.reason).trim() !== ""
+        ? String(dto.reason).trim()
+        : undefined;
     if (dto.status === "online") {
-      return this.presenceService.goOnline(req.user.tenantId, req.user.id);
+      return this.presenceService.goOnline(
+        req.user.tenantId,
+        req.user.id,
+        reason,
+      );
     }
-    return this.presenceService.goOffline(req.user.tenantId, req.user.id);
+    return this.presenceService.goOffline(
+      req.user.tenantId,
+      req.user.id,
+      reason,
+    );
   }
 
   /**

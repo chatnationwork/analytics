@@ -243,25 +243,31 @@ export const agentApi = {
   },
 
   /**
-   * Get current agent presence (for "Available" toggle in inbox).
+   * Get current agent presence and reason (for header status dropdown).
    */
-  getPresence: async (): Promise<{ status: "online" | "offline" }> => {
-    return fetchWithAuth<{ status: "online" | "offline" }>(
-      "/agent/inbox/presence",
-    );
+  getPresence: async (): Promise<{
+    status: "online" | "offline";
+    reason: string | null;
+  }> => {
+    return fetchWithAuth<{
+      status: "online" | "offline";
+      reason: string | null;
+    }>("/agent/inbox/presence");
   },
 
   /**
-   * Set current agent presence. "online" = available for assignments, "offline" = not available.
+   * Set current agent presence and optional reason (e.g. available, busy, off_shift).
+   * "online" = available for assignments, "offline" = not available.
    */
   setPresence: async (
     status: "online" | "offline",
+    reason?: string | null,
   ): Promise<
     { sessionId?: string; startedAt?: string } | { endedAt?: string } | null
   > => {
     return fetchWithAuth("/agent/inbox/presence", {
       method: "POST",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, reason: reason ?? undefined }),
     });
   },
 
