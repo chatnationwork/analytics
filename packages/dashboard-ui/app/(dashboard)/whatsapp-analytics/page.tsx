@@ -143,29 +143,117 @@ export default function WhatsAppAnalyticsPage() {
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Message Volume Trend */}
+          {/*
+            TS note: normalizeTrend() returns T[] but defaults to unknown[] if not parameterized.
+            We pass explicit generics so chart props type-check.
+          */}
           <MessageVolumeTrendChart
-            data={normalizeTrend(volumeTrend).data}
-            summary={normalizeTrend(volumeTrend).summary}
+            data={
+              normalizeTrend<
+                { period: string; received: number; sent: number },
+                { totalReceived: number; totalSent: number; total: number }
+              >(volumeTrend).data
+            }
+            summary={
+              normalizeTrend<
+                { period: string; received: number; sent: number },
+                { totalReceived: number; totalSent: number; total: number }
+              >(volumeTrend).summary
+            }
           />
 
           {/* Response Time Trend */}
           <ResponseTimeTrendChart
-            data={normalizeTrend(responseTimeTrend).data}
-            summary={normalizeTrend(responseTimeTrend).summary}
+            data={
+              normalizeTrend<
+                {
+                  period: string;
+                  medianMinutes: number;
+                  p95Minutes: number;
+                  responseCount: number;
+                },
+                {
+                  overallMedianMinutes: number;
+                  totalResponses: number;
+                  targetMinutes: number;
+                }
+              >(responseTimeTrend).data
+            }
+            summary={
+              normalizeTrend<
+                {
+                  period: string;
+                  medianMinutes: number;
+                  p95Minutes: number;
+                  responseCount: number;
+                },
+                {
+                  overallMedianMinutes: number;
+                  totalResponses: number;
+                  targetMinutes: number;
+                }
+              >(responseTimeTrend).summary
+            }
           />
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Read Rate Trend */}
           <ReadRateTrendChart
-            data={normalizeTrend(readRateTrend).data}
-            summary={normalizeTrend(readRateTrend).summary}
+            data={
+              normalizeTrend<
+                {
+                  period: string;
+                  sent: number;
+                  readCount: number;
+                  readRate: number;
+                },
+                {
+                  totalSent: number;
+                  totalRead: number;
+                  overallReadRate: number;
+                }
+              >(readRateTrend).data
+            }
+            summary={
+              normalizeTrend<
+                {
+                  period: string;
+                  sent: number;
+                  readCount: number;
+                  readRate: number;
+                },
+                {
+                  totalSent: number;
+                  totalRead: number;
+                  overallReadRate: number;
+                }
+              >(readRateTrend).summary
+            }
           />
 
           {/* New Contacts Trend */}
           <NewContactsTrendChart
-            data={normalizeTrend(newContactsTrend).data}
-            summary={normalizeTrend(newContactsTrend).summary}
+            data={
+              normalizeTrend<
+                { period: string; newContacts: number },
+                {
+                  totalNewContacts: number;
+                  previousTotal: number;
+                  percentChange: number;
+                }
+              >(newContactsTrend).data
+            }
+            summary={
+              normalizeTrend<
+                { period: string; newContacts: number },
+                {
+                  totalNewContacts: number;
+                  previousTotal: number;
+                  percentChange: number;
+                }
+              >(newContactsTrend).summary
+            }
           />
         </div>
       </div>
