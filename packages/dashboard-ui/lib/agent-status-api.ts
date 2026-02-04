@@ -22,6 +22,7 @@ export interface AgentSessionWithMetrics {
   durationMinutes: number | null;
   chatsReceived: number;
   chatsResolved: number;
+  loginCount: number;
 }
 
 /** Backend wraps all responses in { status, data, timestamp } */

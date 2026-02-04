@@ -36,7 +36,11 @@ export class TeamEntity {
 
   @Column("jsonb", { nullable: true })
   routingConfig: {
-    priority: string[]; // e.g. ['active_chats', 'total_assignments']
+    priority?: string[];
+    sortBy?: string;
+    timeWindow?: string;
+    /** Maximum concurrent chats (inbox sessions) per agent; agents at or above this are excluded from assignment. Omitted = no limit. */
+    maxLoad?: number;
   } | null;
 
   /**

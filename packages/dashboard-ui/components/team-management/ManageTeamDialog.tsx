@@ -85,6 +85,7 @@ export function ManageTeamDialog({
     routingPriority: string[];
     routingSortBy: string;
     routingTimeWindow: string;
+    maxLoad: number | "";
     days: Record<
       string,
       { enabled: boolean; shifts: Array<{ start: string; end: string }> }
@@ -97,6 +98,7 @@ export function ManageTeamDialog({
     routingPriority: ["least_active", "least_assigned"],
     routingSortBy: "name",
     routingTimeWindow: "all_time",
+    maxLoad: "" as number | "",
     days: DAYS.reduce(
       (acc, day) => ({
         ...acc,
@@ -157,6 +159,11 @@ export function ManageTeamDialog({
           ],
           routingSortBy: team.routingConfig?.sortBy || "name",
           routingTimeWindow: team.routingConfig?.timeWindow || "all_time",
+          maxLoad:
+            typeof team.routingConfig?.maxLoad === "number" &&
+            team.routingConfig.maxLoad > 0
+              ? team.routingConfig.maxLoad
+              : "",
           days: loadedDays,
         });
       } else if (team) {
@@ -169,6 +176,11 @@ export function ManageTeamDialog({
           ],
           routingSortBy: team.routingConfig?.sortBy || "name",
           routingTimeWindow: team.routingConfig?.timeWindow || "all_time",
+          maxLoad:
+            typeof team.routingConfig?.maxLoad === "number" &&
+            team.routingConfig.maxLoad > 0
+              ? team.routingConfig.maxLoad
+              : "",
         }));
       }
 
@@ -257,6 +269,11 @@ export function ManageTeamDialog({
           priority: scheduleConfig.routingPriority,
           sortBy: scheduleConfig.routingSortBy,
           timeWindow: scheduleConfig.routingTimeWindow,
+          maxLoad:
+            typeof scheduleConfig.maxLoad === "number" &&
+            scheduleConfig.maxLoad > 0
+              ? scheduleConfig.maxLoad
+              : undefined,
         },
       });
       toast.success("Schedule updated");
@@ -574,6 +591,36 @@ export function ManageTeamDialog({
                     "Prioritizes agents with the fewest TOTAL assignments (all time)."}
                   {scheduleConfig.routingStrategy === "hybrid" &&
                     "Uses a custom priority list. Falls back to Round Robin on ties."}
+                </p>
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-xs">
+                  Maximum concurrent chats per agent
+                </Label>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="No limit"
+                  className="flex h-9 w-32 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={
+                    scheduleConfig.maxLoad === "" ? "" : scheduleConfig.maxLoad
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const n = v === "" ? "" : parseInt(v, 10);
+                    setScheduleConfig((prev) => ({
+                      ...prev,
+                      maxLoad:
+                        n === "" || Number.isNaN(n) ? "" : Math.max(1, n),
+                    }));
+                  }}
+                  aria-label="Maximum concurrent chats per agent"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Agents at or above this many assigned chats are excluded from
+                  new assignments. Leave empty for no limit.
                 </p>
               </div>
 

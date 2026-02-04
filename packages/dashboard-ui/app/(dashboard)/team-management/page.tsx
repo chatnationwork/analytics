@@ -20,7 +20,10 @@ import {
   Circle,
   MessageSquare,
   CheckCircle,
+  LogIn,
+  Inbox,
 } from "lucide-react";
+import { toast } from "sonner";
 import { agentApi, Team } from "@/lib/api/agent";
 import { CreateTeamDialog } from "@/components/team-management/CreateTeamDialog";
 import {
@@ -95,6 +98,7 @@ export default function TeamManagementPage() {
 
   const queryClient = useQueryClient();
   const [presenceUpdating, setPresenceUpdating] = useState<string | null>(null);
+  const [assignQueueLoading, setAssignQueueLoading] = useState(false);
 
   const {
     data: agents,
@@ -174,6 +178,66 @@ export default function TeamManagementPage() {
           )}
         </div>
 
+        {/* Scheduling & queue */}
+        <div className="space-y-6">
+          <h3 className="text-xl font-semibold text-foreground">
+            Scheduling & Queue
+          </h3>
+          <p className="text-sm text-muted-foreground -mt-4">
+            Assign unassigned chats in the queue to available (online) agents.
+            Queue assignment also runs automatically when an agent goes online.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={assignQueueLoading}
+              onClick={async () => {
+                setAssignQueueLoading(true);
+                try {
+                  const { assigned } = await agentApi.assignQueue();
+                  await Promise.all([
+                    queryClient.invalidateQueries({
+                      queryKey: ["agent-teams-queue-stats"],
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: ["agent-status-list"],
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: ["agent-status-sessions"],
+                    }),
+                  ]);
+                  if (assigned > 0) {
+                    toast.success(`${assigned} chat(s) assigned from queue`);
+                  } else {
+                    toast.info(
+                      "No queued chats to assign or no agents available",
+                    );
+                  }
+                } catch (e) {
+                  toast.error(
+                    e instanceof Error ? e.message : "Failed to assign queue",
+                  );
+                } finally {
+                  setAssignQueueLoading(false);
+                }
+              }}
+            >
+              {assignQueueLoading ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Assigning…
+                </span>
+              ) : (
+                <>
+                  <Inbox className="h-4 w-4 mr-1.5" />
+                  Assign queue
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
         {/* Agent Status – single table: status + session history */}
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-foreground">
@@ -234,6 +298,10 @@ export default function TeamManagementPage() {
                         <TableRow>
                           <TableHead>Agent</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead className="text-center">
+                            <LogIn className="h-4 w-4 inline mr-1" />
+                            Times logged in
+                          </TableHead>
                           <TableHead>Started</TableHead>
                           <TableHead>Ended</TableHead>
                           <TableHead>Duration</TableHead>
@@ -251,7 +319,7 @@ export default function TeamManagementPage() {
                         {sessionsData.data.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={7}
+                              colSpan={8}
                               className="text-center py-8 text-muted-foreground"
                             >
                               No sessions yet. Agents appear here when they go
@@ -325,6 +393,9 @@ export default function TeamManagementPage() {
                                     ) : (
                                       "—"
                                     )}
+                                  </TableCell>
+                                  <TableCell className="text-center text-muted-foreground">
+                                    {s.loginCount}
                                   </TableCell>
                                   <TableCell className="text-muted-foreground">
                                     {formatDate(s.startedAt)}

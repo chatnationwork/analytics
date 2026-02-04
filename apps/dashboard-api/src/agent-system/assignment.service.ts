@@ -310,32 +310,42 @@ export class AssignmentService {
   }
 
   /**
-   * Gets available agents for assignment.
-   * - When teamId is provided: use that team's members.
-   * - When no teamId: use default team with members, else first team with members; if no teams or none have members, return [] (do not assign).
+   * Gets available agents for assignment (online and under max load).
+   * - When teamId is provided: use that team's members and its routingConfig.maxLoad.
+   * - When no teamId: use default team with members, else first team with members.
    * - Only returns agents who are online (agent_profiles.status = ONLINE).
+   * - If team has routingConfig.maxLoad set, excludes agents with current assigned chat count >= maxLoad.
    */
   private async getAvailableAgents(
     tenantId: string,
     teamId?: string,
   ): Promise<string[]> {
     let ids: string[] = [];
+    let effectiveTeam: TeamEntity | null = null;
 
     if (teamId) {
-      const teamMembers = await this.memberRepo.find({
-        where: { teamId, isActive: true },
-        select: ["userId"],
+      const team = await this.teamRepo.findOne({
+        where: { id: teamId },
+        select: ["id", "routingConfig"],
       });
-      ids = teamMembers.map((m) => m.userId);
-      if (ids.length > 0) {
-        this.logger.log(`Found ${ids.length} agents in Team ${teamId}`);
+      effectiveTeam = team;
+      if (team) {
+        const teamMembers = await this.memberRepo.find({
+          where: { teamId, isActive: true },
+          select: ["userId"],
+        });
+        ids = teamMembers.map((m) => m.userId);
+        if (ids.length > 0) {
+          this.logger.log(`Found ${ids.length} agents in Team ${teamId}`);
+        }
       }
     } else {
       const defaultTeam = await this.teamRepo.findOne({
         where: { tenantId, isDefault: true, isActive: true },
-        select: ["id"],
+        select: ["id", "routingConfig"],
       });
       if (defaultTeam) {
+        effectiveTeam = defaultTeam;
         const members = await this.memberRepo.find({
           where: { teamId: defaultTeam.id, isActive: true },
           select: ["userId"],
@@ -350,7 +360,7 @@ export class AssignmentService {
       if (ids.length === 0) {
         const teams = await this.teamRepo.find({
           where: { tenantId, isActive: true },
-          select: ["id"],
+          select: ["id", "routingConfig"],
           order: { isDefault: "DESC", createdAt: "ASC" },
         });
         for (const team of teams) {
@@ -360,6 +370,7 @@ export class AssignmentService {
           });
           ids = teamMembers.map((m) => m.userId);
           if (ids.length > 0) {
+            effectiveTeam = team;
             this.logger.log(
               `Using first team with members: ${team.id} (${ids.length} members)`,
             );
@@ -376,15 +387,35 @@ export class AssignmentService {
       return [];
     }
 
-    const onlineIds = await this.filterToOnlineAgents(ids);
+    let onlineIds = await this.filterToOnlineAgents(ids);
     if (onlineIds.length < ids.length) {
       this.logger.log(
         `${onlineIds.length} of ${ids.length} team members are online and eligible for assignment`,
       );
     }
+
+    const maxLoad =
+      effectiveTeam?.routingConfig != null &&
+      typeof effectiveTeam.routingConfig.maxLoad === "number" &&
+      effectiveTeam.routingConfig.maxLoad > 0
+        ? effectiveTeam.routingConfig.maxLoad
+        : undefined;
+    if (maxLoad != null && onlineIds.length > 0) {
+      const metrics = await this.getAgentMetrics(onlineIds);
+      const underLoad = onlineIds.filter(
+        (id) => (metrics.get(id)?.activeCount ?? 0) < maxLoad,
+      );
+      if (underLoad.length < onlineIds.length) {
+        this.logger.log(
+          `${underLoad.length} of ${onlineIds.length} online agents are under max load (${maxLoad})`,
+        );
+      }
+      onlineIds = underLoad;
+    }
+
     if (onlineIds.length === 0) {
       this.logger.warn(
-        "No online agents in team; session left unassigned. Agents must be online to receive assignments.",
+        "No online agents in team; session left unassigned. Agents must be online (and under max load if set) to receive assignments.",
       );
     }
     return onlineIds;
@@ -776,6 +807,34 @@ export class AssignmentService {
     }
 
     return session;
+  }
+
+  /**
+   * Assigns queued (unassigned) sessions to available agents.
+   * Called when an agent goes online or via "Assign queue" action.
+   * Sessions are processed in FIFO order (oldest first); respects team max load and routing strategy.
+   */
+  async assignQueuedSessionsToAvailableAgents(
+    tenantId: string,
+    options?: { teamId?: string; limit?: number },
+  ): Promise<{ assigned: number }> {
+    const limit = options?.limit ?? 50;
+    const sessions = await this.inboxService.getUnassignedSessions(
+      tenantId,
+      options?.teamId,
+    );
+    let assigned = 0;
+    for (let i = 0; i < Math.min(sessions.length, limit); i++) {
+      const session = sessions[i];
+      const result = await this.assignSession(session);
+      if (result) assigned++;
+    }
+    if (assigned > 0) {
+      this.logger.log(
+        `Assigned ${assigned} queued session(s) to available agents (tenant=${tenantId}${options?.teamId ? `, team=${options.teamId}` : ""})`,
+      );
+    }
+    return { assigned };
   }
 
   /**

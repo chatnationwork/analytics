@@ -1,8 +1,9 @@
 /**
  * Agent presence – go online/offline, updates agent_sessions and agent_profiles.status.
+ * When an agent goes online, queued (unassigned) sessions are assigned to available agents.
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import {
@@ -10,13 +11,17 @@ import {
   AgentProfileEntity,
   AgentStatus,
 } from "@lib/database";
+import { AssignmentService } from "./assignment.service";
 
 @Injectable()
 export class PresenceService {
+  private readonly logger = new Logger(PresenceService.name);
+
   constructor(
     private readonly agentSessionRepo: AgentSessionRepository,
     @InjectRepository(AgentProfileEntity)
     private readonly agentProfileRepo: Repository<AgentProfileEntity>,
+    private readonly assignmentService: AssignmentService,
   ) {}
 
   async goOnline(
@@ -32,6 +37,12 @@ export class PresenceService {
     }
     const session = await this.agentSessionRepo.startSession(tenantId, agentId);
     await this.upsertAgentProfileStatus(agentId, AgentStatus.ONLINE);
+    // Assign queued sessions to available agents (including this one)
+    this.assignmentService
+      .assignQueuedSessionsToAvailableAgents(tenantId)
+      .catch((err) =>
+        this.logger.warn("Queue assignment after goOnline failed", err),
+      );
     return { sessionId: session.id, startedAt: session.startedAt };
   }
 

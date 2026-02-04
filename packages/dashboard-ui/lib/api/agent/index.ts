@@ -32,9 +32,11 @@ export interface Team {
   };
   routingStrategy?: string; // 'round_robin' | 'least_active' | 'least_assigned' | 'hybrid'
   routingConfig?: {
-    priority: string[];
+    priority?: string[];
     sortBy?: string;
     timeWindow?: string;
+    /** Maximum concurrent chats per agent; agents at or above this are excluded from assignment. */
+    maxLoad?: number;
   };
   wrapUpReport?: TeamWrapUpReport | null;
 }
@@ -140,6 +142,26 @@ export const agentApi = {
   getUnassigned: async (teamId?: string) => {
     const query = teamId ? `?teamId=${teamId}` : "";
     return fetchWithAuth(`/agent/inbox/unassigned${query}`);
+  },
+
+  /**
+   * Assign queued (unassigned) sessions to available agents.
+   * Optional teamId: only assign sessions for that team.
+   * Returns { assigned: number }.
+   */
+  assignQueue: async (teamId?: string): Promise<{ assigned: number }> => {
+    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+    const res = await fetchWithAuthFull<
+      { assigned?: number } | { data?: { assigned?: number } }
+    >(`/agent/inbox/assign-queue${query}`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const raw =
+      (res as { data?: { assigned?: number } })?.data ??
+      (res as { assigned?: number });
+    const assigned = typeof raw?.assigned === "number" ? raw.assigned : 0;
+    return { assigned };
   },
 
   /**

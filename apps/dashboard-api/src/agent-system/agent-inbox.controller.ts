@@ -167,6 +167,21 @@ export class AgentInboxController {
   }
 
   /**
+   * Assign queued (unassigned) sessions to available agents.
+   * Optional teamId: only assign sessions for that team; otherwise all unassigned for tenant.
+   */
+  @Post("assign-queue")
+  async assignQueue(
+    @Request() req: { user: { tenantId: string } },
+    @Query("teamId") teamId?: string,
+  ) {
+    return this.assignmentService.assignQueuedSessionsToAvailableAgents(
+      req.user.tenantId,
+      { teamId },
+    );
+  }
+
+  /**
    * Get a specific session with its messages
    */
   @Get(":sessionId")

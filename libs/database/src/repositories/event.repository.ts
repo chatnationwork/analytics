@@ -1897,8 +1897,9 @@ export class EventRepository {
   }
 
   /**
-   * CSAT grouped by journey (from inbox_sessions.context.journeyStep or issue).
-   * Left-joins csat_submitted events to inbox_sessions so sessions without a match appear as "Unknown".
+   * CSAT grouped by journey. Prefers event properties.journey when set; otherwise
+   * falls back to inbox_sessions.context.journeyStep or issue. Left-joins so
+   * events without a matching session appear as "Unknown".
    */
   async getCsatByJourney(
     tenantId: string,
@@ -1913,10 +1914,16 @@ export class EventRepository {
       fiveStarPercent: number;
     }>
   > {
+    const journeyExpr = `COALESCE(
+        NULLIF(TRIM(e.properties->>'journey'), ''),
+        NULLIF(TRIM(s.context->>'journeyStep'), ''),
+        NULLIF(TRIM(s.context->>'issue'), ''),
+        'Unknown'
+      )`;
     const rows = await this.repo.query(
       `
       SELECT 
-        COALESCE(NULLIF(TRIM(s.context->>'journeyStep'), ''), NULLIF(TRIM(s.context->>'issue'), ''), 'Unknown') as journey,
+        ${journeyExpr} as journey,
         (e.properties->>'rating')::int as score,
         COUNT(*)::int as count
       FROM events e
@@ -1925,7 +1932,7 @@ export class EventRepository {
         AND e."eventName" = 'csat_submitted'
         AND e.timestamp BETWEEN $2 AND $3
         AND (e.properties->>'rating')::text ~ '^[1-5]$'
-      GROUP BY COALESCE(NULLIF(TRIM(s.context->>'journeyStep'), ''), NULLIF(TRIM(s.context->>'issue'), ''), 'Unknown'), (e.properties->>'rating')::int
+      GROUP BY ${journeyExpr}, (e.properties->>'rating')::int
       ORDER BY journey, score
       `,
       [tenantId, startDate, endDate],

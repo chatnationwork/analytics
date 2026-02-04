@@ -102,4 +102,29 @@ export class AgentSessionRepository {
       .getMany();
     return { data, total };
   }
+
+  /**
+   * Total number of sessions (logins) per agent for the tenant.
+   * Optionally restricted to a set of agent IDs.
+   */
+  async getLoginCountByAgent(
+    tenantId: string,
+    agentIds?: string[],
+  ): Promise<Map<string, number>> {
+    const qb = this.repo
+      .createQueryBuilder("s")
+      .select("s.agentId", "agentId")
+      .addSelect("COUNT(*)::int", "count")
+      .where("s.tenantId = :tenantId", { tenantId })
+      .groupBy("s.agentId");
+    if (agentIds != null && agentIds.length > 0) {
+      qb.andWhere("s.agentId IN (:...agentIds)", { agentIds });
+    }
+    const rows = await qb.getRawMany<{ agentId: string; count: string }>();
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      map.set(r.agentId, parseInt(r.count, 10) || 0);
+    }
+    return map;
+  }
 }

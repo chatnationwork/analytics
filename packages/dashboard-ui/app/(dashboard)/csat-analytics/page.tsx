@@ -253,14 +253,11 @@ export default function CsatAnalyticsPage() {
                 CSAT per Journey
               </h3>
               <p className="text-sm text-muted-foreground mb-6">
-                Satisfaction by journey step (from session context when CSAT is
-                linked to an inbox session).
+                Satisfaction by journey step 
               </p>
               {byJourney.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No CSAT by journey yet. Journey is derived from the session
-                  (e.g. handoff journeyStep) when the survey is tied to a
-                  session.
+                  No CSAT by journey yet.
                 </p>
               ) : (
                 <div className="overflow-x-auto">

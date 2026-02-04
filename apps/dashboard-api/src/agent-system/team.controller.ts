@@ -54,7 +54,10 @@ interface CreateTeamDto {
     days: Record<string, Array<{ start: string; end: string }>>;
   };
   routingConfig?: {
-    priority: string[];
+    priority?: string[];
+    sortBy?: string;
+    timeWindow?: string;
+    maxLoad?: number;
   };
   wrapUpReport?: {
     enabled: boolean;

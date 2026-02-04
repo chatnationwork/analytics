@@ -36,6 +36,7 @@ export interface AgentSessionWithMetrics {
   durationMinutes: number | null;
   chatsReceived: number;
   chatsResolved: number;
+  loginCount: number;
 }
 
 @Injectable()
@@ -133,10 +134,13 @@ export class AgentStatusService {
       });
 
     const agentIds = [...new Set(sessions.map((s) => s.agentId))];
-    const users = await this.userRepo.find({
-      where: { id: In(agentIds) },
-      select: ["id", "name"],
-    });
+    const [users, loginCountByAgent] = await Promise.all([
+      this.userRepo.find({
+        where: { id: In(agentIds) },
+        select: ["id", "name"],
+      }),
+      this.agentSessionRepo.getLoginCountByAgent(tenantId, agentIds),
+    ]);
     const userMap = new Map(users.map((u) => [u.id, u]));
 
     const data: AgentSessionWithMetrics[] = await Promise.all(
@@ -171,6 +175,7 @@ export class AgentStatusService {
           durationMinutes,
           chatsReceived,
           chatsResolved,
+          loginCount: loginCountByAgent.get(s.agentId) ?? 0,
         };
       }),
     );

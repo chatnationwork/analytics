@@ -29,7 +29,8 @@ Send a batch to the collector (e.g. `POST /v1/capture`) with the same structure 
       },
       "properties": {
         "rating": 5,
-        "feedback": "Great experience, very fast!"
+        "feedback": "Great experience, very fast!",
+        "journey": "NIL Filing"
       }
     }
   ],
@@ -42,6 +43,7 @@ Send a batch to the collector (e.g. `POST /v1/capture`) with the same structure 
 - **session_id**: Session UUID. If this matches an inbox session that has a resolution, the resolution row is updated with `csatScore` and `csatFeedback`.
 - **properties.rating**: Numeric score (e.g. 1–5). Required for resolution CSAT update.
 - **properties.feedback**: Optional text feedback.
+- **properties.journey**: Optional journey/step identifier (e.g. `"NIL Filing"`, `"eTIMS"`, `"MRI"`). When set, it is used for **CSAT per journey** in the dashboard. If omitted, we derive journey from the linked inbox session’s context (e.g. handoff `journeyStep`) when available. Sending `journey` explicitly makes it easier to get accurate per-journey CSAT without relying on session context.
 
 ## Processing
 
@@ -50,5 +52,6 @@ Send a batch to the collector (e.g. `POST /v1/capture`) with the same structure 
 
 ## Querying CSAT
 
-- **Events**: Query `events` with `eventName = 'csat_submitted'`. Use `userId` (normalized phone) and `properties.rating` / `properties.feedback` for aggregations.
+- **Events**: Query `events` with `eventName = 'csat_submitted'`. Use `userId` (normalized phone), `properties.rating` / `properties.feedback`, and optionally `properties.journey` for aggregations.
 - **Resolutions**: Query `resolutions` for `csatScore` and `csatFeedback` when the survey was sent with the same `session_id` as the resolved inbox session.
+- **CSAT per journey**: The dashboard uses `properties.journey` when present; otherwise it falls back to the linked inbox session’s context (`journeyStep` / `issue`). Sending `journey` on the event keeps per-journey reports accurate and avoids depending on session data.
