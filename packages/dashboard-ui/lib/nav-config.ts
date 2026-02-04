@@ -13,6 +13,7 @@ export const NAV_ENTRIES: { href: string; defaultLabel: string }[] = [
   { href: "/whatsapp-analytics", defaultLabel: "WhatsApp" },
   { href: "/whatsapp", defaultLabel: "Campaigns" },
   { href: "/agent-analytics", defaultLabel: "Agent Analytics" },
+  { href: "/team-management/agent-status", defaultLabel: "Agent Logs" },
   { href: "/ai-analytics", defaultLabel: "AI & Intents" },
   { href: "/wrap-up-analytics", defaultLabel: "Wrap-up Reports" },
   { href: "/csat-analytics", defaultLabel: "CSAT" },

@@ -737,6 +737,19 @@ export class AssignmentService {
       }
     }
 
+    // Do not assign if this contact already has an ASSIGNED session (avoid multiple agents for same user)
+    const alreadyAssigned = await this.inboxService.contactHasAssignedSession(
+      session.tenantId,
+      session.contactId,
+      session.id,
+    );
+    if (alreadyAssigned) {
+      this.logger.log(
+        `Skipping assignment for session ${session.id}: contact ${session.contactId} already has an assigned session`,
+      );
+      return session;
+    }
+
     // Attempt auto-assignment
     const assigned = await this.assignSession(session);
 
@@ -813,6 +826,8 @@ export class AssignmentService {
    * Assigns queued (unassigned) sessions to available agents.
    * Called when an agent goes online or via "Assign queue" action.
    * Sessions are processed in FIFO order (oldest first); respects team max load and routing strategy.
+   * Skips any unassigned session whose contact already has an ASSIGNED session so we never have
+   * multiple agents with unresolved chats for the same user.
    */
   async assignQueuedSessionsToAvailableAgents(
     tenantId: string,
@@ -826,6 +841,12 @@ export class AssignmentService {
     let assigned = 0;
     for (let i = 0; i < Math.min(sessions.length, limit); i++) {
       const session = sessions[i];
+      const alreadyAssigned = await this.inboxService.contactHasAssignedSession(
+        session.tenantId,
+        session.contactId,
+        session.id,
+      );
+      if (alreadyAssigned) continue;
       const result = await this.assignSession(session);
       if (result) assigned++;
     }

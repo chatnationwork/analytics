@@ -312,13 +312,61 @@ export class InboxService {
   }
 
   /**
-   * Get messages for a session.
+   * Get messages for a session (only messages stored under that sessionId).
    */
   async getSessionMessages(sessionId: string): Promise<MessageEntity[]> {
     return this.messageRepo.find({
       where: { sessionId },
       order: { createdAt: "ASC" },
     });
+  }
+
+  /**
+   * Get full chat history for a contact across all their sessions.
+   * Use this when displaying a session so that duplicate/open sessions for the same
+   * contact all show the entire conversation.
+   */
+  async getMessagesForContact(
+    tenantId: string,
+    contactId: string,
+  ): Promise<MessageEntity[]> {
+    const normalizedContactId = this.sanitizeContactId(contactId);
+    const sessions = await this.sessionRepo.find({
+      where: { tenantId, contactId: normalizedContactId },
+      select: { id: true },
+    });
+    const sessionIds = sessions.map((s) => s.id);
+    if (sessionIds.length === 0) return [];
+    return this.messageRepo.find({
+      where: { sessionId: In(sessionIds) },
+      order: { createdAt: "ASC" },
+    });
+  }
+
+  /**
+   * True if this contact already has an ASSIGNED session (optionally excluding one session id).
+   * Used to avoid assigning a second session to an agent when the contact is already in an active chat.
+   */
+  async contactHasAssignedSession(
+    tenantId: string,
+    contactId: string,
+    excludeSessionId?: string,
+  ): Promise<boolean> {
+    const normalizedContactId = this.sanitizeContactId(contactId);
+    const qb = this.sessionRepo
+      .createQueryBuilder("session")
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.contactId = :contactId", {
+        contactId: normalizedContactId,
+      })
+      .andWhere("session.status = :status", {
+        status: SessionStatus.ASSIGNED,
+      });
+    if (excludeSessionId) {
+      qb.andWhere("session.id != :excludeSessionId", { excludeSessionId });
+    }
+    const count = await qb.getCount();
+    return count > 0;
   }
 
   /**

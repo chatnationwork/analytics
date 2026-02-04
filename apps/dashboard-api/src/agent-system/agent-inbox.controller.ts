@@ -182,12 +182,17 @@ export class AgentInboxController {
   }
 
   /**
-   * Get a specific session with its messages
+   * Get a specific session with its messages.
+   * Messages are returned for the entire contact (all sessions for this contact)
+   * so that every inbox row for the same contact shows full chat history.
    */
   @Get(":sessionId")
   async getSession(@Param("sessionId") sessionId: string) {
     const session = await this.inboxService.getSession(sessionId);
-    const messages = await this.inboxService.getSessionMessages(sessionId);
+    const messages = await this.inboxService.getMessagesForContact(
+      session.tenantId,
+      session.contactId,
+    );
 
     // Return plain object; ResponseInterceptor wraps it in { status, data, timestamp }
     return {
