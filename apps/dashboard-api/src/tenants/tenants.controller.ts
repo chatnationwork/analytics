@@ -92,6 +92,7 @@ export class TenantsController {
   /**
    * Update current tenant settings.
    * Merges body.settings into existing tenant.settings so partial updates do not wipe other keys.
+   * Updating settings.passwordComplexity requires permission settings.password_complexity (super admins).
    */
   @Patch("current")
   async updateCurrent(
@@ -102,6 +103,21 @@ export class TenantsController {
 
     if (context.role !== "super_admin" && context.role !== "admin") {
       throw new ForbiddenException("Insufficient permissions");
+    }
+
+    // Updating password complexity requires the dedicated permission (super admins only by default)
+    if (
+      body.settings !== undefined &&
+      Object.prototype.hasOwnProperty.call(body.settings, "passwordComplexity")
+    ) {
+      const hasPermission = user.permissions?.global?.includes(
+        "settings.password_complexity",
+      );
+      if (!hasPermission) {
+        throw new ForbiddenException(
+          "You need permission to configure password complexity (settings.password_complexity)",
+        );
+      }
     }
 
     const payload: { name?: string; settings?: Record<string, unknown> } = {

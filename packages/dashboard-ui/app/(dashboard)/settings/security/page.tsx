@@ -7,22 +7,59 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { usePermission } from "@/components/auth/PermissionContext";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Shield } from "lucide-react";
+
+/** Shape of tenant.settings.passwordComplexity (must match backend) */
+interface PasswordComplexityConfig {
+  minLength: number;
+  requireUppercase?: boolean;
+  requireLowercase?: boolean;
+  requireNumber?: boolean;
+  requireSpecial?: boolean;
+  maxLength?: number;
+}
+
+const DEFAULT_PASSWORD_COMPLEXITY: PasswordComplexityConfig = {
+  minLength: 8,
+  requireUppercase: false,
+  requireLowercase: false,
+  requireNumber: false,
+  requireSpecial: false,
+  maxLength: 128,
+};
 
 /**
- * Security settings page for managing two-factor authentication (2FA).
- * Allows users to enable/disable 2FA via WhatsApp and manage their phone number.
+ * Security settings page: 2FA and (for super admins) password complexity for new users.
  */
 export default function SettingsSecurityPage() {
   const queryClient = useQueryClient();
+  const { can } = usePermission();
+  const canConfigurePasswordComplexity = can("settings.password_complexity");
+
   const { data: status, isLoading } = useQuery({
     queryKey: ["2fa-status"],
     queryFn: () => api.get2FaStatus(),
+  });
+
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-current"],
+    queryFn: () => api.getCurrentTenant(),
+    enabled: canConfigurePasswordComplexity,
   });
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const [passwordComplexity, setPasswordComplexity] =
+    useState<PasswordComplexityConfig>(DEFAULT_PASSWORD_COMPLEXITY);
+  const [passwordComplexityMessage, setPasswordComplexityMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
@@ -37,6 +74,28 @@ export default function SettingsSecurityPage() {
       }
     }
   }, [status, phone]);
+
+  useEffect(() => {
+    const pc = (
+      tenant?.settings as { passwordComplexity?: PasswordComplexityConfig }
+    )?.passwordComplexity;
+    if (pc && typeof pc === "object") {
+      setPasswordComplexity({
+        minLength:
+          typeof pc.minLength === "number"
+            ? pc.minLength
+            : DEFAULT_PASSWORD_COMPLEXITY.minLength,
+        requireUppercase: Boolean(pc.requireUppercase),
+        requireLowercase: Boolean(pc.requireLowercase),
+        requireNumber: Boolean(pc.requireNumber),
+        requireSpecial: Boolean(pc.requireSpecial),
+        maxLength:
+          typeof pc.maxLength === "number"
+            ? pc.maxLength
+            : DEFAULT_PASSWORD_COMPLEXITY.maxLength,
+      });
+    }
+  }, [tenant?.settings]);
 
   const update2Fa = useMutation({
     mutationFn: (body: { twoFactorEnabled?: boolean; phone?: string }) =>
@@ -197,7 +256,169 @@ export default function SettingsSecurityPage() {
           </div>
         )}
       </div>
+
+      {/* Password complexity (super admins only) */}
+      {canConfigurePasswordComplexity && (
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <h2 className="text-base font-medium text-foreground">
+                Password complexity
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Rules applied when new users set a password (e.g. when claiming
+                an invite).
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="pc-minLength">Minimum length</Label>
+              <Input
+                id="pc-minLength"
+                type="number"
+                min={6}
+                max={64}
+                value={passwordComplexity.minLength}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  if (!Number.isNaN(n) && n >= 6 && n <= 64) {
+                    setPasswordComplexity((prev) => ({
+                      ...prev,
+                      minLength: n,
+                    }));
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pc-maxLength">Maximum length (optional)</Label>
+              <Input
+                id="pc-maxLength"
+                type="number"
+                min={0}
+                max={256}
+                placeholder="128"
+                value={passwordComplexity.maxLength ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const n = v === "" ? undefined : parseInt(v, 10);
+                  setPasswordComplexity((prev) => ({
+                    ...prev,
+                    maxLength:
+                      n !== undefined && !Number.isNaN(n) && n > 0
+                        ? n
+                        : undefined,
+                  }));
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={passwordComplexity.requireUppercase ?? false}
+                onCheckedChange={(checked) =>
+                  setPasswordComplexity((prev) => ({
+                    ...prev,
+                    requireUppercase: Boolean(checked),
+                  }))
+                }
+              />
+              <span className="text-sm">Require uppercase letter</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={passwordComplexity.requireLowercase ?? false}
+                onCheckedChange={(checked) =>
+                  setPasswordComplexity((prev) => ({
+                    ...prev,
+                    requireLowercase: Boolean(checked),
+                  }))
+                }
+              />
+              <span className="text-sm">Require lowercase letter</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={passwordComplexity.requireNumber ?? false}
+                onCheckedChange={(checked) =>
+                  setPasswordComplexity((prev) => ({
+                    ...prev,
+                    requireNumber: Boolean(checked),
+                  }))
+                }
+              />
+              <span className="text-sm">Require number</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={passwordComplexity.requireSpecial ?? false}
+                onCheckedChange={(checked) =>
+                  setPasswordComplexity((prev) => ({
+                    ...prev,
+                    requireSpecial: Boolean(checked),
+                  }))
+                }
+              />
+              <span className="text-sm">Require special character</span>
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <Button
+              onClick={async () => {
+                setPasswordComplexityMessage(null);
+                try {
+                  await api.updateTenantSettings({
+                    passwordComplexity: {
+                      minLength: passwordComplexity.minLength,
+                      maxLength: passwordComplexity.maxLength ?? undefined,
+                      requireUppercase:
+                        passwordComplexity.requireUppercase || undefined,
+                      requireLowercase:
+                        passwordComplexity.requireLowercase || undefined,
+                      requireNumber:
+                        passwordComplexity.requireNumber || undefined,
+                      requireSpecial:
+                        passwordComplexity.requireSpecial || undefined,
+                    },
+                  });
+                  queryClient.invalidateQueries({
+                    queryKey: ["tenant-current"],
+                  });
+                  setPasswordComplexityMessage({
+                    type: "success",
+                    text: "Password complexity saved.",
+                  });
+                  setTimeout(() => setPasswordComplexityMessage(null), 4000);
+                } catch (err) {
+                  setPasswordComplexityMessage({
+                    type: "error",
+                    text: err instanceof Error ? err.message : "Failed to save",
+                  });
+                }
+              }}
+            >
+              Save password rules
+            </Button>
+            {passwordComplexityMessage && (
+              <span
+                className={
+                  passwordComplexityMessage.type === "success"
+                    ? "text-sm text-green-600 dark:text-green-400"
+                    : "text-sm text-red-600 dark:text-red-400"
+                }
+              >
+                {passwordComplexityMessage.text}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

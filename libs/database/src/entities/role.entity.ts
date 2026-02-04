@@ -23,6 +23,8 @@ export enum Permission {
   AGENT_ASSIGN = "agent.assign",
   /** Super admins: view all chats (assigned and unassigned) in the inbox */
   SESSION_VIEW_ALL = "session.view_all",
+  /** Configure password complexity for the organization (Settings → Security). Super admins only. */
+  SETTINGS_PASSWORD_COMPLEXITY = "settings.password_complexity",
 }
 
 @Entity("roles")

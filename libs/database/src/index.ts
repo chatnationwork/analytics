@@ -32,3 +32,4 @@ export * from "./database.module";
 export * from "./entities";
 export * from "./repositories";
 export * from "./utils/canonical-contact-id";
+export * from "./utils/password-complexity";

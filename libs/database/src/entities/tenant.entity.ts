@@ -48,6 +48,8 @@ export interface TenantSettings {
   session?: SessionSettings;
   /** Custom labels for sidebar nav items (route path -> label) */
   navLabels?: NavLabels;
+  /** Password complexity required for new users (e.g. when claiming an invite). Super-admin configurable. */
+  passwordComplexity?: PasswordComplexityConfig;
 }
 
 /** Configuration for session management */
@@ -63,6 +65,22 @@ export interface SessionSettings {
    * Any token issued before this time will be considered invalid.
    */
   sessionsRevokedAt?: string; // ISO Date string
+}
+
+/** Password complexity rules for new users (invite claim, etc.). Stored in tenant.settings.passwordComplexity. */
+export interface PasswordComplexityConfig {
+  /** Minimum length. Default 8. */
+  minLength: number;
+  /** Require at least one uppercase letter */
+  requireUppercase?: boolean;
+  /** Require at least one lowercase letter */
+  requireLowercase?: boolean;
+  /** Require at least one digit */
+  requireNumber?: boolean;
+  /** Require at least one special character (non-alphanumeric) */
+  requireSpecial?: boolean;
+  /** Maximum length. Optional. */
+  maxLength?: number;
 }
 
 /** Available subscription plans */
