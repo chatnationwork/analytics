@@ -107,8 +107,8 @@ BEGIN
             session_id,
             event_record."tenantId",
             event_record."messageId"::text,
-            CASE WHEN event_record."eventName" = 'message.received' THEN 'inbound' ELSE 'outbound' END,
-            'text',
+            CASE WHEN event_record."eventName" = 'message.received' THEN 'inbound'::messages_direction_enum ELSE 'outbound'::messages_direction_enum END,
+            'text'::messages_type_enum,
             COALESCE(
                 event_record.properties->'text'->>'body',
                 event_record.properties->>'text',
@@ -118,6 +118,7 @@ BEGIN
             event_record.properties,
             event_record.timestamp
         );
+
         
         -- Update session lastMessageAt
         UPDATE inbox_sessions 
