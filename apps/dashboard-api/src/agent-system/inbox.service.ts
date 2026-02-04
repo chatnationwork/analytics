@@ -91,6 +91,15 @@ export class InboxService {
   }
 
   /**
+   * Normalize phone for cross-tenant lookup: digits only (E.164 without +).
+   * Used by hasActiveAgentSession so 254712345678 and +254712345678 match.
+   */
+  private normalizePhoneForLookup(phone: string): string {
+    if (!phone || typeof phone !== "string") return "";
+    return phone.trim().replace(/\D/g, "");
+  }
+
+  /**
    * Gets or creates a session for a contact.
    * If the contact already has a pending (unassigned/assigned) session, we reuse it
    * so we never open a new chat while one is still open.
@@ -341,6 +350,28 @@ export class InboxService {
       where: { sessionId: In(sessionIds) },
       order: { createdAt: "ASC" },
     });
+  }
+
+  /**
+   * Returns true if the given phone/contact has an active agent session (status = ASSIGNED).
+   * Used by external systems (e.g. Tax Agent) to check if a user is already in a live agent chat.
+   * @param phone - E.164-style identifier (digits, optional leading +); normalized for lookup.
+   * @param tenantId - If provided, scope to this tenant; otherwise checks across all tenants.
+   */
+  async hasActiveAgentSession(
+    phone: string,
+    tenantId?: string,
+  ): Promise<boolean> {
+    const normalized = this.normalizePhoneForLookup(phone);
+    if (!normalized) return false;
+    if (tenantId) {
+      return this.contactHasAssignedSession(tenantId, normalized);
+    }
+    const session = await this.sessionRepo.findOne({
+      where: { contactId: normalized, status: SessionStatus.ASSIGNED },
+      select: { id: true },
+    });
+    return !!session;
   }
 
   /**

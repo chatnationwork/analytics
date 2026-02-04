@@ -2,13 +2,13 @@
  * =============================================================================
  * RESPONSE INTERCEPTOR
  * =============================================================================
- * 
+ *
  * Standardizes all API responses into a consistent format.
- * 
+ *
  * WITHOUT THIS INTERCEPTOR:
  * ------------------------
  * GET /api/overview → { totalSessions: 100, totalUsers: 80 }
- * 
+ *
  * WITH THIS INTERCEPTOR:
  * ---------------------
  * GET /api/overview → {
@@ -16,7 +16,7 @@
  *   data: { totalSessions: 100, totalUsers: 80 },
  *   timestamp: "2024-01-15T10:30:00.000Z"
  * }
- * 
+ *
  * WHY STANDARDIZE RESPONSES?
  * -------------------------
  * - Consistency: Frontend always knows what to expect
@@ -30,9 +30,9 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
-} from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+} from "@nestjs/common";
+import { Observable } from "rxjs";
+import { map } from "rxjs/operators";
 
 /**
  * Standard API response wrapper.
@@ -40,7 +40,7 @@ import { map } from 'rxjs/operators';
  */
 export interface ApiResponse<T> {
   /** Always "success" for non-error responses */
-  status: 'success';
+  status: "success";
   /** The actual response data */
   data: T;
   /** ISO timestamp of when response was generated */
@@ -49,33 +49,34 @@ export interface ApiResponse<T> {
 
 /**
  * Response interceptor that wraps all responses.
- * 
+ *
  * GENERIC TYPE <T>:
  * ----------------
  * T represents the type returned by the handler.
  * ApiResponse<T> wraps it in our standard format.
- * 
+ *
  * IMPLEMENTS NestInterceptor:
  * --------------------------
  * All interceptors must implement NestInterceptor interface.
  */
 @Injectable()
-export class ResponseInterceptor<T>
-  implements NestInterceptor<T, ApiResponse<T>>
-{
+export class ResponseInterceptor<T> implements NestInterceptor<
+  T,
+  ApiResponse<T>
+> {
   /**
    * Intercept and transform the response.
-   * 
+   *
    * PARAMETERS:
    * ----------
    * - context: Access to request/response and metadata
    * - next: The handler chain (call next.handle() to proceed)
-   * 
+   *
    * RXJS OBSERVABLE:
    * ---------------
    * next.handle() returns an Observable of the response.
    * We use .pipe() to transform it before sending to client.
-   * 
+   *
    * @param context - Execution context
    * @param next - Call handler
    * @returns Observable of transformed response
@@ -88,7 +89,7 @@ export class ResponseInterceptor<T>
     return next.handle().pipe(
       // map() transforms each value in the stream
       map((data) => ({
-        status: 'success' as const,
+        status: "success" as const,
         data,
         timestamp: new Date().toISOString(),
       })),

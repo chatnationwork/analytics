@@ -44,6 +44,7 @@ import { IntegrationController } from "./integration.controller";
 import { PresenceService } from "./presence.service";
 import { AgentStatusService } from "./agent-status.service";
 import { AgentStatusController } from "./agent-status.controller";
+import { AgentSessionController } from "./agent-session.controller";
 import { ContactProfileController } from "./contact-profile.controller";
 import { ContactProfileService } from "./contact-profile.service";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
@@ -77,6 +78,7 @@ import { AuditModule } from "../audit/audit.module";
     TeamController,
     IntegrationController,
     AgentStatusController,
+    AgentSessionController,
     ContactProfileController,
   ],
   providers: [

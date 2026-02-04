@@ -2,9 +2,9 @@
  * =============================================================================
  * HTTP EXCEPTION FILTER
  * =============================================================================
- * 
+ *
  * Global exception filter that formats all errors consistently.
- * 
+ *
  * ERROR RESPONSE FORMAT:
  * ---------------------
  * {
@@ -14,7 +14,7 @@
  *   "error": "Bad Request",
  *   "timestamp": "2024-01-15T10:30:00.000Z"
  * }
- * 
+ *
  * HANDLED EXCEPTION TYPES:
  * -----------------------
  * 1. HttpException (NestJS built-in)
@@ -22,10 +22,10 @@
  *    - UnauthorizedException (401)
  *    - NotFoundException (404)
  *    - etc.
- * 
+ *
  * 2. Standard Error
  *    - Converted to 500 Internal Server Error
- * 
+ *
  * 3. Unknown errors
  *    - Converted to 500 with generic message
  */
@@ -37,15 +37,15 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-} from '@nestjs/common';
-import { FastifyReply } from 'fastify';
+} from "@nestjs/common";
+import { FastifyReply } from "fastify";
 
 /**
  * Shape of error responses from this API.
  */
 export interface ErrorResponse {
   /** Always "error" for error responses */
-  status: 'error';
+  status: "error";
   /** HTTP status code (400, 401, 404, 500, etc.) */
   statusCode: number;
   /** Human-readable error message(s) */
@@ -58,22 +58,22 @@ export interface ErrorResponse {
 
 /**
  * Global exception filter.
- * 
+ *
  * @Catch() DECORATOR:
  * ------------------
  * - @Catch() with no arguments catches ALL exceptions
  * - @Catch(HttpException) would only catch HttpException
  * - @Catch(CustomError) would only catch CustomError
- * 
+ *
  * We catch everything to ensure consistent error responses.
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger('ExceptionFilter');
+  private readonly logger = new Logger("ExceptionFilter");
 
   /**
    * Handle caught exceptions.
-   * 
+   *
    * @param exception - The thrown exception
    * @param host - Provides access to request/response
    */
@@ -84,7 +84,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     // Default values for unknown errors
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message: string | string[] = 'Internal server error';
+    let message: string | string[] = "Internal server error";
     let error: string | undefined;
 
     // Handle NestJS HttpException
@@ -93,9 +93,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse();
 
       // HttpException response can be a string or object
-      if (typeof exceptionResponse === 'string') {
+      if (typeof exceptionResponse === "string") {
         message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object') {
+      } else if (typeof exceptionResponse === "object") {
         const resp = exceptionResponse as any;
         message = resp.message || exception.message;
         error = resp.error;
@@ -110,7 +110,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     // Build and send the error response
     const errorResponse: ErrorResponse = {
-      status: 'error',
+      status: "error",
       statusCode: status,
       message,
       error,
