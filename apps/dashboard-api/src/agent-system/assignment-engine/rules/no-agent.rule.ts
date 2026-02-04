@@ -39,7 +39,8 @@ export async function runNoAgentFallback(
       tenantId: string,
       contactId: string,
       text: string,
-    ) => Promise<void>;
+      options?: { account?: string },
+    ) => Promise<unknown>;
   };
   const inbox = deps.inboxService as {
     addMessage: (dto: {
@@ -51,8 +52,13 @@ export async function runNoAgentFallback(
       senderId?: string;
     }) => Promise<unknown>;
   };
+  const account = (session.context as Record<string, unknown>)?.account as
+    | string
+    | undefined;
   try {
-    await ws.sendMessage(session.tenantId, session.contactId, messageText);
+    await ws.sendMessage(session.tenantId, session.contactId, messageText, {
+      account,
+    });
     await inbox.addMessage({
       tenantId: session.tenantId,
       sessionId: session.id,

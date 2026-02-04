@@ -212,12 +212,16 @@ export class AgentInboxController {
     @Body() dto: SendMessageDto,
   ) {
     const session = await this.inboxService.getSession(sessionId);
+    const account = (session.context as Record<string, unknown>)?.account as
+      | string
+      | undefined;
 
     const payload = this.buildWhatsAppPayload(dto);
     await this.whatsappService.sendMessage(
       req.user.tenantId,
       session.contactId,
       payload,
+      { account },
     );
 
     const { type, content, metadata } = this.messageDisplayFromDto(dto);

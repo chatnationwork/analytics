@@ -810,10 +810,14 @@ export class AssignmentService {
       waterfall?.noAgentMessage ||
       "All of our agents are currently busy. We will get back to you shortly.";
     try {
+      const account = (session.context as Record<string, unknown>)?.account as
+        | string
+        | undefined;
       await this.whatsappService.sendMessage(
         session.tenantId,
         session.contactId,
         messageText,
+        { account },
       );
       await this.inboxService.addMessage({
         tenantId: session.tenantId,

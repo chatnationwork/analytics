@@ -656,9 +656,12 @@ export class InboxService {
 
     // Send CSAT CTA link to the user (fire-and-forget; don't fail resolve if send fails)
     try {
+      const account = (savedSession.context as Record<string, unknown>)
+        ?.account as string | undefined;
       const result = await this.whatsappService.sendCsatCtaMessage(
         savedSession.tenantId,
         savedSession.contactId,
+        { account },
       );
       if (!result.success) {
         this.logger.warn(

@@ -297,12 +297,17 @@ export class WhatsappService {
   /**
    * Send CSAT (customer satisfaction) CTA URL message to the user when a chat is resolved.
    * Uses interactive type "cta_url". Link is csatLink if set, otherwise webLink + '/csat'.
+   * When account (WABA phone) is provided, uses that integration when the tenant has multiple.
    */
   async sendCsatCtaMessage(
     tenantId: string,
     to: string,
+    options?: { account?: string },
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    const integration = await this.crmService.getActiveIntegration(tenantId);
+    const integration = await this.crmService.getActiveIntegration(
+      tenantId,
+      options?.account,
+    );
 
     if (!integration || !integration.config?.phoneNumberId) {
       return {
