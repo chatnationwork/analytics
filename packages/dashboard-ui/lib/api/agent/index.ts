@@ -142,8 +142,24 @@ export const agentApi = {
     return fetchWithAuth(`/agent/inbox/unassigned${query}`);
   },
 
+  /**
+   * Get session with messages. Supports both response shapes:
+   * - { data: { session, messages } } (wrapped)
+   * - { session, messages } (legacy unwrapped)
+   */
   getSession: async (sessionId: string) => {
-    return fetchWithAuth(`/agent/inbox/${sessionId}`);
+    const res = await fetchWithAuthFull<{
+      data?: { session?: InboxSession; messages?: Message[] };
+      session?: InboxSession;
+      messages?: Message[];
+    }>(`/agent/inbox/${sessionId}`);
+    const messages = Array.isArray(res?.data?.messages)
+      ? res.data.messages
+      : Array.isArray(res?.messages)
+        ? res.messages
+        : [];
+    const session = res?.data?.session ?? res?.session;
+    return { session, messages };
   },
 
   /**
