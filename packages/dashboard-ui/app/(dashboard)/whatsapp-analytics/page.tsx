@@ -144,28 +144,28 @@ export default function WhatsAppAnalyticsPage() {
         <div className="grid md:grid-cols-2 gap-6">
           {/* Message Volume Trend */}
           <MessageVolumeTrendChart
-            data={volumeTrend?.data ?? []}
-            summary={volumeTrend?.summary}
+            data={normalizeTrend(volumeTrend).data}
+            summary={normalizeTrend(volumeTrend).summary}
           />
 
           {/* Response Time Trend */}
           <ResponseTimeTrendChart
-            data={responseTimeTrend?.data ?? []}
-            summary={responseTimeTrend?.summary}
+            data={normalizeTrend(responseTimeTrend).data}
+            summary={normalizeTrend(responseTimeTrend).summary}
           />
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Read Rate Trend */}
           <ReadRateTrendChart
-            data={readRateTrend?.data ?? []}
-            summary={readRateTrend?.summary}
+            data={normalizeTrend(readRateTrend).data}
+            summary={normalizeTrend(readRateTrend).summary}
           />
 
           {/* New Contacts Trend */}
           <NewContactsTrendChart
-            data={newContactsTrend?.data ?? []}
-            summary={newContactsTrend?.summary}
+            data={normalizeTrend(newContactsTrend).data}
+            summary={normalizeTrend(newContactsTrend).summary}
           />
         </div>
       </div>
@@ -480,8 +480,22 @@ function HeatmapChart({ data }: { data: any[] }) {
 // TREND CHART COMPONENTS
 // =============================================================================
 
-function formatDate(d: string) {
-  const date = new Date(d);
+/** Normalize trend API response: handle both { data, summary } and double-wrapped { data: { data, summary } } */
+function normalizeTrend<T, S>(res: unknown): { data: T[]; summary?: S } {
+  if (!res || typeof res !== "object") return { data: [] };
+  const o = res as Record<string, unknown>;
+  if (Array.isArray(o.data))
+    return { data: o.data as T[], summary: o.summary as S };
+  if (o.data && typeof o.data === "object" && !Array.isArray(o.data)) {
+    const inner = o.data as Record<string, unknown>;
+    if (Array.isArray(inner.data))
+      return { data: inner.data as T[], summary: inner.summary as S };
+  }
+  return { data: [] };
+}
+
+function formatDate(d: string | Date) {
+  const date = typeof d === "string" ? new Date(d) : d;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
@@ -505,7 +519,13 @@ function MessageVolumeTrendChart({
     );
   }
 
-  const max = Math.max(...data.map((d) => Math.max(d.received, d.sent))) || 1;
+  const receivedSent = data.map((d) => ({
+    received: Number(d.received) || 0,
+    sent: Number(d.sent) || 0,
+    period: d.period,
+  }));
+  const max =
+    Math.max(...receivedSent.map((d) => Math.max(d.received, d.sent)), 0) || 1;
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
@@ -531,7 +551,7 @@ function MessageVolumeTrendChart({
       </div>
 
       <div className="h-48 flex items-end gap-1">
-        {data.map((point, i) => (
+        {receivedSent.map((point, i) => (
           <div
             key={i}
             className="flex-1 flex flex-col items-center gap-0.5 group relative"
@@ -558,11 +578,15 @@ function MessageVolumeTrendChart({
       </div>
 
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-        <span>{formatDate(data[0]?.period)}</span>
-        {data.length > 2 && (
-          <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>
+        <span>{formatDate(receivedSent[0]?.period)}</span>
+        {receivedSent.length > 2 && (
+          <span>
+            {formatDate(
+              receivedSent[Math.floor(receivedSent.length / 2)]?.period,
+            )}
+          </span>
         )}
-        <span>{formatDate(data[data.length - 1]?.period)}</span>
+        <span>{formatDate(receivedSent[receivedSent.length - 1]?.period)}</span>
       </div>
     </div>
   );
@@ -597,9 +621,16 @@ function ResponseTimeTrendChart({
     );
   }
 
+  const points = data.map((d) => ({
+    ...d,
+    medianMinutes: Number(d.medianMinutes) || 0,
+    period: d.period,
+  }));
   const maxMedian =
-    Math.max(...data.map((d) => d.medianMinutes), summary?.targetMinutes || 5) *
-      1.2 || 10;
+    Math.max(
+      ...points.map((d) => d.medianMinutes),
+      summary?.targetMinutes || 5,
+    ) * 1.2 || 10;
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
@@ -634,7 +665,7 @@ function ResponseTimeTrendChart({
           />
         )}
 
-        {data.map((point, i) => {
+        {points.map((point, i) => {
           const heightPercent = (point.medianMinutes / maxMedian) * 100;
           const isUnderTarget = summary?.targetMinutes
             ? point.medianMinutes <= summary.targetMinutes
@@ -663,11 +694,13 @@ function ResponseTimeTrendChart({
       </div>
 
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-        <span>{formatDate(data[0]?.period)}</span>
-        {data.length > 2 && (
-          <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>
+        <span>{formatDate(points[0]?.period)}</span>
+        {points.length > 2 && (
+          <span>
+            {formatDate(points[Math.floor(points.length / 2)]?.period)}
+          </span>
         )}
-        <span>{formatDate(data[data.length - 1]?.period)}</span>
+        <span>{formatDate(points[points.length - 1]?.period)}</span>
       </div>
     </div>
   );
@@ -692,6 +725,12 @@ function ReadRateTrendChart({
   }
 
   const maxRate = 100; // Percentage scale
+  const points = data.map((d) => ({
+    ...d,
+    readRate: Number(d.readRate) || 0,
+    sent: Number(d.sent) || 0,
+    readCount: Number(d.readCount) || 0,
+  }));
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
@@ -710,7 +749,7 @@ function ReadRateTrendChart({
       </div>
 
       <div className="h-48 flex items-end gap-1">
-        {data.map((point, i) => {
+        {points.map((point, i) => {
           const heightPercent = (point.readRate / maxRate) * 100;
 
           return (
@@ -732,11 +771,13 @@ function ReadRateTrendChart({
       </div>
 
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-        <span>{formatDate(data[0]?.period)}</span>
-        {data.length > 2 && (
-          <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>
+        <span>{formatDate(points[0]?.period)}</span>
+        {points.length > 2 && (
+          <span>
+            {formatDate(points[Math.floor(points.length / 2)]?.period)}
+          </span>
         )}
-        <span>{formatDate(data[data.length - 1]?.period)}</span>
+        <span>{formatDate(points[points.length - 1]?.period)}</span>
       </div>
     </div>
   );
@@ -764,7 +805,11 @@ function NewContactsTrendChart({
     );
   }
 
-  const max = Math.max(...data.map((d) => d.newContacts)) || 1;
+  const points = data.map((d) => ({
+    ...d,
+    newContacts: Number(d.newContacts) || 0,
+  }));
+  const max = Math.max(...points.map((d) => d.newContacts), 0) || 1;
 
   return (
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
@@ -795,7 +840,7 @@ function NewContactsTrendChart({
       </div>
 
       <div className="h-48 flex items-end gap-1">
-        {data.map((point, i) => {
+        {points.map((point, i) => {
           const heightPercent = (point.newContacts / max) * 100;
 
           return (
@@ -816,11 +861,13 @@ function NewContactsTrendChart({
       </div>
 
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-        <span>{formatDate(data[0]?.period)}</span>
-        {data.length > 2 && (
-          <span>{formatDate(data[Math.floor(data.length / 2)]?.period)}</span>
+        <span>{formatDate(points[0]?.period)}</span>
+        {points.length > 2 && (
+          <span>
+            {formatDate(points[Math.floor(points.length / 2)]?.period)}
+          </span>
         )}
-        <span>{formatDate(data[data.length - 1]?.period)}</span>
+        <span>{formatDate(points[points.length - 1]?.period)}</span>
       </div>
     </div>
   );

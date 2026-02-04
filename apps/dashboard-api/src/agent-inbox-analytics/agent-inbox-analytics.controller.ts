@@ -83,6 +83,29 @@ export class AgentInboxAnalyticsController {
   }
 
   /**
+   * List individual wrap-up submissions (one per resolution).
+   * Used by Wrap-up Reports Analytics to drill into each filled report and its chat.
+   */
+  @Get("resolutions/submissions")
+  async getResolutionSubmissions(
+    @Request() req: { user: { tenantId: string } },
+    @Query("granularity") granularity: Granularity = "day",
+    @Query("periods") periods: string = "30",
+    @Query("page") page: string = "1",
+    @Query("limit") limit: string = "20",
+  ) {
+    const p = Math.max(parseInt(page, 10) || 1, 1);
+    const l = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
+    return this.analyticsService.getResolutionSubmissions(
+      req.user.tenantId,
+      granularity,
+      parseInt(periods, 10) || 30,
+      p,
+      l,
+    );
+  }
+
+  /**
    * Get transfer overview stats.
    */
   @Get("transfers")

@@ -137,6 +137,54 @@ export class WhatsappAnalyticsService {
     }
   }
 
+  /** Serialize period to ISO string and fill missing periods with zeros so charts have a full timeline. */
+  private fillVolumeTrendGaps(
+    data: { period: Date | string; received: number; sent: number }[],
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month",
+  ): { period: string; received: number; sent: number }[] {
+    const toKey = (d: Date) => {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      if (granularity === "day") return `${y}-${m}-${day}`;
+      if (granularity === "week") {
+        const jan1 = new Date(Date.UTC(y, 0, 1));
+        const weekNo = Math.ceil(
+          (d.getTime() - jan1.getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
+        return `${y}-W${weekNo}`;
+      }
+      return `${y}-${m}`;
+    };
+    const map = new Map<string, { received: number; sent: number }>();
+    for (const row of data) {
+      const p =
+        typeof row.period === "string" ? new Date(row.period) : row.period;
+      const key = toKey(p);
+      map.set(key, { received: row.received, sent: row.sent });
+    }
+    const out: { period: string; received: number; sent: number }[] = [];
+    const curr = new Date(startDate);
+    curr.setUTCHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setUTCHours(23, 59, 59, 999);
+    while (curr <= end) {
+      const key = toKey(curr);
+      const row = map.get(key) ?? { received: 0, sent: 0 };
+      out.push({
+        period: curr.toISOString(),
+        received: row.received,
+        sent: row.sent,
+      });
+      if (granularity === "day") curr.setUTCDate(curr.getUTCDate() + 1);
+      else if (granularity === "week") curr.setUTCDate(curr.getUTCDate() + 7);
+      else curr.setUTCMonth(curr.getUTCMonth() + 1);
+    }
+    return out;
+  }
+
   async getMessageVolumeTrend(
     tenantId: string,
     granularity: "day" | "week" | "month" = "day",
@@ -145,21 +193,17 @@ export class WhatsappAnalyticsService {
     const endDate = new Date();
     const startDate = this.calculateStartDate(granularity, periods);
 
-    const data = await this.eventRepository.getWhatsappMessageVolumeTrend(
+    const raw = await this.eventRepository.getWhatsappMessageVolumeTrend(
       tenantId,
       startDate,
       endDate,
       granularity,
     );
 
-    const totalReceived = data.reduce(
-      (sum: number, d: { received: number }) => sum + d.received,
-      0,
-    );
-    const totalSent = data.reduce(
-      (sum: number, d: { sent: number }) => sum + d.sent,
-      0,
-    );
+    const data = this.fillVolumeTrendGaps(raw, startDate, endDate, granularity);
+
+    const totalReceived = data.reduce((sum, d) => sum + d.received, 0);
+    const totalSent = data.reduce((sum, d) => sum + d.sent, 0);
 
     return {
       data,
@@ -218,6 +262,66 @@ export class WhatsappAnalyticsService {
     };
   }
 
+  /** Fill read-rate trend gaps and ensure period is ISO string. */
+  private fillReadRateTrendGaps(
+    data: {
+      period: Date | string;
+      sent: number;
+      readCount: number;
+      readRate: number;
+    }[],
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month",
+  ): { period: string; sent: number; readCount: number; readRate: number }[] {
+    const toKey = (d: Date) => {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      if (granularity === "day") return `${y}-${m}-${day}`;
+      if (granularity === "week") {
+        const jan1 = new Date(Date.UTC(y, 0, 1));
+        const weekNo = Math.ceil(
+          (d.getTime() - jan1.getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
+        return `${y}-W${weekNo}`;
+      }
+      return `${y}-${m}`;
+    };
+    const map = new Map<
+      string,
+      { sent: number; readCount: number; readRate: number }
+    >();
+    for (const row of data) {
+      const p =
+        typeof row.period === "string" ? new Date(row.period) : row.period;
+      map.set(toKey(p), {
+        sent: row.sent,
+        readCount: row.readCount,
+        readRate: row.readRate,
+      });
+    }
+    const out: {
+      period: string;
+      sent: number;
+      readCount: number;
+      readRate: number;
+    }[] = [];
+    const curr = new Date(startDate);
+    curr.setUTCHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setUTCHours(23, 59, 59, 999);
+    while (curr <= end) {
+      const key = toKey(curr);
+      const row = map.get(key) ?? { sent: 0, readCount: 0, readRate: 0 };
+      out.push({ period: curr.toISOString(), ...row });
+      if (granularity === "day") curr.setUTCDate(curr.getUTCDate() + 1);
+      else if (granularity === "week") curr.setUTCDate(curr.getUTCDate() + 7);
+      else curr.setUTCMonth(curr.getUTCMonth() + 1);
+    }
+    return out;
+  }
+
   async getReadRateTrend(
     tenantId: string,
     granularity: "day" | "week" | "month" = "day",
@@ -226,21 +330,22 @@ export class WhatsappAnalyticsService {
     const endDate = new Date();
     const startDate = this.calculateStartDate(granularity, periods);
 
-    const data = await this.eventRepository.getWhatsappReadRateTrend(
+    const raw = await this.eventRepository.getWhatsappReadRateTrend(
       tenantId,
       startDate,
       endDate,
       granularity,
     );
 
-    const totalSent = data.reduce(
-      (sum: number, d: { sent: number }) => sum + d.sent,
-      0,
+    const data = this.fillReadRateTrendGaps(
+      raw,
+      startDate,
+      endDate,
+      granularity,
     );
-    const totalRead = data.reduce(
-      (sum: number, d: { readCount: number }) => sum + d.readCount,
-      0,
-    );
+
+    const totalSent = data.reduce((sum, d) => sum + d.sent, 0);
+    const totalRead = data.reduce((sum, d) => sum + d.readCount, 0);
 
     return {
       data,
@@ -256,6 +361,48 @@ export class WhatsappAnalyticsService {
     };
   }
 
+  /** Fill new-contacts trend gaps and ensure period is ISO string. */
+  private fillNewContactsTrendGaps(
+    data: { period: Date | string; newContacts: number }[],
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month",
+  ): { period: string; newContacts: number }[] {
+    const toKey = (d: Date) => {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      if (granularity === "day") return `${y}-${m}-${day}`;
+      if (granularity === "week") {
+        const jan1 = new Date(Date.UTC(y, 0, 1));
+        const weekNo = Math.ceil(
+          (d.getTime() - jan1.getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
+        return `${y}-W${weekNo}`;
+      }
+      return `${y}-${m}`;
+    };
+    const map = new Map<string, number>();
+    for (const row of data) {
+      const p =
+        typeof row.period === "string" ? new Date(row.period) : row.period;
+      map.set(toKey(p), row.newContacts);
+    }
+    const out: { period: string; newContacts: number }[] = [];
+    const curr = new Date(startDate);
+    curr.setUTCHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setUTCHours(23, 59, 59, 999);
+    while (curr <= end) {
+      const key = toKey(curr);
+      out.push({ period: curr.toISOString(), newContacts: map.get(key) ?? 0 });
+      if (granularity === "day") curr.setUTCDate(curr.getUTCDate() + 1);
+      else if (granularity === "week") curr.setUTCDate(curr.getUTCDate() + 7);
+      else curr.setUTCMonth(curr.getUTCMonth() + 1);
+    }
+    return out;
+  }
+
   async getNewContactsTrend(
     tenantId: string,
     granularity: "day" | "week" | "month" = "day",
@@ -264,17 +411,21 @@ export class WhatsappAnalyticsService {
     const endDate = new Date();
     const startDate = this.calculateStartDate(granularity, periods);
 
-    const data = await this.contactRepository.getNewContactsTrend(
+    const raw = await this.contactRepository.getNewContactsTrend(
       tenantId,
       startDate,
       endDate,
       granularity,
     );
 
-    const totalNewContacts = data.reduce(
-      (sum: number, d: { newContacts: number }) => sum + d.newContacts,
-      0,
+    const data = this.fillNewContactsTrendGaps(
+      raw,
+      startDate,
+      endDate,
+      granularity,
     );
+
+    const totalNewContacts = data.reduce((sum, d) => sum + d.newContacts, 0);
 
     // Get previous period for comparison
     const previousEndDate = startDate;

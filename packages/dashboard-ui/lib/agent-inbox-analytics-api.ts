@@ -86,6 +86,30 @@ export interface ResolutionByCategoryResponse {
   endDate: string;
 }
 
+export interface ResolutionSubmissionItem {
+  id: string;
+  sessionId: string;
+  contactId: string;
+  contactName: string | null;
+  category: string;
+  outcome: string;
+  notes: string | null;
+  formData: Record<string, string | number | boolean> | null;
+  resolvedByAgentId: string;
+  resolvedByAgentName: string | null;
+  createdAt: string;
+}
+
+export interface ResolutionSubmissionsResponse {
+  data: ResolutionSubmissionItem[];
+  total: number;
+  page: number;
+  limit: number;
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
 export interface TransferOverviewResponse {
   totalTransfers: number;
   agentsTransferring: number;
@@ -195,6 +219,17 @@ export async function getResolutionByCategory(
 ): Promise<ResolutionByCategoryResponse> {
   return fetchWithAuth(
     `/agent-inbox-analytics/resolutions/by-category?granularity=${granularity}&periods=${periods}`,
+  );
+}
+
+export async function getResolutionSubmissions(
+  granularity: Granularity = "day",
+  periods: number = 30,
+  page: number = 1,
+  limit: number = 20,
+): Promise<ResolutionSubmissionsResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/resolutions/submissions?granularity=${granularity}&periods=${periods}&page=${page}&limit=${limit}`,
   );
 }
 

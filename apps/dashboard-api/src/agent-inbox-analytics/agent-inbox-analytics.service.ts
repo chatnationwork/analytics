@@ -9,11 +9,13 @@
 
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, LessThan } from "typeorm";
+import { Repository, LessThan, In } from "typeorm";
 import {
   EventRepository,
   InboxSessionEntity,
   SessionStatus,
+  ResolutionEntity,
+  UserEntity,
 } from "@lib/database";
 
 type Granularity = "day" | "week" | "month";
@@ -24,6 +26,10 @@ export class AgentInboxAnalyticsService {
     private readonly eventRepository: EventRepository,
     @InjectRepository(InboxSessionEntity)
     private readonly sessionRepo: Repository<InboxSessionEntity>,
+    @InjectRepository(ResolutionEntity)
+    private readonly resolutionRepo: Repository<ResolutionEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepo: Repository<UserEntity>,
   ) {}
 
   /**
@@ -182,6 +188,86 @@ export class AgentInboxAnalyticsService {
       },
       startDate,
       endDate,
+    };
+  }
+
+  /**
+   * List individual resolutions (wrap-up submissions) so analytics can show each filled report.
+   * Note: resolutions table does not contain tenantId; we join via session.tenantId.
+   */
+  async getResolutionSubmissions(
+    tenantId: string,
+    granularity: Granularity = "day",
+    periods: number = 30,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      sessionId: string;
+      contactId: string;
+      contactName: string | null;
+      category: string;
+      outcome: string;
+      notes: string | null;
+      formData: Record<string, string | number | boolean> | null;
+      resolvedByAgentId: string;
+      resolvedByAgentName: string | null;
+      createdAt: string;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    startDate: string;
+    endDate: string;
+    granularity: string;
+  }> {
+    const endDate = new Date();
+    const startDate = this.calculateStartDate(granularity, periods);
+
+    const qb = this.resolutionRepo
+      .createQueryBuilder("r")
+      .innerJoinAndSelect("r.session", "s")
+      .where("s.tenantId = :tenantId", { tenantId })
+      .andWhere("r.createdAt BETWEEN :start AND :end", {
+        start: startDate,
+        end: endDate,
+      })
+      .orderBy("r.createdAt", "DESC")
+      .skip((Math.max(page, 1) - 1) * limit)
+      .take(limit);
+
+    const [rows, total] = await qb.getManyAndCount();
+
+    const agentIds = [
+      ...new Set(rows.map((r) => r.resolvedByAgentId).filter(Boolean)),
+    ];
+    const users =
+      agentIds.length > 0
+        ? await this.userRepo.find({ where: { id: In(agentIds) } })
+        : [];
+    const nameMap = new Map(users.map((u) => [u.id, u.name ?? null]));
+
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        sessionId: r.sessionId,
+        contactId: r.session?.contactId ?? "",
+        contactName: r.session?.contactName ?? null,
+        category: r.category,
+        outcome: r.outcome,
+        notes: r.notes ?? null,
+        formData: r.formData ?? null,
+        resolvedByAgentId: r.resolvedByAgentId,
+        resolvedByAgentName: nameMap.get(r.resolvedByAgentId) ?? null,
+        createdAt: r.createdAt.toISOString(),
+      })),
+      total,
+      page: Math.max(page, 1),
+      limit,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      granularity,
     };
   }
 
