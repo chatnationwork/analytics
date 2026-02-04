@@ -47,6 +47,12 @@ export class IntegrationController {
       ...(dto.issue ? { issue: dto.issue } : {}),
     };
 
+    // Only send "Connecting you to an agent..." when the user does not already have an active session
+    const hadActiveSession = await this.inboxService.hasActiveAgentSession(
+      contactId,
+      tenantId,
+    );
+
     const session = await this.inboxService.getOrCreateSession(
       tenantId,
       contactId,
@@ -62,8 +68,9 @@ export class IntegrationController {
       context,
     );
 
-    // Send confirmation message in background (best-effort; do not block or fail handover)
-    const shouldSendMessage = dto.sendHandoverMessage !== false;
+    // Send confirmation message only when requested and user did not already have an active session
+    const shouldSendMessage =
+      dto.sendHandoverMessage !== false && !hadActiveSession;
     if (shouldSendMessage) {
       const messageContent =
         dto.handoverMessage || "Connecting you to an agent...";
