@@ -205,13 +205,18 @@ export class WhatsappService {
   /**
    * Send a WhatsApp message via CRM endpoint (WhatsApp Cloud API format).
    * Accepts text (string) or full payload (image, video, audio, document, location).
+   * When account (WABA phone number) is provided, uses that integration's credentials when the tenant has multiple.
    */
   async sendMessage(
     tenantId: string,
     to: string,
     message: string | WhatsAppSendPayload,
+    options?: { account?: string },
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    const integration = await this.crmService.getActiveIntegration(tenantId);
+    const integration = await this.crmService.getActiveIntegration(
+      tenantId,
+      options?.account,
+    );
 
     if (!integration || !integration.config?.phoneNumberId) {
       console.error(

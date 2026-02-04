@@ -13,7 +13,11 @@ import {
   Logger,
   ForbiddenException,
 } from "@nestjs/common";
-import { CrmIntegrationRepository, TenantRepository } from "@lib/database";
+import {
+  CrmIntegrationRepository,
+  TenantRepository,
+  normalizeContactIdDigits,
+} from "@lib/database";
 import { CrmApi } from "@lib/crm-api";
 import { CryptoService } from "./crypto.service";
 import {
@@ -250,12 +254,29 @@ export class CrmIntegrationsService {
 
   /**
    * Get the active CRM integration for a tenant with DECRYPTED api key.
+   * When account (WABA phone number) is provided, selects the integration whose
+   * config.phoneNumber matches (digits-only); otherwise returns the first active integration.
    * INTERNAL USE ONLY.
    */
-  async getActiveIntegration(tenantId: string) {
+  async getActiveIntegration(tenantId: string, account?: string) {
     const integrations =
       await this.crmIntegrationRepository.findActiveByTenantId(tenantId);
-    const integration = integrations[0];
+
+    let integration = integrations[0];
+    if (account && integrations.length > 1) {
+      const accountDigits = normalizeContactIdDigits(account);
+      if (accountDigits) {
+        const byAccount = integrations.find((i) => {
+          const phone = i.config?.phoneNumber;
+          const phoneDigits =
+            phone != null && typeof phone === "string"
+              ? normalizeContactIdDigits(phone)
+              : "";
+          return phoneDigits && phoneDigits === accountDigits;
+        });
+        if (byAccount) integration = byAccount;
+      }
+    }
 
     if (!integration) {
       return null;

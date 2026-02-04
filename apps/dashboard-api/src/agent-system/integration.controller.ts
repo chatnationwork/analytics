@@ -23,6 +23,8 @@ interface HandoverDto {
   sendHandoverMessage?: boolean;
   handoverMessage?: string;
   issue?: string;
+  /** Phone number of the WhatsApp Business account (WABA) to use for sending. Picks which CRM integration/creds to use when tenant has multiple. */
+  account?: string;
 }
 
 @Controller("agent/integration")
@@ -48,6 +50,7 @@ export class IntegrationController {
     const context = {
       ...dto.context,
       ...(dto.issue ? { issue: dto.issue } : {}),
+      ...(dto.account ? { account: dto.account } : {}),
     };
 
     // Only send "Connecting you to an agent..." when the user does not already have an active session
@@ -80,7 +83,9 @@ export class IntegrationController {
       const sessionId = session.id;
       const contactId = session.contactId;
       Promise.all([
-        this.whatsappService.sendMessage(tenantId, contactId, messageContent),
+        this.whatsappService.sendMessage(tenantId, contactId, messageContent, {
+          account: dto.account,
+        }),
         this.inboxService.addMessage({
           tenantId,
           sessionId,
