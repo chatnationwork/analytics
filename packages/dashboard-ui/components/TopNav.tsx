@@ -57,6 +57,12 @@ const navGroups = [
       { href: "/whatsapp-analytics", label: "WhatsApp", icon: MessageCircle },
       { href: "/whatsapp", label: "Campaigns", icon: Briefcase },
       { href: "/agent-analytics", label: "Agent Analytics", icon: BarChart2 },
+      {
+        href: "/team-management/agent-status",
+        label: "Agent Logs",
+        icon: List,
+        permission: "teams.manage",
+      },
       { href: "/ai-analytics", label: "AI & Intents", icon: Brain },
       { href: "/wrap-up-analytics", label: "Wrap-up Reports", icon: FileText },
       { href: "/csat-analytics", label: "CSAT", icon: Star },

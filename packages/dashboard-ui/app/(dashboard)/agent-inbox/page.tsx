@@ -12,6 +12,7 @@ import {
   Inbox,
   Archive,
   UserX,
+  User,
 } from "lucide-react";
 import { ChatList } from "@/components/agent-inbox/ChatList";
 import { ChatWindow } from "@/components/agent-inbox/ChatWindow";
@@ -85,6 +86,7 @@ export default function AgentInboxPage() {
   const [resolveWrapUpConfig, setResolveWrapUpConfig] = useState<
     TeamWrapUpReport | null | undefined
   >(undefined);
+  const [showContactPanel, setShowContactPanel] = useState(false);
 
   // Fetch current user and permissions on mount
   useEffect(() => {
@@ -277,9 +279,9 @@ export default function AgentInboxPage() {
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex gap-4 p-4">
-      {/* Sidebar: Chat List */}
-      <Card className="w-1/3 flex flex-col min-w-[300px]">
+    <div className="h-[calc(100vh-4rem)] flex gap-3 p-4">
+      {/* Chat list: fixed width so chat area gets maximum space */}
+      <Card className="shrink-0 w-72 sm:w-80 flex flex-col">
         <CardHeader className="space-y-0 pb-2 border-b">
           <div className="flex items-center justify-between mb-3">
             <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -334,16 +336,16 @@ export default function AgentInboxPage() {
         </CardContent>
       </Card>
 
-      {/* Main: Chat Window */}
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      {/* Main: Chat – takes all remaining space; most important area */}
+      <Card className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {selectedSessionId ? (
           <>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 border-b bg-muted/20">
-              <div>
-                <div className="font-semibold">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 border-b bg-muted/20 gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold truncate">
                   {selectedSession?.contactName || selectedSession?.contactId}
                 </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                       selectedSession?.status === "resolved"
@@ -365,7 +367,26 @@ export default function AgentInboxPage() {
                   <span>{selectedSession?.channel}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  variant={showContactPanel ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setShowContactPanel((v) => !v)}
+                  title={
+                    showContactPanel
+                      ? "Hide contact profile"
+                      : "Show contact profile"
+                  }
+                  aria-label={
+                    showContactPanel
+                      ? "Hide contact profile"
+                      : "Show contact profile"
+                  }
+                  className="gap-1.5"
+                >
+                  <User className="h-4 w-4" />
+                  <span className="hidden sm:inline">Contact</span>
+                </Button>
                 {selectedSession?.status === "unassigned" && (
                   <Button
                     size="sm"
@@ -429,12 +450,14 @@ export default function AgentInboxPage() {
         )}
       </Card>
 
-      {/* Contact Profile Panel - only when session has a valid contactId (avoids crash for malformed data) */}
-      {selectedSession && selectedSession.contactId && (
-        <ContactProfilePanel
-          contactId={selectedSession.contactId}
-          contactName={selectedSession.contactName}
-        />
+      {/* Contact profile: hideable so chat has maximum space by default */}
+      {showContactPanel && selectedSession && selectedSession.contactId && (
+        <div className="shrink-0 w-72 sm:w-80 flex flex-col overflow-hidden">
+          <ContactProfilePanel
+            contactId={selectedSession.contactId}
+            contactName={selectedSession.contactName}
+          />
+        </div>
       )}
 
       {/* Resolve Dialog */}

@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { usePermission } from "@/components/auth/PermissionContext";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield } from "lucide-react";
+import { Shield, Lock } from "lucide-react";
+import { setSessionCookieAction } from "@/app/(auth)/login/actions";
 
 /** Shape of tenant.settings.passwordComplexity (must match backend) */
 interface PasswordComplexityConfig {
@@ -36,7 +38,17 @@ const DEFAULT_PASSWORD_COMPLEXITY: PasswordComplexityConfig = {
 export default function SettingsSecurityPage() {
   const queryClient = useQueryClient();
   const { can } = usePermission();
+  const { login } = useAuth();
   const canConfigurePasswordComplexity = can("settings.password_complexity");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [changePasswordMessage, setChangePasswordMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const { data: status, isLoading } = useQuery({
     queryKey: ["2fa-status"],
@@ -59,6 +71,9 @@ export default function SettingsSecurityPage() {
 
   const [passwordComplexity, setPasswordComplexity] =
     useState<PasswordComplexityConfig>(DEFAULT_PASSWORD_COMPLEXITY);
+  const [passwordExpiryDays, setPasswordExpiryDays] = useState<
+    number | "" | null
+  >(null);
   const [passwordComplexityMessage, setPasswordComplexityMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -76,9 +91,13 @@ export default function SettingsSecurityPage() {
   }, [status, phone]);
 
   useEffect(() => {
-    const pc = (
-      tenant?.settings as { passwordComplexity?: PasswordComplexityConfig }
-    )?.passwordComplexity;
+    const settings = tenant?.settings as
+      | {
+          passwordComplexity?: PasswordComplexityConfig;
+          passwordExpiryDays?: number | null;
+        }
+      | undefined;
+    const pc = settings?.passwordComplexity;
     if (pc && typeof pc === "object") {
       setPasswordComplexity({
         minLength:
@@ -95,6 +114,10 @@ export default function SettingsSecurityPage() {
             : DEFAULT_PASSWORD_COMPLEXITY.maxLength,
       });
     }
+    const expiry = settings?.passwordExpiryDays;
+    setPasswordExpiryDays(
+      expiry != null && typeof expiry === "number" && expiry > 0 ? expiry : "",
+    );
   }, [tenant?.settings]);
 
   const update2Fa = useMutation({
@@ -172,6 +195,46 @@ export default function SettingsSecurityPage() {
     );
   }
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordMessage(null);
+    if (newPassword !== confirmPassword) {
+      setChangePasswordMessage({
+        type: "error",
+        text: "New passwords do not match.",
+      });
+      return;
+    }
+    if (newPassword.length < 8) {
+      setChangePasswordMessage({
+        type: "error",
+        text: "New password must be at least 8 characters.",
+      });
+      return;
+    }
+    setChangePasswordLoading(true);
+    try {
+      const result = await api.changePassword(currentPassword, newPassword);
+      await setSessionCookieAction(result.accessToken, result.expiresIn);
+      login(result.accessToken, result.user);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setChangePasswordMessage({
+        type: "success",
+        text: "Password updated successfully.",
+      });
+      setTimeout(() => setChangePasswordMessage(null), 4000);
+    } catch (err) {
+      setChangePasswordMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to change password",
+      });
+    } finally {
+      setChangePasswordLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -179,6 +242,71 @@ export default function SettingsSecurityPage() {
         <p className="text-sm text-muted-foreground mt-0.5">
           Two-factor authentication (2FA) via WhatsApp
         </p>
+      </div>
+
+      {/* Change password (any authenticated user) */}
+      <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
+        <div className="flex items-center gap-2">
+          <Lock className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h2 className="text-base font-medium text-foreground">
+              Change password
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Set a new password. It must meet your organization&apos;s password
+              rules (see below if you have permission to configure them).
+            </p>
+          </div>
+        </div>
+        <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Current password</Label>
+            <Input
+              id="current-password"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm new password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+          {changePasswordMessage && (
+            <div
+              className={`text-sm p-3 rounded-md ${
+                changePasswordMessage.type === "success"
+                  ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                  : "bg-red-500/10 text-red-700 dark:text-red-400"
+              }`}
+            >
+              {changePasswordMessage.text}
+            </div>
+          )}
+          <Button type="submit" disabled={changePasswordLoading}>
+            {changePasswordLoading ? "Updating…" : "Update password"}
+          </Button>
+        </form>
       </div>
 
       <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
@@ -269,6 +397,37 @@ export default function SettingsSecurityPage() {
               <p className="text-sm text-muted-foreground mt-0.5">
                 Rules applied when new users set a password (e.g. when claiming
                 an invite).
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4 pb-4 border-b border-border">
+            <div className="space-y-2 max-w-xs">
+              <Label htmlFor="passwordExpiryDays">Password expiry (days)</Label>
+              <Input
+                id="passwordExpiryDays"
+                type="number"
+                min={0}
+                max={365}
+                placeholder="No expiry"
+                value={
+                  passwordExpiryDays === "" ? "" : (passwordExpiryDays ?? "")
+                }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") {
+                    setPasswordExpiryDays("");
+                    return;
+                  }
+                  const n = parseInt(v, 10);
+                  if (!Number.isNaN(n) && n >= 0 && n <= 365) {
+                    setPasswordExpiryDays(n === 0 ? "" : n);
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Require users to change password after this many days. Leave
+                empty or 0 for no expiry.
               </p>
             </div>
           </div>
@@ -386,6 +545,10 @@ export default function SettingsSecurityPage() {
                       requireSpecial:
                         passwordComplexity.requireSpecial || undefined,
                     },
+                    passwordExpiryDays:
+                      passwordExpiryDays === "" || passwordExpiryDays === null
+                        ? null
+                        : Number(passwordExpiryDays),
                   });
                   queryClient.invalidateQueries({
                     queryKey: ["tenant-current"],

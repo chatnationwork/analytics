@@ -50,6 +50,8 @@ export interface TenantSettings {
   navLabels?: NavLabels;
   /** Password complexity required for new users (e.g. when claiming an invite). Super-admin configurable. */
   passwordComplexity?: PasswordComplexityConfig;
+  /** Require users to change password after this many days. Null/undefined = no expiry. */
+  passwordExpiryDays?: number | null;
 }
 
 /** Configuration for session management */

@@ -23,6 +23,8 @@ import {
   UserRepository,
   TenantRepository,
   TeamMemberEntity,
+  validatePassword,
+  getDefaultPasswordComplexity,
 } from "@lib/database";
 import { TwoFaVerificationEntity } from "@lib/database/entities/two-fa-verification.entity";
 import { RbacService } from "../agent-system/rbac.service";
@@ -100,14 +102,30 @@ export class AuthService {
       throw new ConflictException("This organization slug is already taken");
     }
 
+    // Enforce password complexity (min length + uppercase, lowercase, number, special)
+    const signupPasswordConfig = {
+      ...getDefaultPasswordComplexity(),
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumber: true,
+      requireSpecial: true,
+    };
+    const pwdResult = validatePassword(dto.password, signupPasswordConfig);
+    if (!pwdResult.valid) {
+      throw new BadRequestException(
+        pwdResult.message ?? "Password does not meet requirements",
+      );
+    }
+
     // Hash password
     const passwordHash = await bcrypt.hash(dto.password, this.SALT_ROUNDS);
 
-    // Create user
+    // Create user (passwordChangedAt for expiry tracking)
     const user = await this.userRepository.create({
       email: dto.email,
       passwordHash,
       name: dto.name,
+      passwordChangedAt: new Date(),
     });
 
     // Create tenant with user as owner
@@ -189,11 +207,35 @@ export class AuthService {
       };
     }
 
-    await this.userRepository.updateLastLogin(user.id);
     const tenants = await this.tenantRepository.findByUserId(user.id);
-    if (tenants.length > 0) {
+    const activeTenant = tenants[0];
+
+    // If tenant has password expiry, force change when stale
+    const expiryDays =
+      activeTenant?.settings?.passwordExpiryDays != null
+        ? Number(activeTenant.settings.passwordExpiryDays)
+        : null;
+    const changedAt = user.passwordChangedAt ?? null;
+    if (expiryDays != null && expiryDays > 0) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - expiryDays);
+      if (changedAt == null || changedAt < cutoff) {
+        const changePasswordToken = this.jwtService.sign(
+          { sub: user.id, email: user.email, mustChangePassword: true },
+          { expiresIn: "5m" },
+        );
+        this.logger.log(`Password expired for ${user.email}; requiring change`);
+        return {
+          requiresPasswordChange: true,
+          changePasswordToken,
+        };
+      }
+    }
+
+    await this.userRepository.updateLastLogin(user.id);
+    if (activeTenant) {
       await this.presenceService
-        .goOnline(tenants[0].id, user.id)
+        .goOnline(activeTenant.id, user.id)
         .catch((err) =>
           this.logger.warn(`Failed to set presence online: ${err?.message}`),
         );
@@ -364,6 +406,42 @@ export class AuthService {
 
   private normalizePhone(phone: string): string {
     return phone.replace(/\D/g, "").trim();
+  }
+
+  /**
+   * Change password (e.g. when expired or from settings).
+   * Validates current password and new password against tenant complexity; updates user and returns new login response.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<LoginResponseDto> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException("User not found");
+    }
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+    const tenants = await this.tenantRepository.findByUserId(userId);
+    const tenant = tenants[0];
+    const config = tenant?.settings?.passwordComplexity ?? null;
+    const result = validatePassword(newPassword, config);
+    if (!result.valid) {
+      throw new BadRequestException(
+        result.message ?? "New password does not meet requirements",
+      );
+    }
+    const passwordHash = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+    await this.userRepository.update(userId, {
+      passwordHash,
+      passwordChangedAt: new Date(),
+    });
+    const updated = await this.userRepository.findById(userId);
+    if (!updated) throw new UnauthorizedException("User not found");
+    return this.generateLoginResponse(updated);
   }
 
   /**

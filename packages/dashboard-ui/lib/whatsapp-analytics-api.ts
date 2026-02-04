@@ -1,4 +1,5 @@
-import { fetchWithAuth } from "./api";
+import { fetchWithAuth, fetchBlobWithAuth } from "./api";
+
 
 export type Granularity = "day" | "week" | "month";
 
@@ -127,5 +128,20 @@ export const whatsappAnalyticsApi = {
       page: number;
       limit: number;
     }>;
+  },
+
+  exportContacts: async () => {
+    return fetchBlobWithAuth("/whatsapp-analytics/contacts/export");
+  },
+
+  importContacts: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    // Remove Content-Type header to let browser set it with boundary
+    return fetchWithAuth("/whatsapp-analytics/contacts/import", {
+      method: "POST",
+      body: formData,
+      headers: {},
+    });
   },
 };

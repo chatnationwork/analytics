@@ -87,13 +87,25 @@ function LoginForm() {
         return;
       }
 
+      if (result.requiresPasswordChange && result.changePasswordToken) {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(
+            "changePasswordToken",
+            result.changePasswordToken,
+          );
+        }
+        toast.info("Your password has expired. Please set a new password.");
+        router.push("/change-password");
+        return;
+      }
+
       if (!result.success || !result.token || !result.user) {
         throw new Error(result.error ?? "Login failed");
       }
 
       login(result.token, result.user);
       toast.success("Welcome back!");
-      router.push("/overview");
+      router.push("/agent-inbox");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
       setError(message);
@@ -116,7 +128,7 @@ function LoginForm() {
 
       login(result.token, result.user);
       toast.success("Welcome back!");
-      router.push("/overview");
+      router.push("/agent-inbox");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Invalid code";
       setError(message);

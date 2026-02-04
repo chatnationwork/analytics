@@ -8,6 +8,16 @@
 
 import { IsEmail, IsString, MinLength } from "class-validator";
 
+export class ChangePasswordDto {
+  @IsString()
+  @MinLength(1, { message: "Current password is required" })
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(1, { message: "New password is required" })
+  newPassword: string;
+}
+
 export class LoginDto {
   /** User's email address */
   @IsEmail({}, { message: "Please provide a valid email address" })
@@ -49,4 +59,10 @@ export class LoginResponseDto {
 
   /** One-time token to send with the 6-digit code in 2FA verify step */
   twoFactorToken?: string;
+
+  /** When true, password has expired; client must redirect to change-password with changePasswordToken */
+  requiresPasswordChange?: boolean;
+
+  /** Short-lived token (Bearer) for POST /auth/change-password when requiresPasswordChange is true */
+  changePasswordToken?: string;
 }

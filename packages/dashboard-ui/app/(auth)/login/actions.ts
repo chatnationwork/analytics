@@ -35,6 +35,17 @@ export async function loginAction(email: string, password: string) {
       };
     }
 
+    if (
+      responseData.requiresPasswordChange &&
+      responseData.changePasswordToken
+    ) {
+      return {
+        success: false,
+        requiresPasswordChange: true,
+        changePasswordToken: responseData.changePasswordToken,
+      };
+    }
+
     if (!responseData.accessToken || !responseData.user) {
       return { success: false, error: "Invalid login response" };
     }
@@ -131,6 +142,81 @@ export async function resend2FaAction(twoFactorToken: string) {
     console.error("Resend 2FA action error:", error);
     return { success: false, error: "Network error or server unavailable" };
   }
+}
+
+export async function changePasswordAction(
+  changePasswordToken: string,
+  currentPassword: string,
+  newPassword: string,
+) {
+  const API_URL = process.env.SERVER_API_URL;
+  if (!API_URL) {
+    return { success: false, error: "Server configuration error" };
+  }
+  try {
+    const res = await fetch(`${API_URL}/api/dashboard/auth/change-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${changePasswordToken}`,
+      },
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+      }),
+    });
+
+    const data = await res.json();
+    const responseData = data.data ?? data;
+
+    if (!res.ok) {
+      return {
+        success: false,
+        error:
+          data.message || responseData.message || "Failed to change password",
+      };
+    }
+
+    if (!responseData.accessToken || !responseData.user) {
+      return { success: false, error: "Invalid response" };
+    }
+
+    const cookieStore = await cookies();
+    cookieStore.set("accessToken", responseData.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: responseData.expiresIn ?? 60 * 60 * 24 * 7,
+      sameSite: "lax",
+    });
+
+    return {
+      success: true,
+      token: responseData.accessToken,
+      user: responseData.user,
+    };
+  } catch (error) {
+    console.error("Change password action error:", error);
+    return { success: false, error: "Network error or server unavailable" };
+  }
+}
+
+/**
+ * Set the session cookie (e.g. after changing password from Settings).
+ * Call this with the new accessToken and expiresIn returned from change-password so the cookie stays in sync.
+ */
+export async function setSessionCookieAction(
+  accessToken: string,
+  expiresInSeconds: number,
+) {
+  const cookieStore = await cookies();
+  cookieStore.set("accessToken", accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: expiresInSeconds,
+    sameSite: "lax",
+  });
 }
 
 export async function logoutAction() {

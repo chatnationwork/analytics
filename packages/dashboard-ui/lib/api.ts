@@ -176,6 +176,37 @@ export async function fetchWithAuthFull<T = unknown>(
   return res.json();
 }
 
+/**
+ * Fetch and return a Blob (for file downloads).
+ */
+export async function fetchBlobWithAuth(
+  url: string,
+  options: RequestInit = {},
+): Promise<Blob> {
+  const res = await fetch(`${getApiBaseUrl()}/api/dashboard${url}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    if (res.status === 401 && shouldRedirectOn401()) {
+      const reason: LogoutReason = errorData.message
+        ?.toLowerCase?.()
+        .includes("revoked")
+        ? "revoked"
+        : "expired";
+      scheduleAuthRedirect(reason);
+    }
+    throw new Error(errorData.message || `Failed to fetch blob ${url}`);
+  }
+
+  return res.blob();
+}
+
 export const api = {
   /**
    * Fetch overview KPIs
@@ -321,6 +352,66 @@ export const api = {
     settings?: { navLabels?: Record<string, string> } & Record<string, unknown>;
   }> {
     return fetchWithAuth("/tenants/current");
+  },
+
+  /**
+   * Change password (current session). Returns new accessToken and user; caller should set session cookie and update auth state.
+   */
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{
+    accessToken: string;
+    tokenType: string;
+    expiresIn: number;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      tenantId: string;
+      permissions: { global: string[]; team: Record<string, string[]> };
+    };
+  }> {
+    const res = await fetchWithAuthFull<{
+      data?: {
+        accessToken: string;
+        tokenType: string;
+        expiresIn: number;
+        user: {
+          id: string;
+          email: string;
+          name: string;
+          tenantId: string;
+          permissions: { global: string[]; team: Record<string, string[]> };
+        };
+      };
+      accessToken?: string;
+      expiresIn?: number;
+      user?: {
+        id: string;
+        email: string;
+        name: string;
+        tenantId: string;
+        permissions: { global: string[]; team: Record<string, string[]> };
+      };
+    }>("/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = res.data ?? res;
+    const accessToken = data.accessToken;
+    const user = data.user;
+    const expiresIn = data.expiresIn ?? 60 * 60 * 24 * 7;
+    if (!accessToken || !user) {
+      throw new Error("Invalid change-password response");
+    }
+    return {
+      accessToken,
+      tokenType: data.tokenType ?? "Bearer",
+      expiresIn,
+      user,
+    };
   },
 
   /**

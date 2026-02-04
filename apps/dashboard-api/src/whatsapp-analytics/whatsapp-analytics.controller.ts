@@ -1,4 +1,14 @@
-import { Controller, Get, Query, Request, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Request,
+  Res,
+  UseGuards,
+  BadRequestException,
+} from "@nestjs/common";
+import { FastifyReply, FastifyRequest } from "fastify";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { WhatsappAnalyticsService } from "./whatsapp-analytics.service";
 
@@ -191,5 +201,28 @@ export class WhatsappAnalyticsController {
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
     );
+  }
+
+  @Get("contacts/export")
+  async exportContacts(@Request() req: any, @Res() res: FastifyReply) {
+    const csvStream = await this.service.exportContacts(req.user.tenantId);
+    
+    res.header("Content-Type", "text/csv");
+    res.header("Content-Disposition", 'attachment; filename="contacts.csv"');
+
+    return res.send(csvStream);
+  }
+
+  @Post("contacts/import")
+  async importContacts(
+    @Request() req: FastifyRequest,
+  ) {
+    const data = await (req as any).file();
+
+    if (!data) {
+      throw new BadRequestException("No file uploaded");
+    }
+    const buffer = await data.toBuffer();
+    return this.service.importContacts((req as any).user.tenantId, buffer);
   }
 }

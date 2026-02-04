@@ -157,6 +157,7 @@ export class ContactRepository {
       WHERE c."tenantId" = $1 AND c."firstSeen" BETWEEN $2 AND $3
       GROUP BY DATE_TRUNC($4, c."firstSeen")
       ORDER BY period ASC
+
       `,
       [tenantId, startDate, endDate, trunc],
     );
@@ -167,5 +168,68 @@ export class ContactRepository {
           ? r.newContacts
           : parseInt(String(r.newContacts), 10) || 0,
     }));
+  }
+
+  /**
+   * Get a stream of all contacts for a tenant.
+   * Useful for large exports.
+   */
+  async getAllStream(tenantId: string) {
+    return this.repo
+      .createQueryBuilder("c")
+      .where("c.tenantId = :tenantId", { tenantId })
+      .orderBy("c.lastSeen", "DESC")
+      .stream();
+  }
+
+  /**
+   * Bulk upsert contacts.
+   * Updates name/metadata if exists, creates if new.
+   * Does NOT reset messageCount or firstSeen for existing.
+   */
+  async bulkUpsert(
+    tenantId: string,
+    contacts: Array<{
+      contactId: string;
+      name?: string | null;
+      metadata?: Record<string, string>;
+    }>,
+  ) {
+    if (contacts.length === 0) return;
+
+    // TypeORM upsert is efficient
+    // We map input to entity shape
+    const entities = contacts.map((c) => {
+      return this.repo.create({
+        tenantId,
+        contactId: c.contactId,
+        name: c.name || undefined, // undefined keeps existing value in some partial update contexts, but for upsert we need values
+        // For upsert, we need to be careful not to overwrite firstSeen if it exists
+        // But TypeORM upsert overwrite options are limited
+        // A better approach for "update only if exists, else create" in bulk is tricky with pure upsert without overwriting everything
+        // However, standard upsert overwrites columns.
+        // We want to PRESERVE firstSeen/messageCount if existing
+        // So we might need to do: INSERT ... ON CONFLICT (...) DO UPDATE SET name = EXCLUDED.name ...
+      });
+    });
+
+    // Custom query builder for precise control over ON CONFLICT
+    await this.repo
+      .createQueryBuilder()
+      .insert()
+      .into(ContactEntity)
+      .values(
+        contacts.map((c) => ({
+          tenantId,
+          contactId: c.contactId,
+          name: c.name || null,
+          metadata: c.metadata || null,
+          firstSeen: new Date(), // Used only if new
+          lastSeen: new Date(),
+          messageCount: 0, // Used only if new
+        })),
+      )
+      .orUpdate(["name", "metadata", "lastSeen"], ["tenantId", "contactId"])
+      .execute();
   }
 }

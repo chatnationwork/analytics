@@ -331,6 +331,46 @@ export class AssignmentService {
   }
 
   /**
+   * Resolves the team id to use for assignment and for persisting on the session (queue stats).
+   * - When explicitTeamId is provided: returns it if the team exists and is active for the tenant.
+   * - When not provided: returns default team id, or first team with members.
+   */
+  private async getEffectiveTeamId(
+    tenantId: string,
+    explicitTeamId?: string,
+  ): Promise<string | null> {
+    if (explicitTeamId) {
+      const team = await this.teamRepo.findOne({
+        where: { id: explicitTeamId, tenantId, isActive: true },
+        select: ["id"],
+      });
+      return team?.id ?? null;
+    }
+    const defaultTeam = await this.teamRepo.findOne({
+      where: { tenantId, isDefault: true, isActive: true },
+      select: ["id"],
+    });
+    if (defaultTeam) {
+      const memberCount = await this.memberRepo.count({
+        where: { teamId: defaultTeam.id, isActive: true },
+      });
+      if (memberCount > 0) return defaultTeam.id;
+    }
+    const teams = await this.teamRepo.find({
+      where: { tenantId, isActive: true },
+      select: ["id"],
+      order: { isDefault: "DESC", createdAt: "ASC" },
+    });
+    for (const team of teams) {
+      const memberCount = await this.memberRepo.count({
+        where: { teamId: team.id, isActive: true },
+      });
+      if (memberCount > 0) return team.id;
+    }
+    return null;
+  }
+
+  /**
    * Gets available agents for assignment (online and under max load).
    * - When teamId is provided: use that team's members and its routingConfig.maxLoad.
    * - When no teamId: use default team with members, else first team with members.
@@ -848,9 +888,11 @@ export class AssignmentService {
       where: { id: sessionId },
     });
 
-    // Update session with team assignment and context
-    if (teamId) {
-      session.assignedTeamId = teamId;
+    // Resolve effective team so queue stats (and engine) have a team; use default/first when handover omits teamId
+    const effectiveTeamId =
+      teamId ?? (await this.getEffectiveTeamId(session.tenantId, teamId));
+    if (effectiveTeamId) {
+      session.assignedTeamId = effectiveTeamId;
     }
     if (context) {
       session.context = { ...session.context, ...context };

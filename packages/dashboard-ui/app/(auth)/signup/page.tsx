@@ -10,10 +10,30 @@ import { toast } from "sonner";
 import { signupAction } from "./actions";
 import { useAuth } from "@/components/auth/AuthProvider";
 
+const PASSWORD_MIN_LENGTH = 8;
+
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z
+    .string()
+    .min(
+      PASSWORD_MIN_LENGTH,
+      `Password must be at least ${PASSWORD_MIN_LENGTH} characters`,
+    )
+    .refine(
+      (p) => /[A-Z]/.test(p),
+      "Password must contain at least one uppercase letter",
+    )
+    .refine(
+      (p) => /[a-z]/.test(p),
+      "Password must contain at least one lowercase letter",
+    )
+    .refine((p) => /\d/.test(p), "Password must contain at least one number")
+    .refine(
+      (p) => /[^A-Za-z0-9]/.test(p),
+      "Password must contain at least one special character",
+    ),
   organizationName: z.string().min(2, "Organization name is required"),
 });
 
@@ -48,7 +68,7 @@ export default function SignupPage() {
       login(result.token, result.user);
 
       toast.success("Account created successfully!");
-      router.push("/overview");
+      router.push("/agent-inbox");
     } catch (err: any) {
       setError(err.message);
       toast.error(err.message);
@@ -154,11 +174,17 @@ export default function SignupPage() {
             >
               Password
             </label>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              Minimum {PASSWORD_MIN_LENGTH} characters. Must include at least
+              one: uppercase letter, lowercase letter, number, and special
+              character.
+            </p>
             <div className="mt-1">
               <input
                 id="password"
                 type="password"
                 {...register("password")}
+                autoComplete="new-password"
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3"
               />
               {errors.password && (

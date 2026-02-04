@@ -481,4 +481,89 @@ export class WhatsappAnalyticsService {
       limit: l,
     };
   }
+  async exportContacts(tenantId: string) {
+    const dbStream = await this.contactRepository.getAllStream(tenantId);
+    
+    // Lazy load csv-stringify to avoid import errors if not installed (though we installed it)
+    const { stringify } = await import("csv-stringify");
+    
+    const stringifier = stringify({
+      header: true,
+      columns: ["Name", "Phone", "Message Count", "First Seen", "Last Seen"],
+    });
+
+    // Transform DB stream events to CSV rows
+    dbStream.on("data", (row: any) => {
+      stringifier.write([
+        row.ContactEntity_name || "",
+        row.ContactEntity_contactId,
+        row.ContactEntity_messageCount,
+        row.ContactEntity_firstSeen ? new Date(row.ContactEntity_firstSeen).toISOString() : "",
+        row.ContactEntity_lastSeen ? new Date(row.ContactEntity_lastSeen).toISOString() : "",
+      ]);
+    });
+
+    dbStream.on("end", () => {
+      stringifier.end();
+    });
+
+    dbStream.on("error", (err) => {
+      stringifier.emit("error", err);
+    });
+
+    return stringifier;
+  }
+
+  async importContacts(tenantId: string, buffer: Buffer) {
+    const { parse } = await import("csv-parse/sync");
+    const { normalizeContactIdDigits } = await import("@lib/database");
+    
+    const records = parse(buffer, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    });
+
+    const contactsToUpsert: Array<{
+      contactId: string;
+      name?: string;
+      metadata?: Record<string, string>;
+    }> = [];
+
+    for (const row of records as Array<Record<string, string>>) {
+      // Map columns flexibly
+      const phone = row["Phone"] || row["phone"] || row["Contact ID"] || row["Mobile"];
+      const name = row["Name"] || row["name"] || row["Full Name"];
+      
+      if (!phone) continue;
+
+      const normalized = normalizeContactIdDigits(phone);
+      if (!normalized) continue;
+
+      contactsToUpsert.push({
+        contactId: normalized,
+        name: name || undefined,
+        metadata: {
+          imported: "true",
+          importDate: new Date().toISOString(),
+        }
+      });
+    }
+
+    if (contactsToUpsert.length > 0) {
+      // Process in chunks of 500 to avoid query param limits
+      const chunkSize = 500;
+      for (let i = 0; i < contactsToUpsert.length; i += chunkSize) {
+        await this.contactRepository.bulkUpsert(
+          tenantId,
+          contactsToUpsert.slice(i, i + chunkSize),
+        );
+      }
+    }
+
+    return {
+      success: true,
+      importedCount: contactsToUpsert.length,
+    };
+  }
 }

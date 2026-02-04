@@ -25,6 +25,7 @@ import {
   SignupDto,
   LoginDto,
   LoginResponseDto,
+  ChangePasswordDto,
   Verify2FaDto,
   Update2FaDto,
   Resend2FaDto,
@@ -167,6 +168,24 @@ export class AuthController {
       });
     }
     return response;
+  }
+
+  /**
+   * Change password. Use when password has expired (changePasswordToken) or from settings.
+   * Returns full login response with new JWT.
+   */
+  @Post("change-password")
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<LoginResponseDto> {
+    return this.authService.changePassword(
+      user.id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 
   /**

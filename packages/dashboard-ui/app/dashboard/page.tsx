@@ -18,10 +18,10 @@ export default function DashboardPage() {
       return;
     }
 
-    if (can('analytics.view')) {
-      router.replace('/overview');
-    } else if (can('session.view')) {
+    if (can('session.view'))  {
       router.replace('/agent-inbox');
+    } else if (can('analytics.view')) {
+      router.replace('/overview');
     } else if (can('settings.manage')) {
       router.replace('/settings');
     } else {

@@ -80,4 +80,11 @@ export class UserEntity {
    */
   @Column({ type: "varchar", length: 20, nullable: true })
   phone: string | null;
+
+  /**
+   * When the user last set or changed their password.
+   * Used with tenant passwordExpiryDays to force password change when stale.
+   */
+  @Column({ type: "timestamptz", nullable: true })
+  passwordChangedAt: Date | null;
 }

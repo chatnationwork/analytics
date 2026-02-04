@@ -178,7 +178,8 @@ export class InvitationsService {
   }
 
   /**
-   * Get invitation details by token (public - for validation)
+   * Get invitation details by token (public - for validation).
+   * Returns passwordRequirements so the client can display and validate before claim.
    */
   async getInvitationByToken(token: string): Promise<{
     valid: boolean;
@@ -186,6 +187,14 @@ export class InvitationsService {
     role?: string;
     tenantName?: string;
     expired?: boolean;
+    passwordRequirements?: {
+      minLength: number;
+      requireUppercase: boolean;
+      requireLowercase: boolean;
+      requireNumber: boolean;
+      requireSpecial: boolean;
+      maxLength?: number;
+    };
   }> {
     const invite = await this.invitationRepo.findOne({
       where: { token },
@@ -206,11 +215,28 @@ export class InvitationsService {
       return { valid: false, expired: true };
     }
 
+    const pc = invite.tenant?.settings?.passwordComplexity;
+    const passwordRequirements = {
+      minLength:
+        typeof pc?.minLength === "number" && pc.minLength > 0
+          ? pc.minLength
+          : 8,
+      requireUppercase: Boolean(pc?.requireUppercase),
+      requireLowercase: Boolean(pc?.requireLowercase),
+      requireNumber: Boolean(pc?.requireNumber),
+      requireSpecial: Boolean(pc?.requireSpecial),
+      maxLength:
+        typeof pc?.maxLength === "number" && pc.maxLength > 0
+          ? pc.maxLength
+          : undefined,
+    };
+
     return {
       valid: true,
       email: invite.email,
       role: invite.role,
       tenantName: invite.tenant?.name || "Unknown Workspace",
+      passwordRequirements,
     };
   }
 
@@ -272,6 +298,7 @@ export class InvitationsService {
         passwordHash,
         name: name || invite.email.split("@")[0],
         emailVerified: true, // Verified via invitation
+        passwordChangedAt: new Date(),
       });
 
       await this.userRepo.save(user);
