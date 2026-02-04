@@ -146,14 +146,14 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
 export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+      <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm min-h-0">
         No messages yet.
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-4 space-y-4">
       {messages.map((msg) => {
         const isOutbound = msg.direction === "outbound";
 
@@ -161,7 +161,7 @@ export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
           <div
             key={msg.id}
             className={cn(
-              "flex w-max max-w-[85%] flex-col gap-2 rounded-xl px-3 py-2.5 text-sm shadow-sm",
+              "flex max-w-[85%] w-fit flex-col gap-2 rounded-xl px-3 py-2.5 text-sm shadow-sm min-w-0",
               isOutbound
                 ? "ml-auto bg-primary text-primary-foreground"
                 : "bg-muted text-foreground",

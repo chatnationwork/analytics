@@ -535,17 +535,22 @@ export default function WrapUpAnalyticsPage() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="chat" className="mt-4">
-                  <div className="rounded-xl border border-border overflow-hidden h-[520px] flex flex-col">
+                <TabsContent
+                  value="chat"
+                  className="mt-4 flex flex-col min-h-0"
+                >
+                  <div className="rounded-xl border border-border overflow-hidden flex flex-col min-h-0 w-full max-w-full h-[480px] max-h-[70vh]">
                     {chatLoading ? (
-                      <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+                      <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm min-h-[200px]">
                         Loading chat…
                       </div>
                     ) : (
-                      <ChatWindow
-                        messages={chatMessages}
-                        currentUserId={currentUserId}
-                      />
+                      <div className="flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col">
+                        <ChatWindow
+                          messages={chatMessages}
+                          currentUserId={currentUserId}
+                        />
+                      </div>
                     )}
                   </div>
                 </TabsContent>
