@@ -1,4 +1,4 @@
-import { logoutAction } from '@/app/(auth)/login/actions';
+import { logoutAction } from "@/app/(auth)/login/actions";
 
 export interface User {
   id: string;
@@ -16,36 +16,41 @@ export interface AuthResponse {
   user: User;
 }
 
-const API_URL = ''; // Relative path for proxy
+const API_URL = ""; // Relative path for proxy
 
 export const authClient = {
   async login(email: string, password: string): Promise<AuthResponse> {
     const res = await fetch(`${API_URL}/api/dashboard/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || 'Login failed');
+      throw new Error(error.message || "Login failed");
     }
 
     const data = await res.json();
     // Token is now handled via HttpOnly Cookie by Server Action
-    return data.data; 
+    return data.data;
   },
 
-  async signup(data: { email: string; password: string; name: string; organizationName: string }): Promise<AuthResponse> {
+  async signup(data: {
+    email: string;
+    password: string;
+    name: string;
+    organizationName: string;
+  }): Promise<AuthResponse> {
     const res = await fetch(`${API_URL}/api/dashboard/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
 
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || 'Signup failed');
+      throw new Error(error.message || "Signup failed");
     }
 
     const responseData = await res.json();
@@ -55,12 +60,12 @@ export const authClient = {
   async getProfile(): Promise<User> {
     // No manual token check. Rely on Proxy + Cookie.
     const res = await fetch(`${API_URL}/api/dashboard/auth/me`, {
-      headers: { 
-          // 'Authorization': Bearer token is injected by the Next.js Proxy
-       },
+      headers: {
+        // 'Authorization': Bearer token is injected by the Next.js Proxy
+      },
     });
 
-    if (!res.ok) throw new Error('Failed to fetch profile');
+    if (!res.ok) throw new Error("Failed to fetch profile");
     const data = await res.json();
     return data.data;
   },

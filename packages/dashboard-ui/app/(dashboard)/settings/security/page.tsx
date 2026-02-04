@@ -38,7 +38,7 @@ const DEFAULT_PASSWORD_COMPLEXITY: PasswordComplexityConfig = {
 export default function SettingsSecurityPage() {
   const queryClient = useQueryClient();
   const { can } = usePermission();
-  const { login } = useAuth();
+  const { login, user: currentUser } = useAuth();
   const canConfigurePasswordComplexity = can("settings.password_complexity");
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -216,7 +216,14 @@ export default function SettingsSecurityPage() {
     try {
       const result = await api.changePassword(currentPassword, newPassword);
       await setSessionCookieAction(result.accessToken, result.expiresIn);
-      login(result.accessToken, result.user);
+      login(result.accessToken, {
+        ...result.user,
+        name: result.user.name ?? null,
+        avatarUrl:
+          (result.user as { avatarUrl?: string | null }).avatarUrl ??
+          currentUser?.avatarUrl ??
+          null,
+      });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");

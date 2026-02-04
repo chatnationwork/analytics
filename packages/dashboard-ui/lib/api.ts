@@ -386,6 +386,7 @@ export const api = {
         };
       };
       accessToken?: string;
+      tokenType?: string;
       expiresIn?: number;
       user?: {
         id: string;
