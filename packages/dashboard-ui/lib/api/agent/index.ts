@@ -55,6 +55,8 @@ export interface InboxSession {
   lastMessageAt?: string;
   assignedAgentId?: string;
   assignedTeamId?: string;
+  /** Set when the assigned agent has explicitly accepted the chat (required before sending). */
+  acceptedAt?: string | null;
   context?: Record<string, unknown>;
 }
 

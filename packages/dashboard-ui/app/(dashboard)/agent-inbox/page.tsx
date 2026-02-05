@@ -217,20 +217,11 @@ export default function AgentInboxPage() {
 
   const handleAcceptSession = async (sessionId: string) => {
     try {
-      await agentApi.acceptSession(sessionId);
+      const updated = await agentApi.acceptSession(sessionId);
       toast.success("Chat accepted");
       fetchInbox();
       setSessions((prev) =>
-        prev.map((s) =>
-          s.id === sessionId
-            ? {
-                ...s,
-                status: "assigned" as const,
-                // Ensure local state reflects that this chat is now owned by the current user
-                assignedAgentId: currentUserId || s.assignedAgentId,
-              }
-            : s,
-        ),
+        prev.map((s) => (s.id === sessionId ? { ...s, ...updated } : s)),
       );
       setAcceptedSessions((prev) => {
         const next = new Set(prev);
@@ -294,7 +285,9 @@ export default function AgentInboxPage() {
 
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
   const hasAcceptedSelected =
-    selectedSessionId != null && acceptedSessions.has(selectedSessionId);
+    !!selectedSession &&
+    (selectedSession.acceptedAt != null ||
+      acceptedSessions.has(selectedSession.id));
 
   const canSendMessage =
     !!selectedSession &&

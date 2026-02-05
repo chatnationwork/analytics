@@ -20,6 +20,7 @@ import {
   Request,
   Req,
   UseGuards,
+  ForbiddenException,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { InboxService, InboxFilter } from "./inbox.service";
@@ -29,7 +30,12 @@ import {
   WhatsappService,
   WhatsAppSendPayload,
 } from "../whatsapp/whatsapp.service";
-import { MessageDirection, MessageType, Permission } from "@lib/database";
+import {
+  MessageDirection,
+  MessageType,
+  Permission,
+  SessionStatus,
+} from "@lib/database";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { getRequestContext, type RequestLike } from "../request-context";
 
@@ -222,6 +228,21 @@ export class AgentInboxController {
     @Body() dto: SendMessageDto,
   ) {
     const session = await this.inboxService.getSession(sessionId);
+
+    if (session.assignedAgentId !== req.user.id) {
+      throw new ForbiddenException("You are not assigned to this session");
+    }
+    if (session.status === SessionStatus.RESOLVED) {
+      throw new ForbiddenException(
+        "Cannot send messages in a resolved session",
+      );
+    }
+    if (!session.acceptedAt) {
+      throw new ForbiddenException(
+        "You must accept this chat before sending messages",
+      );
+    }
+
     const account = (session.context as Record<string, unknown>)?.account as
       | string
       | undefined;
