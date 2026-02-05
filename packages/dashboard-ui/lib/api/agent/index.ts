@@ -175,23 +175,48 @@ export const agentApi = {
   },
 
   /**
-   * Assign queued (unassigned) sessions to available agents.
-   * Optional teamId: only assign sessions for that team.
+   * Assign queued (unassigned) sessions.
+   * Options: mode "auto" (default), "manual" (assignments: { agentId, count }[]), "teams" (teamIds: string[]).
    * Returns { assigned: number }.
    */
-  assignQueue: async (teamId?: string): Promise<{ assigned: number }> => {
-    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+  assignQueue: async (options?: {
+    teamId?: string;
+    mode?: "auto" | "manual" | "teams";
+    assignments?: Array<{ agentId: string; count: number }>;
+    teamIds?: string[];
+  }): Promise<{ assigned: number }> => {
+    const query =
+      options?.teamId && options?.mode !== "manual" && options?.mode !== "teams"
+        ? `?teamId=${encodeURIComponent(options.teamId)}`
+        : "";
+    const body: {
+      mode?: "auto" | "manual" | "teams";
+      assignments?: Array<{ agentId: string; count: number }>;
+      teamIds?: string[];
+    } = {};
+    if (options?.mode) body.mode = options.mode;
+    if (options?.assignments?.length) body.assignments = options.assignments;
+    if (options?.teamIds?.length) body.teamIds = options.teamIds;
     const res = await fetchWithAuthFull<
       { assigned?: number } | { data?: { assigned?: number } }
     >(`/agent/inbox/assign-queue${query}`, {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     });
     const raw =
       (res as { data?: { assigned?: number } })?.data ??
       (res as { assigned?: number });
     const assigned = typeof raw?.assigned === "number" ? raw.assigned : 0;
     return { assigned };
+  },
+
+  /**
+   * Teams that have an active shift and at least one member (for assign-queue "teams" option).
+   */
+  getTeamsAvailableForQueue: async (): Promise<
+    Array<{ teamId: string; name: string; memberCount: number }>
+  > => {
+    return fetchWithAuth("/agent/teams/available-for-queue");
   },
 
   /**

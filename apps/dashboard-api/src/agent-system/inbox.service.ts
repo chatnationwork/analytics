@@ -172,7 +172,7 @@ export class InboxService {
    * Filter semantics:
    * - 'assigned': Assigned to agent but not yet accepted (acceptedAt IS NULL)
    * - 'pending' (active): Assigned, accepted, and open (last message within 24h)
-   * - 'resolved': RESOLVED
+   * - 'resolved': RESOLVED (optionally only since resolvedSince; null = all time)
    * - 'expired': ASSIGNED with lastMessageAt > 24h ago
    * - 'all': All assigned to agent except resolved (assigned + active + expired)
    */
@@ -180,6 +180,7 @@ export class InboxService {
     tenantId: string,
     agentId: string,
     filter?: InboxFilter,
+    resolvedSince?: Date | null,
   ): Promise<InboxSessionEntity[]> {
     const query = this.sessionRepo
       .createQueryBuilder("session")
@@ -211,6 +212,11 @@ export class InboxService {
         query.andWhere("session.status = :status", {
           status: SessionStatus.RESOLVED,
         });
+        if (resolvedSince != null) {
+          query.andWhere("session.updatedAt >= :resolvedSince", {
+            resolvedSince,
+          });
+        }
         break;
       case "expired":
         query.andWhere("session.status = :status", {
@@ -240,10 +246,12 @@ export class InboxService {
   /**
    * Get counts per filter for the agent inbox (for filter badge UI).
    * Each count uses a fresh query to avoid clone/parameter sharing issues.
+   * resolvedSince: when set, resolved count only includes sessions resolved on or after this date.
    */
   async getAgentInboxCounts(
     tenantId: string,
     agentId: string,
+    resolvedSince?: Date | null,
   ): Promise<{
     assigned: number;
     active: number;
@@ -275,14 +283,21 @@ export class InboxService {
           { cutoff: twentyFourHoursAgo },
         )
         .getCount(),
-      this.sessionRepo
-        .createQueryBuilder("session")
-        .where("session.tenantId = :tenantId", { tenantId })
-        .andWhere("session.assignedAgentId = :agentId", { agentId })
-        .andWhere("session.status = :status", {
-          status: SessionStatus.RESOLVED,
-        })
-        .getCount(),
+      (() => {
+        const q = this.sessionRepo
+          .createQueryBuilder("session")
+          .where("session.tenantId = :tenantId", { tenantId })
+          .andWhere("session.assignedAgentId = :agentId", { agentId })
+          .andWhere("session.status = :status", {
+            status: SessionStatus.RESOLVED,
+          });
+        if (resolvedSince != null) {
+          q.andWhere("session.updatedAt >= :resolvedSince", {
+            resolvedSince,
+          });
+        }
+        return q.getCount();
+      })(),
       this.sessionRepo
         .createQueryBuilder("session")
         .where("session.tenantId = :tenantId", { tenantId })
@@ -307,8 +322,12 @@ export class InboxService {
   /**
    * Get counts per filter for the tenant inbox (admin view).
    * Each count uses a fresh query to avoid clone/parameter sharing issues.
+   * resolvedSince: when set, resolved count only includes sessions resolved on or after this date.
    */
-  async getTenantInboxCounts(tenantId: string): Promise<{
+  async getTenantInboxCounts(
+    tenantId: string,
+    resolvedSince?: Date | null,
+  ): Promise<{
     all: number;
     assigned: number;
     unassigned: number;
@@ -354,13 +373,20 @@ export class InboxService {
             { cutoff: twentyFourHoursAgo },
           )
           .getCount(),
-        this.sessionRepo
-          .createQueryBuilder("session")
-          .where("session.tenantId = :tenantId", { tenantId })
-          .andWhere("session.status = :status", {
-            status: SessionStatus.RESOLVED,
-          })
-          .getCount(),
+        (() => {
+          const q = this.sessionRepo
+            .createQueryBuilder("session")
+            .where("session.tenantId = :tenantId", { tenantId })
+            .andWhere("session.status = :status", {
+              status: SessionStatus.RESOLVED,
+            });
+          if (resolvedSince != null) {
+            q.andWhere("session.updatedAt >= :resolvedSince", {
+              resolvedSince,
+            });
+          }
+          return q.getCount();
+        })(),
         this.sessionRepo
           .createQueryBuilder("session")
           .where("session.tenantId = :tenantId", { tenantId })
@@ -393,6 +419,7 @@ export class InboxService {
   async getTenantInbox(
     tenantId: string,
     filter?: InboxFilter,
+    resolvedSince?: Date | null,
   ): Promise<InboxSessionEntity[]> {
     const query = this.sessionRepo
       .createQueryBuilder("session")
@@ -432,6 +459,11 @@ export class InboxService {
         query.andWhere("session.status = :status", {
           status: SessionStatus.RESOLVED,
         });
+        if (resolvedSince != null) {
+          query.andWhere("session.updatedAt >= :resolvedSince", {
+            resolvedSince,
+          });
+        }
         break;
       case "expired":
         query.andWhere("session.status = :status", {
@@ -588,9 +620,13 @@ export class InboxService {
    *   the accepter becomes the owner and can resolve. Enables sys admins (or
    *   any agent with visibility) to take over a chat and resolve it.
    */
+  /**
+   * @param assignedTeamId Optional. When assigning from unassigned, set session.assignedTeamId (e.g. for manual queue assign).
+   */
   async assignSession(
     sessionId: string,
     agentId: string,
+    assignedTeamId?: string | null,
   ): Promise<InboxSessionEntity> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -619,6 +655,7 @@ export class InboxService {
 
       if (session.status === SessionStatus.UNASSIGNED) {
         session.assignedAgentId = agentId;
+        if (assignedTeamId) session.assignedTeamId = assignedTeamId;
         session.status = SessionStatus.ASSIGNED;
         session.assignedAt = new Date();
         session.acceptedAt = new Date();

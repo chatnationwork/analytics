@@ -11,6 +11,14 @@ interface SessionSettingsData {
   sessionsRevokedAt?: string;
 }
 
+/** Resolved chats in Inbox: 0 = all time, 1/7/30 = last N days. Default 1. */
+const RESOLVED_CHATS_OPTIONS = [
+  { value: 1, label: "Last 1 day (default)" },
+  { value: 7, label: "Last 7 days" },
+  { value: 30, label: "Last 30 days" },
+  { value: 0, label: "All time" },
+] as const;
+
 type TimeUnit = "minutes" | "hours" | "days";
 
 interface TimeValue {
@@ -125,22 +133,30 @@ export function SessionSettings({ tenantId }: { tenantId: string }) {
   const [settings, setSettings] = useState<SessionSettingsData>({
     inactivityTimeoutMinutes: 30,
   });
+  const [resolvedChatsPeriodDays, setResolvedChatsPeriodDays] = useState(1);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     fetchWithAuth("/tenants/current")
-      .then((data) => {
-        if (data?.settings?.session) {
-          const session = data.settings.session as SessionSettingsData & {
-            maxDurationMinutes?: number;
+      .then(
+        (data: {
+          settings?: {
+            session?: SessionSettingsData & { maxDurationMinutes?: number };
+            inbox?: { resolvedChatsPeriodDays?: number };
           };
-          setSettings({
-            inactivityTimeoutMinutes: session.inactivityTimeoutMinutes ?? 30,
-            sessionsRevokedAt: session.sessionsRevokedAt,
-          });
-        }
-      })
+        }) => {
+          if (data?.settings?.session) {
+            const session = data.settings.session;
+            setSettings({
+              inactivityTimeoutMinutes: session.inactivityTimeoutMinutes ?? 30,
+              sessionsRevokedAt: session.sessionsRevokedAt,
+            });
+          }
+          const period = data?.settings?.inbox?.resolvedChatsPeriodDays;
+          setResolvedChatsPeriodDays(typeof period === "number" ? period : 1);
+        },
+      )
       .catch(console.error);
   }, []);
 
@@ -166,6 +182,9 @@ export function SessionSettings({ tenantId }: { tenantId: string }) {
               ...(settings.sessionsRevokedAt && {
                 sessionsRevokedAt: settings.sessionsRevokedAt,
               }),
+            },
+            inbox: {
+              resolvedChatsPeriodDays: resolvedChatsPeriodDays,
             },
           },
         }),
@@ -242,6 +261,32 @@ export function SessionSettings({ tenantId }: { tenantId: string }) {
           label="Inactivity Timeout"
           description="Auto-logout after idle time. Takes effect immediately. Sessions expire after 7 days at most."
         />
+
+        <div className="space-y-2">
+          <label
+            htmlFor="resolved-chats-period"
+            className="text-sm font-medium"
+          >
+            Resolved chats in Inbox
+          </label>
+          <select
+            id="resolved-chats-period"
+            value={resolvedChatsPeriodDays}
+            onChange={(e) => setResolvedChatsPeriodDays(Number(e.target.value))}
+            aria-label="How long resolved chats are shown in the Inbox"
+            className="h-10 w-full px-3 rounded-md border border-input bg-background text-sm"
+          >
+            {RESOLVED_CHATS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            How far back to show resolved chats in the agent Inbox. Default:
+            last 1 day.
+          </p>
+        </div>
 
         <div className="pt-2">
           <button

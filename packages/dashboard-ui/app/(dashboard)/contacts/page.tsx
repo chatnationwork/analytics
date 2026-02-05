@@ -317,7 +317,7 @@ export default function ContactsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Contact ID</TableHead>
                     <TableHead>Date created</TableHead>
-                    <TableHead>Normalized time</TableHead>
+                   
                     <TableHead>Last seen</TableHead>
                     <TableHead className="text-right">Messages</TableHead>
                   </TableRow>

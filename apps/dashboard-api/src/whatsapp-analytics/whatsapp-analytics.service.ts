@@ -541,7 +541,6 @@ export class WhatsappAnalyticsService {
         "Message Count",
         "Date created",
         "Last Seen",
-        "Normalized time",
       ],
     });
 

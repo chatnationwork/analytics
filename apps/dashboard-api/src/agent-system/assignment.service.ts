@@ -893,7 +893,7 @@ export class AssignmentService {
     const effectiveTeamId =
       (teamId && teamId.trim().length > 0 ? teamId : undefined) ??
       (await this.getEffectiveTeamId(session.tenantId, teamId));
-    
+
     if (effectiveTeamId) {
       session.assignedTeamId = effectiveTeamId;
     }
@@ -973,6 +973,135 @@ export class AssignmentService {
       );
     }
     return { assigned };
+  }
+
+  /**
+   * Assign queued sessions to specific agents (manual assignment).
+   * Each entry assigns up to `count` unassigned sessions to that agent.
+   * Uses agent's first active team for assignedTeamId.
+   */
+  async assignQueuedSessionsToAgents(
+    tenantId: string,
+    assignments: Array<{ agentId: string; count: number }>,
+  ): Promise<{ assigned: number }> {
+    const limit = 50;
+    const sessions = await this.inboxService.getUnassignedSessions(
+      tenantId,
+      undefined,
+    );
+    let assigned = 0;
+    let sessionIndex = 0;
+
+    for (const { agentId, count } of assignments) {
+      if (count <= 0 || sessionIndex >= sessions.length) continue;
+      const member = await this.memberRepo.findOne({
+        where: { userId: agentId, isActive: true },
+        select: ["teamId"],
+      });
+      const agentTeamId = member?.teamId ?? null;
+
+      for (let i = 0; i < count && sessionIndex < sessions.length; i++) {
+        const session = sessions[sessionIndex];
+        sessionIndex++;
+        try {
+          await this.inboxService.assignSession(
+            session.id,
+            agentId,
+            agentTeamId,
+          );
+          assigned++;
+        } catch (err) {
+          this.logger.warn(
+            `Manual assign session ${session.id} to ${agentId} failed: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+
+    if (assigned > 0) {
+      this.logger.log(
+        `Manually assigned ${assigned} queued session(s) (tenant=${tenantId})`,
+      );
+    }
+    return { assigned };
+  }
+
+  /**
+   * Assign queued sessions to one or more teams; engine picks the agent within each team.
+   * Sessions are distributed round-robin across the given teamIds.
+   */
+  async assignQueuedSessionsToTeams(
+    tenantId: string,
+    teamIds: string[],
+  ): Promise<{ assigned: number }> {
+    if (teamIds.length === 0) return { assigned: 0 };
+    const limit = 50;
+    const sessions = await this.inboxService.getUnassignedSessions(
+      tenantId,
+      undefined,
+    );
+    let assigned = 0;
+    let teamIndex = 0;
+
+    for (let i = 0; i < Math.min(sessions.length, limit); i++) {
+      const session = sessions[i];
+      const teamId = teamIds[teamIndex % teamIds.length];
+      teamIndex++;
+      session.assignedTeamId = teamId;
+      const result = await this.engine.run({
+        session,
+        source: "queue",
+      });
+      if (result.outcome === "assign") {
+        session.assignedAgentId = result.agentId;
+        session.status = SessionStatus.ASSIGNED;
+        session.assignedAt = new Date();
+        await this.sessionRepo.save(session);
+        assigned++;
+      }
+    }
+
+    if (assigned > 0) {
+      this.logger.log(
+        `Assigned ${assigned} queued session(s) to teams (tenant=${tenantId}, teamIds=${teamIds.join(",")})`,
+      );
+    }
+    return { assigned };
+  }
+
+  /**
+   * Teams that have an active shift and at least one active member (for queue assignment UI).
+   */
+  async getTeamsAvailableForQueue(
+    tenantId: string,
+  ): Promise<Array<{ teamId: string; name: string; memberCount: number }>> {
+    const teams = await this.teamRepo.find({
+      where: { tenantId, isActive: true },
+      select: ["id", "name"],
+    });
+    const result: Array<{
+      teamId: string;
+      name: string;
+      memberCount: number;
+    }> = [];
+
+    for (const team of teams) {
+      const [memberCount, schedule] = await Promise.all([
+        this.memberRepo.count({
+          where: { teamId: team.id, isActive: true },
+        }),
+        this.checkScheduleAvailability(team.id),
+      ]);
+      if (memberCount > 0 && schedule.isOpen) {
+        result.push({
+          teamId: team.id,
+          name: team.name,
+          memberCount,
+        });
+      }
+    }
+
+    return result;
   }
 
   /**

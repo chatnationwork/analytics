@@ -36,8 +36,15 @@ import {
   Permission,
   SessionStatus,
 } from "@lib/database";
+import { TenantRepository } from "@lib/database";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { getRequestContext, type RequestLike } from "../request-context";
+
+/** Default: show resolved chats from last 1 day. 0 = all time. */
+function getResolvedSince(periodDays: number): Date | null {
+  if (periodDays <= 0) return null;
+  return new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
+}
 
 /**
  * DTO for sending a message as an agent.
@@ -85,6 +92,15 @@ interface PresenceDto {
   reason?: string | null;
 }
 
+/** DTO for assign-queue. mode: auto (default) | manual | teams. */
+interface AssignQueueDto {
+  mode?: "auto" | "manual" | "teams";
+  /** For mode=manual: assign up to count unassigned chats to each agent. */
+  assignments?: Array<{ agentId: string; count: number }>;
+  /** For mode=teams: assign queue to these teams (engine picks agent per team). */
+  teamIds?: string[];
+}
+
 /**
  * Controller for agent inbox operations.
  * All endpoints require authentication via JWT.
@@ -98,6 +114,7 @@ export class AgentInboxController {
     private readonly presenceService: PresenceService,
     private readonly whatsappService: WhatsappService,
     private readonly auditService: AuditService,
+    private readonly tenantRepository: TenantRepository,
   ) {}
 
   /**
@@ -120,17 +137,28 @@ export class AgentInboxController {
     },
     @Query("filter") filter?: InboxFilter,
   ) {
+    const tenant = await this.tenantRepository.findById(req.user.tenantId);
+    const periodDays =
+      (tenant?.settings as { inbox?: { resolvedChatsPeriodDays?: number } })
+        ?.inbox?.resolvedChatsPeriodDays ?? 1;
+    const resolvedSince = getResolvedSince(periodDays);
+
     const canViewAll =
       req.user.permissions?.global?.includes(
         Permission.SESSION_VIEW_ALL as string,
       ) ?? false;
     if (canViewAll) {
-      return this.inboxService.getTenantInbox(req.user.tenantId, filter);
+      return this.inboxService.getTenantInbox(
+        req.user.tenantId,
+        filter,
+        resolvedSince,
+      );
     }
     return this.inboxService.getAgentInbox(
       req.user.tenantId,
       req.user.id,
       filter,
+      resolvedSince,
     );
   }
 
@@ -186,16 +214,26 @@ export class AgentInboxController {
       };
     },
   ) {
+    const tenant = await this.tenantRepository.findById(req.user.tenantId);
+    const periodDays =
+      (tenant?.settings as { inbox?: { resolvedChatsPeriodDays?: number } })
+        ?.inbox?.resolvedChatsPeriodDays ?? 1;
+    const resolvedSince = getResolvedSince(periodDays);
+
     const canViewAll =
       req.user.permissions?.global?.includes(
         Permission.SESSION_VIEW_ALL as string,
       ) ?? false;
     if (canViewAll) {
-      return this.inboxService.getTenantInboxCounts(req.user.tenantId);
+      return this.inboxService.getTenantInboxCounts(
+        req.user.tenantId,
+        resolvedSince,
+      );
     }
     return this.inboxService.getAgentInboxCounts(
       req.user.tenantId,
       req.user.id,
+      resolvedSince,
     );
   }
 
@@ -211,14 +249,39 @@ export class AgentInboxController {
   }
 
   /**
-   * Assign queued (unassigned) sessions to available agents.
-   * Optional teamId: only assign sessions for that team; otherwise all unassigned for tenant.
+   * Assign queued (unassigned) sessions.
+   * Body: mode "auto" (default) = system assigns; "manual" = assignments[] (agentId, count); "teams" = teamIds[].
+   * Query teamId: when mode=auto, limit to that team.
    */
   @Post("assign-queue")
   async assignQueue(
     @Request() req: { user: { tenantId: string } },
+    @Body() body: AssignQueueDto = {},
     @Query("teamId") teamId?: string,
   ) {
+    const mode = body.mode ?? "auto";
+    if (mode === "manual") {
+      const assignments = body.assignments?.filter(
+        (a) => a.agentId && typeof a.count === "number" && a.count > 0,
+      );
+      if (!assignments?.length) {
+        return { assigned: 0 };
+      }
+      return this.assignmentService.assignQueuedSessionsToAgents(
+        req.user.tenantId,
+        assignments,
+      );
+    }
+    if (mode === "teams") {
+      const teamIds = body.teamIds?.filter(Boolean) ?? [];
+      if (teamIds.length === 0) {
+        return { assigned: 0 };
+      }
+      return this.assignmentService.assignQueuedSessionsToTeams(
+        req.user.tenantId,
+        teamIds,
+      );
+    }
     return this.assignmentService.assignQueuedSessionsToAvailableAgents(
       req.user.tenantId,
       { teamId },

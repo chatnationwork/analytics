@@ -8,6 +8,7 @@ import { Plus, Users, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { agentApi, Team } from "@/lib/api/agent";
 import { CreateTeamDialog } from "@/components/team-management/CreateTeamDialog";
+import { AssignQueueDialog } from "@/components/team-management/AssignQueueDialog";
 import {
   TeamList,
   type TeamQueueStats,
@@ -22,6 +23,7 @@ export default function TeamManagementPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isAssignQueueOpen, setIsAssignQueueOpen] = useState(false);
 
   const fetchTeams = async () => {
     try {
@@ -59,7 +61,19 @@ export default function TeamManagementPage() {
   );
 
   const queryClient = useQueryClient();
-  const [assignQueueLoading, setAssignQueueLoading] = useState(false);
+
+  const handleAssignQueueSuccess = (assigned: number) => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["agent-teams-queue-stats"] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-status-list"] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-status-sessions"] }),
+    ]);
+    if (assigned > 0) {
+      toast.success(`${assigned} chat(s) assigned from queue`);
+    } else {
+      toast.info("No queued chats to assign or no agents/teams available");
+    }
+  };
 
   return (
     <RouteGuard
@@ -110,57 +124,17 @@ export default function TeamManagementPage() {
               Scheduling & Queue
             </h3>
             <p className="text-sm text-muted-foreground -mt-4">
-              Assign unassigned chats in the queue to available (online) agents.
-              Queue assignment also runs automatically when an agent goes
-              online.
+              Assign unassigned chats in the queue. Choose to let the system
+              assign, assign to specific agents, or distribute to teams.
             </p>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                disabled={assignQueueLoading}
-                onClick={async () => {
-                  setAssignQueueLoading(true);
-                  try {
-                    const { assigned } = await agentApi.assignQueue();
-                    await Promise.all([
-                      queryClient.invalidateQueries({
-                        queryKey: ["agent-teams-queue-stats"],
-                      }),
-                      queryClient.invalidateQueries({
-                        queryKey: ["agent-status-list"],
-                      }),
-                      queryClient.invalidateQueries({
-                        queryKey: ["agent-status-sessions"],
-                      }),
-                    ]);
-                    if (assigned > 0) {
-                      toast.success(`${assigned} chat(s) assigned from queue`);
-                    } else {
-                      toast.info(
-                        "No queued chats to assign or no agents available",
-                      );
-                    }
-                  } catch (e) {
-                    toast.error(
-                      e instanceof Error ? e.message : "Failed to assign queue",
-                    );
-                  } finally {
-                    setAssignQueueLoading(false);
-                  }
-                }}
+                onClick={() => setIsAssignQueueOpen(true)}
               >
-                {assignQueueLoading ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Assigning…
-                  </span>
-                ) : (
-                  <>
-                    <Inbox className="h-4 w-4 mr-1.5" />
-                    Assign queue
-                  </>
-                )}
+                <Inbox className="h-4 w-4 mr-1.5" />
+                Assign queue
               </Button>
             </div>
           </div>
@@ -170,6 +144,11 @@ export default function TeamManagementPage() {
           open={isCreateOpen}
           onOpenChange={setIsCreateOpen}
           onSuccess={fetchTeams}
+        />
+        <AssignQueueDialog
+          open={isAssignQueueOpen}
+          onOpenChange={setIsAssignQueueOpen}
+          onSuccess={handleAssignQueueSuccess}
         />
       </div>
     </RouteGuard>

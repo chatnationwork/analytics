@@ -41,6 +41,7 @@ import {
 } from "@lib/database";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { getRequestContext, type RequestLike } from "../request-context";
+import { AssignmentService } from "./assignment.service";
 
 const TEAMS_VIEW_ALL = "teams.view_all";
 const TEAMS_VIEW_TEAM = "teams.view_team";
@@ -107,6 +108,7 @@ export class TeamController {
     @InjectRepository(ResolutionEntity)
     private readonly resolutionRepo: Repository<ResolutionEntity>,
     private readonly auditService: AuditService,
+    private readonly assignmentService: AssignmentService,
   ) {}
 
   /**
@@ -164,6 +166,24 @@ export class TeamController {
       memberCount: team.members?.filter((m) => m.isActive).length || 0,
       totalMemberCount: team.members?.length || 0,
     }));
+  }
+
+  /**
+   * Teams that have an active shift and at least one member (for assign-queue "assign to teams" option).
+   * Must be declared before @Get(":teamId").
+   */
+  @Get("available-for-queue")
+  async getTeamsAvailableForQueue(@Request() req: { user: AuthUser }) {
+    const allowedIds = await this.getAllowedTeamIdsForView(req.user);
+    if (allowedIds.length === 0) {
+      throw new ForbiddenException(
+        "You do not have permission to view team management.",
+      );
+    }
+    const teams = await this.assignmentService.getTeamsAvailableForQueue(
+      req.user.tenantId,
+    );
+    return teams.filter((t) => allowedIds.includes(t.teamId));
   }
 
   /**
