@@ -19,6 +19,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from "@nestjs/common";
 import { AuthService, AuthUser } from "./auth.service";
 import {
@@ -202,6 +203,7 @@ export class AuthController {
 
   /**
    * Enable or disable 2FA and set phone. Phone required when enabling.
+   * Only users with permission settings.two_factor may disable 2FA (turn it off).
    */
   @Patch("2fa")
   @UseGuards(JwtAuthGuard)
@@ -210,6 +212,15 @@ export class AuthController {
     @CurrentUser() user: AuthUser,
     @Body() dto: Update2FaDto,
   ): Promise<{ twoFactorEnabled: boolean; phone: string | null }> {
+    if (dto.twoFactorEnabled === false) {
+      const canDisable =
+        user.permissions?.global?.includes("settings.two_factor") === true;
+      if (!canDisable) {
+        throw new ForbiddenException(
+          "You do not have permission to disable two-factor authentication.",
+        );
+      }
+    }
     return this.authService.updateTwoFactor(user.id, dto);
   }
 }

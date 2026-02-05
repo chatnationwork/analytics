@@ -383,10 +383,13 @@ function SettingsSecurityContent() {
           )}
         </div>
 
-        {/* 2FA Toggle */}
+        {/* 2FA: toggle only for users with settings.two_factor; others can only enable or update phone */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
           <div>
-            <Label htmlFor="2fa-toggle" className="text-base font-medium">
+            <Label
+              htmlFor={canConfigureTwoFactor ? "2fa-toggle" : undefined}
+              className="text-base font-medium"
+            >
               Two-factor authentication
             </Label>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -395,21 +398,37 @@ function SettingsSecurityContent() {
                 : twoFactorEnabled
                   ? "2FA is enabled. You'll receive a 6-digit code on WhatsApp at login."
                   : hasValidPhone
-                    ? "Click to enable 2FA with the phone number above."
+                    ? canConfigureTwoFactor
+                      ? "Click to enable 2FA with the phone number above."
+                      : "Enter your phone number above and click Enable 2FA."
                     : "Enter a valid phone number above to enable 2FA."}
             </p>
           </div>
-          <Switch
-            id="2fa-toggle"
-            checked={twoFactorEnabled}
-            onCheckedChange={handleToggle}
-            disabled={
-              saving ||
-              update2Fa.isPending ||
-              (!twoFactorEnabled && !hasValidPhone) ||
-              (tenantTwoFactorRequired && twoFactorEnabled)
-            }
-          />
+          {canConfigureTwoFactor ? (
+            <Switch
+              id="2fa-toggle"
+              checked={twoFactorEnabled}
+              onCheckedChange={handleToggle}
+              disabled={
+                saving ||
+                update2Fa.isPending ||
+                (!twoFactorEnabled && !hasValidPhone) ||
+                (tenantTwoFactorRequired && twoFactorEnabled)
+              }
+            />
+          ) : twoFactorEnabled ? (
+            <span className="text-sm text-muted-foreground">2FA is on</span>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={saving || update2Fa.isPending || !hasValidPhone}
+              onClick={() => handleToggle(true)}
+            >
+              Enable 2FA
+            </Button>
+          )}
         </div>
 
         {message && (

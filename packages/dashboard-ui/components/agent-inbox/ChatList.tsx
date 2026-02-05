@@ -48,18 +48,16 @@ export function ChatList({
       );
     }
     if (session.status === "assigned") {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-500">
-          <Clock className="h-3 w-3" />
-          Pending
-        </span>
-      );
-    }
-    if (session.status === "active") {
-      return (
+      const isActive = Boolean(session.acceptedAt);
+      return isActive ? (
         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-500">
           <MessageSquare className="h-3 w-3" />
           Active
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-500">
+          <Clock className="h-3 w-3" />
+          Pending
         </span>
       );
     }
