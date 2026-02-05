@@ -122,6 +122,25 @@ export class ContactRepository {
     return this.repo.count({ where: { tenantId } });
   }
 
+  /**
+   * Actual message counts per contact from the messages table.
+   * Use this to display correct counts when contact.messageCount is stale (e.g. contacts created via import or agent inbox).
+   */
+  async getMessageCountsByContact(
+    tenantId: string,
+  ): Promise<Record<string, number>> {
+    const rows = await this.repo.manager.query(
+      `SELECT "contactId", COUNT(*)::int AS cnt FROM messages WHERE "tenantId" = $1 GROUP BY "contactId"`,
+      [tenantId],
+    );
+    return Object.fromEntries(
+      (rows as Array<{ contactId: string; cnt: number }>).map((r) => [
+        r.contactId,
+        Number(r.cnt) || 0,
+      ]),
+    );
+  }
+
   /** Count contacts whose firstSeen is within the date range (new in period). */
   async getNewContactsInPeriod(
     tenantId: string,
@@ -172,11 +191,18 @@ export class ContactRepository {
 
   /**
    * Get a stream of all contacts for a tenant.
-   * Useful for large exports.
+   * Useful for large exports. Uses explicit select with aliases so stream row keys are predictable (name, contactId, messageCount, firstSeen, lastSeen).
    */
   async getAllStream(tenantId: string) {
     return this.repo
       .createQueryBuilder("c")
+      .select([
+        "c.name AS name",
+        "c.contactId AS contactId",
+        "c.messageCount AS messageCount",
+        "c.firstSeen AS firstSeen",
+        "c.lastSeen AS lastSeen",
+      ])
       .where("c.tenantId = :tenantId", { tenantId })
       .orderBy("c.lastSeen", "DESC")
       .stream();

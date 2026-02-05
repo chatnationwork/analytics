@@ -460,46 +460,88 @@ export class WhatsappAnalyticsService {
   }
 
   async getContacts(tenantId: string, page: number = 1, limit: number = 20) {
-    const {
-      data,
-      total,
-      page: p,
-      limit: l,
-    } = await this.contactRepository.getList(tenantId, page, limit);
+    const [{ data, total, page: p, limit: l }, messageCounts] =
+      await Promise.all([
+        this.contactRepository.getList(tenantId, page, limit),
+        this.contactRepository.getMessageCountsByContact(tenantId),
+      ]);
     return {
-      data: data.map((c) => ({
-        contact_id: c.contactId,
-        name: c.name ?? null,
-        first_seen:
-          c.firstSeen instanceof Date ? c.firstSeen.toISOString() : c.firstSeen,
-        last_seen:
-          c.lastSeen instanceof Date ? c.lastSeen.toISOString() : c.lastSeen,
-        message_count: c.messageCount,
-      })),
+      data: data.map((c) => {
+        const count = messageCounts[c.contactId] ?? c.messageCount;
+        return {
+          contact_id: c.contactId,
+          name: c.name ?? null,
+          first_seen:
+            c.firstSeen instanceof Date
+              ? c.firstSeen.toISOString()
+              : c.firstSeen,
+          last_seen:
+            c.lastSeen instanceof Date ? c.lastSeen.toISOString() : c.lastSeen,
+          message_count: Math.max(c.messageCount, count),
+        };
+      }),
       total,
       page: p,
       limit: l,
     };
   }
   async exportContacts(tenantId: string) {
-    const dbStream = await this.contactRepository.getAllStream(tenantId);
-    
-    // Lazy load csv-stringify to avoid import errors if not installed (though we installed it)
+    const [dbStream, messageCounts] = await Promise.all([
+      this.contactRepository.getAllStream(tenantId),
+      this.contactRepository.getMessageCountsByContact(tenantId),
+    ]);
+
     const { stringify } = await import("csv-stringify");
-    
     const stringifier = stringify({
       header: true,
       columns: ["Name", "Phone", "Message Count", "First Seen", "Last Seen"],
     });
 
-    // Transform DB stream events to CSV rows
-    dbStream.on("data", (row: any) => {
+    const pick = (row: Record<string, unknown>, ...keys: string[]) => {
+      for (const k of keys) {
+        const v = row[k];
+        if (v !== undefined && v !== null) return v;
+      }
+      return undefined;
+    };
+    dbStream.on("data", (row: Record<string, unknown>) => {
+      const name =
+        (pick(row, "c_name", "ContactEntity_name", "name") as string) ?? "";
+      const contactId =
+        (pick(
+          row,
+          "c_contactId",
+          "ContactEntity_contactId",
+          "contactId",
+        ) as string) ?? "";
+      const rowCount =
+        (pick(
+          row,
+          "c_messageCount",
+          "ContactEntity_messageCount",
+          "messageCount",
+        ) as number) ?? 0;
+      const messageCount = contactId
+        ? (messageCounts[contactId] ?? rowCount)
+        : rowCount;
+      const firstSeen = pick(
+        row,
+        "c_firstSeen",
+        "ContactEntity_firstSeen",
+        "firstSeen",
+      );
+      const lastSeen = pick(
+        row,
+        "c_lastSeen",
+        "ContactEntity_lastSeen",
+        "lastSeen",
+      );
       stringifier.write([
-        row.ContactEntity_name || "",
-        row.ContactEntity_contactId,
-        row.ContactEntity_messageCount,
-        row.ContactEntity_firstSeen ? new Date(row.ContactEntity_firstSeen).toISOString() : "",
-        row.ContactEntity_lastSeen ? new Date(row.ContactEntity_lastSeen).toISOString() : "",
+        name,
+        contactId,
+        messageCount,
+        firstSeen ? new Date(firstSeen as string | Date).toISOString() : "",
+        lastSeen ? new Date(lastSeen as string | Date).toISOString() : "",
       ]);
     });
 
@@ -517,7 +559,7 @@ export class WhatsappAnalyticsService {
   async importContacts(tenantId: string, buffer: Buffer) {
     const { parse } = await import("csv-parse/sync");
     const { normalizeContactIdDigits } = await import("@lib/database");
-    
+
     const records = parse(buffer, {
       columns: true,
       skip_empty_lines: true,
@@ -532,9 +574,10 @@ export class WhatsappAnalyticsService {
 
     for (const row of records as Array<Record<string, string>>) {
       // Map columns flexibly
-      const phone = row["Phone"] || row["phone"] || row["Contact ID"] || row["Mobile"];
+      const phone =
+        row["Phone"] || row["phone"] || row["Contact ID"] || row["Mobile"];
       const name = row["Name"] || row["name"] || row["Full Name"];
-      
+
       if (!phone) continue;
 
       const normalized = normalizeContactIdDigits(phone);
@@ -546,7 +589,7 @@ export class WhatsappAnalyticsService {
         metadata: {
           imported: "true",
           importDate: new Date().toISOString(),
-        }
+        },
       });
     }
 
