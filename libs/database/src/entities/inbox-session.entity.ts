@@ -53,6 +53,14 @@ export class InboxSessionEntity {
   @Column({ type: "timestamptz", nullable: true })
   assignedAt: Date;
 
+  /**
+   * When the current agent explicitly accepted the chat.
+   * - Engine/auto-assignment sets assignedAt but leaves acceptedAt null.
+   * - /agent/inbox/:id/accept sets/updates acceptedAt for the current owner.
+   */
+  @Column({ type: "timestamptz", nullable: true })
+  acceptedAt: Date | null;
+
   @ManyToOne(() => UserEntity)
   @JoinColumn({ name: "assignedAgentId" })
   assignedAgent: UserEntity;

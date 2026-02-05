@@ -889,8 +889,11 @@ export class AssignmentService {
     });
 
     // Resolve effective team so queue stats (and engine) have a team; use default/first when handover omits teamId
+    // treat empty string as undefined/null so we fall back to default team
     const effectiveTeamId =
-      teamId ?? (await this.getEffectiveTeamId(session.tenantId, teamId));
+      (teamId && teamId.trim().length > 0 ? teamId : undefined) ??
+      (await this.getEffectiveTeamId(session.tenantId, teamId));
+    
     if (effectiveTeamId) {
       session.assignedTeamId = effectiveTeamId;
     }

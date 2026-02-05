@@ -85,7 +85,10 @@ export class InboxService {
     private readonly whatsappService: WhatsappService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {
-    this.sessionHelper = new InboxSessionHelper(this.sessionRepo, this.teamRepo);
+    this.sessionHelper = new InboxSessionHelper(
+      this.sessionRepo,
+      this.teamRepo,
+    );
   }
 
   /**
@@ -456,14 +459,20 @@ export class InboxService {
         session.assignedAgentId = agentId;
         session.status = SessionStatus.ASSIGNED;
         session.assignedAt = new Date();
+        session.acceptedAt = new Date();
         didAssignFromUnassigned = true;
       } else if (session.assignedAgentId === agentId) {
-        // Already assigned to this agent; idempotent
+        // Already assigned to this agent; idempotent for ownership,
+        // but we still treat this as an explicit accept for metrics if not already accepted.
+        if (!session.acceptedAt) {
+          session.acceptedAt = new Date();
+        }
       } else {
         // Already assigned to another agent: treat as takeover (transfer to accepter)
         previousAgentId = session.assignedAgentId;
         session.assignedAgentId = agentId;
         session.assignedAt = new Date();
+        session.acceptedAt = new Date();
         const context = (session.context as Record<string, unknown>) || {};
         const transfers =
           (context.transfers as Array<Record<string, unknown>>) || [];
@@ -750,6 +759,8 @@ export class InboxService {
     // Update the assigned agent
     const previousAgentId = session.assignedAgentId;
     session.assignedAgentId = toAgentId;
+    // New owner must explicitly accept; clear acceptedAt
+    session.acceptedAt = null;
 
     // Store transfer info in context
     const context = (session.context as Record<string, unknown>) || {};
