@@ -28,6 +28,7 @@
 
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 import {
   appConfig,
   databaseConfig,
@@ -81,6 +82,7 @@ import { EmailModule } from "./email/email.module";
       isGlobal: true,
       load: [appConfig, databaseConfig, authConfig, mediaConfig],
     }),
+    ScheduleModule.forRoot(),
 
     /**
      * DatabaseModule.forRoot()

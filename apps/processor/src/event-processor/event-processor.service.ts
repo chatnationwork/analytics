@@ -292,7 +292,13 @@ export class EventProcessorService {
 
     if (props.text) {
       if (typeof props.text === "object") {
-        content = (props.text as any).body || JSON.stringify(props.text);
+        const body = (props.text as any).body;
+        // If body is explicitly null (common upstream bug), treat as empty string rather than stringifying JSON
+        if (body === null) {
+          content = "";
+        } else {
+          content = body || JSON.stringify(props.text);
+        }
       } else if (typeof props.text === "string") {
         if (props.text.trim().startsWith("{")) {
           try {

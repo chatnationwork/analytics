@@ -42,6 +42,7 @@ import { AgentInboxController } from "./agent-inbox.controller";
 import { TeamController } from "./team.controller";
 import { IntegrationController } from "./integration.controller";
 import { PresenceService } from "./presence.service";
+import { AssignmentScheduler } from "./assignment.scheduler";
 import { AgentStatusService } from "./agent-status.service";
 import { AgentStatusController } from "./agent-status.controller";
 import { AgentSessionController } from "./agent-session.controller";
@@ -101,6 +102,7 @@ import { AuditModule } from "../audit/audit.module";
     },
     InboxService,
     AssignmentService,
+    AssignmentScheduler,
     PresenceService,
     AgentStatusService,
     ContactProfileService,

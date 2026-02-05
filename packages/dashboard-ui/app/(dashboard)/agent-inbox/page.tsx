@@ -76,6 +76,10 @@ export default function AgentInboxPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
+  /** Sessions the current user has explicitly accepted this browser session. */
+  const [acceptedSessions, setAcceptedSessions] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>("");
@@ -218,9 +222,21 @@ export default function AgentInboxPage() {
       fetchInbox();
       setSessions((prev) =>
         prev.map((s) =>
-          s.id === sessionId ? { ...s, status: "assigned" as const } : s,
+          s.id === sessionId
+            ? {
+                ...s,
+                status: "assigned" as const,
+                // Ensure local state reflects that this chat is now owned by the current user
+                assignedAgentId: currentUserId || s.assignedAgentId,
+              }
+            : s,
         ),
       );
+      setAcceptedSessions((prev) => {
+        const next = new Set(prev);
+        next.add(sessionId);
+        return next;
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to accept chat";
@@ -277,6 +293,13 @@ export default function AgentInboxPage() {
   };
 
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
+  const hasAcceptedSelected =
+    selectedSessionId != null && acceptedSessions.has(selectedSessionId);
+
+  const canSendMessage =
+    !!selectedSession &&
+    selectedSession.status === "assigned" &&
+    hasAcceptedSelected;
 
   return (
     <div className="h-[calc(100vh-4rem)] flex gap-3 p-4">
@@ -387,14 +410,19 @@ export default function AgentInboxPage() {
                   <User className="h-4 w-4" />
                   <span className="hidden sm:inline">Contact</span>
                 </Button>
-                {selectedSession?.status === "unassigned" && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleAcceptSession(selectedSessionId)}
-                  >
-                    Accept Chat
-                  </Button>
-                )}
+                {selectedSession &&
+                  selectedSession.status !== "resolved" &&
+                  !hasAcceptedSelected && (
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        selectedSessionId &&
+                        handleAcceptSession(selectedSessionId)
+                      }
+                    >
+                      Accept Chat
+                    </Button>
+                  )}
                 {selectedSession?.status === "assigned" && (
                   <>
                     <Button
@@ -438,8 +466,7 @@ export default function AgentInboxPage() {
             <MessageInput
               onSendMessage={handleSendMessage}
               disabled={
-                selectedSession?.status === "resolved" ||
-                selectedSession?.status === "unassigned"
+                selectedSession?.status === "resolved" || !canSendMessage
               }
             />
           </>
