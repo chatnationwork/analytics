@@ -37,9 +37,12 @@ export class CsatAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    rangeStart?: Date,
+    rangeEnd?: Date,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const endDate = rangeEnd ?? new Date();
+    const startDate =
+      rangeStart ?? this.calculateStartDate(granularity, periods);
 
     const summary = await this.eventRepository.getCsatSummary(
       tenantId,
@@ -87,9 +90,12 @@ export class CsatAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    rangeStart?: Date,
+    rangeEnd?: Date,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const endDate = rangeEnd ?? new Date();
+    const startDate =
+      rangeStart ?? this.calculateStartDate(granularity, periods);
     const byJourney = await this.eventRepository.getCsatByJourney(
       tenantId,
       startDate,

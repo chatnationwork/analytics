@@ -74,11 +74,15 @@ export class AiAnalyticsController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.aiAnalyticsService.getClassificationTrend(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       periods ? parseInt(periods, 10) : 30,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
     );
   }
 
@@ -91,11 +95,15 @@ export class AiAnalyticsController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.aiAnalyticsService.getLatencyTrend(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       periods ? parseInt(periods, 10) : 30,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
     );
   }
 

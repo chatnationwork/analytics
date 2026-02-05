@@ -44,20 +44,39 @@ export interface CsatByJourneyResponse {
   granularity: string;
 }
 
+function buildParams(
+  granularity: string,
+  periods: number,
+  startDate?: string,
+  endDate?: string,
+): string {
+  const params = new URLSearchParams({
+    granularity,
+    periods: String(periods),
+  });
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  return params.toString();
+}
+
 export async function getCsatDashboard(
   granularity: CsatGranularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<CsatDashboardResponse> {
   return fetchWithAuth<CsatDashboardResponse>(
-    `/csat-analytics/dashboard?granularity=${granularity}&periods=${periods}`,
+    `/csat-analytics/dashboard?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getCsatByJourney(
   granularity: CsatGranularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<CsatByJourneyResponse> {
   return fetchWithAuth<CsatByJourneyResponse>(
-    `/csat-analytics/by-journey?granularity=${granularity}&periods=${periods}`,
+    `/csat-analytics/by-journey?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }

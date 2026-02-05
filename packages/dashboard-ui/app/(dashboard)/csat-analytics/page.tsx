@@ -44,6 +44,22 @@ function StatCard({
   );
 }
 
+function toYYYYMMDD(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateRangeLabel(start: string, end: string): string {
+  const startD = new Date(start + "T00:00:00");
+  const endD = new Date(end + "T00:00:00");
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+  if (start === end) return startD.toLocaleDateString("en-US", opts);
+  return `${startD.toLocaleDateString("en-US", opts)} – ${endD.toLocaleDateString("en-US", opts)}`;
+}
+
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString("en-US", {
@@ -56,18 +72,46 @@ function formatDate(iso: string): string {
   }
 }
 
+const PRESETS = [
+  { label: "Today", days: 0 },
+  { label: "Last 7 days", days: 7 },
+  { label: "Last 30 days", days: 30 },
+  { label: "Last 90 days", days: 90 },
+] as const;
+
 export default function CsatAnalyticsPage() {
-  const [granularity, setGranularity] = useState<CsatGranularity>("day");
-  const periods = granularity === "day" ? 30 : granularity === "week" ? 12 : 6;
+  const granularity: CsatGranularity = "day";
+  const periods = 30;
+
+  const today = toYYYYMMDD(new Date());
+  const defaultStart = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return toYYYYMMDD(d);
+  })();
+  const [dateStart, setDateStart] = useState(defaultStart);
+  const [dateEnd, setDateEnd] = useState(today);
+  const [preset, setPreset] = useState<number | null>(30);
+
+  const applyPreset = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days || 0));
+    setDateEnd(toYYYYMMDD(end));
+    setDateStart(toYYYYMMDD(start));
+    setPreset(days === 0 ? 0 : days === 7 ? 7 : days === 90 ? 90 : 30);
+  };
+
+  const dateRangeLabel = formatDateRangeLabel(dateStart, dateEnd);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["csat-dashboard", granularity, periods],
-    queryFn: () => getCsatDashboard(granularity, periods),
+    queryKey: ["csat-dashboard", granularity, periods, dateStart, dateEnd],
+    queryFn: () => getCsatDashboard(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: byJourneyData } = useQuery({
-    queryKey: ["csat-by-journey", granularity, periods],
-    queryFn: () => getCsatByJourney(granularity, periods),
+    queryKey: ["csat-by-journey", granularity, periods, dateStart, dateEnd],
+    queryFn: () => getCsatByJourney(granularity, periods, dateStart, dateEnd),
   });
 
   const summary = data?.summary;
@@ -78,26 +122,57 @@ export default function CsatAnalyticsPage() {
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4">
           <div>
             <h1 className="text-xl font-semibold text-foreground">
               CSAT Analytics
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Customer satisfaction from csat_submitted events (rating &
-              feedback)
+              {dateRangeLabel}
             </p>
           </div>
-          <select
-            value={granularity}
-            onChange={(e) => setGranularity(e.target.value as CsatGranularity)}
-            className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            aria-label="Time range"
-          >
-            <option value="day">Last 30 days</option>
-            <option value="week">Last 12 weeks</option>
-            <option value="month">Last 6 months</option>
-          </select>
+          <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+            <span className="text-sm font-medium text-foreground">
+              Date range
+            </span>
+            {PRESETS.map(({ label, days }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => applyPreset(days)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  preset === days
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border text-foreground hover:bg-muted/50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => {
+                  setDateStart(e.target.value);
+                  setPreset(null);
+                }}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="From date"
+              />
+              <span className="text-muted-foreground">to</span>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => {
+                  setDateEnd(e.target.value);
+                  setPreset(null);
+                }}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="To date"
+              />
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -253,7 +328,7 @@ export default function CsatAnalyticsPage() {
                 CSAT per Journey
               </h3>
               <p className="text-sm text-muted-foreground mb-6">
-                Satisfaction by journey step 
+                Satisfaction by journey step
               </p>
               {byJourney.length === 0 ? (
                 <p className="text-sm text-muted-foreground">

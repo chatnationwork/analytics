@@ -113,21 +113,40 @@ export interface TopAgentItem {
 
 // API functions
 
+function buildTrendParams(
+  granularity: string,
+  periods: number,
+  startDate?: string,
+  endDate?: string,
+): string {
+  const params = new URLSearchParams({
+    granularity,
+    periods: String(periods),
+  });
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  return params.toString();
+}
+
 export async function getClassificationTrend(
   granularity: "day" | "week" | "month" = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<ClassificationTrendResponse> {
   return fetchWithAuth(
-    `/ai-analytics/trends/classifications?granularity=${granularity}&periods=${periods}`,
+    `/ai-analytics/trends/classifications?${buildTrendParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getLatencyTrend(
   granularity: "day" | "week" | "month" = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<LatencyTrendResponse> {
   return fetchWithAuth(
-    `/ai-analytics/trends/latency?granularity=${granularity}&periods=${periods}`,
+    `/ai-analytics/trends/latency?${buildTrendParams(granularity, periods, startDate, endDate)}`,
   );
 }
 

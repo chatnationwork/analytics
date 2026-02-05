@@ -42,12 +42,41 @@ import { agentApi, type Message } from "@/lib/api/agent";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 
+function toYYYYMMDD(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateRangeLabel(start: string, end: string): string {
+  const startD = new Date(start + "T00:00:00");
+  const endD = new Date(end + "T00:00:00");
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+  if (start === end) return startD.toLocaleDateString("en-US", opts);
+  return `${startD.toLocaleDateString("en-US", opts)} – ${endD.toLocaleDateString("en-US", opts)}`;
+}
+
+function toPeriodString(period: string | Date | unknown): string {
+  if (typeof period === "string") return period;
+  if (period instanceof Date) return period.toISOString();
+  return String(period ?? "");
+}
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
 }
+
+const PRESETS = [
+  { label: "Today", days: 0 },
+  { label: "Last 7 days", days: 7 },
+  { label: "Last 30 days", days: 30 },
+  { label: "Last 90 days", days: 90 },
+] as const;
 
 function formatDateTime(d: string): string {
   try {
@@ -101,10 +130,10 @@ function ResolutionTrendChart({ data }: { data: ResolutionTrendDataPoint[] }) {
       <div className="h-full flex items-end gap-1">
         {data.map((point, i) => {
           const height = (point.resolvedCount / maxCount) * 100;
-          const date = new Date(point.period);
+          const date = new Date(toPeriodString(point.period));
           return (
             <div
-              key={i}
+              key={toPeriodString(point.period) || i}
               className="flex-1 flex flex-col items-center gap-1 group relative"
             >
               <div
@@ -127,8 +156,8 @@ function ResolutionTrendChart({ data }: { data: ResolutionTrendDataPoint[] }) {
         })}
       </div>
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-        <span>{formatDate(data[0]?.period)}</span>
-        <span>{formatDate(data[data.length - 1]?.period)}</span>
+        <span>{formatDate(toPeriodString(data[0]?.period))}</span>
+        <span>{formatDate(toPeriodString(data[data.length - 1]?.period))}</span>
       </div>
     </div>
   );
@@ -181,8 +210,30 @@ function CategoryBreakdown({ data }: { data: ResolutionCategoryItem[] }) {
 }
 
 export default function WrapUpAnalyticsPage() {
-  const [granularity, setGranularity] = useState<Granularity>("day");
-  const periods = granularity === "day" ? 30 : granularity === "week" ? 12 : 12;
+  const granularity: Granularity = "day";
+  const periods = 30;
+
+  const today = toYYYYMMDD(new Date());
+  const defaultStart = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return toYYYYMMDD(d);
+  })();
+  const [dateStart, setDateStart] = useState(defaultStart);
+  const [dateEnd, setDateEnd] = useState(today);
+  const [preset, setPreset] = useState<number | null>(30);
+
+  const applyPreset = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days || 0));
+    setDateEnd(toYYYYMMDD(end));
+    setDateStart(toYYYYMMDD(start));
+    setPreset(days === 0 ? 0 : days === 7 ? 7 : days === 90 ? 90 : 30);
+  };
+
+  const dateRangeLabel = formatDateRangeLabel(dateStart, dateEnd);
+
   const [submissionsPage, setSubmissionsPage] = useState(1);
   const submissionsLimit = 20;
   const [selected, setSelected] = useState<ResolutionSubmissionItem | null>(
@@ -201,18 +252,20 @@ export default function WrapUpAnalyticsPage() {
   }, []);
 
   const { data: overview } = useQuery({
-    queryKey: ["wrap-up-overview", granularity, periods],
-    queryFn: () => getResolutionOverview(granularity, periods),
+    queryKey: ["wrap-up-overview", granularity, periods, dateStart, dateEnd],
+    queryFn: () =>
+      getResolutionOverview(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: trend } = useQuery({
-    queryKey: ["wrap-up-trend", granularity, periods],
-    queryFn: () => getResolutionTrend(granularity, periods),
+    queryKey: ["wrap-up-trend", granularity, periods, dateStart, dateEnd],
+    queryFn: () => getResolutionTrend(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: byCategory } = useQuery({
-    queryKey: ["wrap-up-by-category", granularity, periods],
-    queryFn: () => getResolutionByCategory(granularity, periods),
+    queryKey: ["wrap-up-by-category", granularity, periods, dateStart, dateEnd],
+    queryFn: () =>
+      getResolutionByCategory(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: submissions, isLoading: submissionsLoading } = useQuery({
@@ -220,6 +273,8 @@ export default function WrapUpAnalyticsPage() {
       "wrap-up-submissions",
       granularity,
       periods,
+      dateStart,
+      dateEnd,
       submissionsPage,
       submissionsLimit,
     ],
@@ -229,6 +284,8 @@ export default function WrapUpAnalyticsPage() {
         periods,
         submissionsPage,
         submissionsLimit,
+        dateStart,
+        dateEnd,
       ),
   });
 
@@ -264,13 +321,57 @@ export default function WrapUpAnalyticsPage() {
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">
-            Wrap-up Reports
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Resolution categories and wrap-up outcomes
-          </p>
+        <div className="flex flex-col gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">
+              Wrap-up Reports
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {dateRangeLabel}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+            <span className="text-sm font-medium text-foreground">
+              Date range
+            </span>
+            {PRESETS.map(({ label, days }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => applyPreset(days)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  preset === days
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border text-foreground hover:bg-muted/50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => {
+                  setDateStart(e.target.value);
+                  setPreset(null);
+                }}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="From date"
+              />
+              <span className="text-muted-foreground">to</span>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => {
+                  setDateEnd(e.target.value);
+                  setPreset(null);
+                }}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="To date"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -296,19 +397,7 @@ export default function WrapUpAnalyticsPage() {
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Trends</h2>
-          <select
-            value={granularity}
-            onChange={(e) => setGranularity(e.target.value as Granularity)}
-            className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            aria-label="Select time granularity"
-          >
-            <option value="day">Daily</option>
-            <option value="week">Weekly</option>
-            <option value="month">Monthly</option>
-          </select>
-        </div>
+        <h2 className="text-lg font-semibold text-foreground">Trends</h2>
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-card rounded-xl border border-border p-6 shadow-sm">

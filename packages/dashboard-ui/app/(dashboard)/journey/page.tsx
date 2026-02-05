@@ -325,7 +325,7 @@ export default function JourneyPage() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span className="text-muted-foreground">Web</span>
+              <span className="text-muted-foreground">Whatsapp WebView</span>
             </div>
           </div>
 
@@ -376,7 +376,7 @@ export default function JourneyPage() {
                                 <span
                                   className={`text-xs px-2 py-0.5 rounded ${channelColor}`}
                                 >
-                                  {event.channelType || "web"}
+                                  {event.channelType || "Whatsapp WebView"}
                                 </span>
                               </div>
                               {details && (

@@ -80,9 +80,13 @@ export class AiAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    rangeStart?: Date,
+    rangeEnd?: Date,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const endDate = rangeEnd || new Date();
+    const startDate =
+      rangeStart ||
+      this.calculateStartDate(granularity, periods);
 
     const data = await this.eventRepository.getAiClassificationTrend(
       tenantId,
@@ -144,9 +148,13 @@ export class AiAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    rangeStart?: Date,
+    rangeEnd?: Date,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const endDate = rangeEnd || new Date();
+    const startDate =
+      rangeStart ||
+      this.calculateStartDate(granularity, periods);
 
     const data = await this.eventRepository.getAiLatencyTrend(
       tenantId,
