@@ -39,23 +39,27 @@ export default function OverviewPage() {
   });
 
   const { data: pagePaths } = useQuery({
-    queryKey: ["page-paths"],
-    queryFn: () => api.getTopPagePaths(),
+    queryKey: ["page-paths", tenant?.tenantId],
+    queryFn: () => api.getTopPagePaths(tenant?.tenantId),
+    enabled: !!tenant?.tenantId,
   });
 
   const { data: dailyUsers } = useQuery({
-    queryKey: ["daily-users"],
-    queryFn: () => overviewEnhancedApi.getDailyActiveUsers(),
+    queryKey: ["daily-users", tenant?.tenantId],
+    queryFn: () => overviewEnhancedApi.getDailyActiveUsers(tenant?.tenantId),
+    enabled: !!tenant?.tenantId,
   });
 
   const { data: browsers } = useQuery({
-    queryKey: ["browser-breakdown"],
-    queryFn: () => overviewEnhancedApi.getBrowserBreakdown(),
+    queryKey: ["browser-breakdown", tenant?.tenantId],
+    queryFn: () => overviewEnhancedApi.getBrowserBreakdown(tenant?.tenantId),
+    enabled: !!tenant?.tenantId,
   });
 
   const { data: userIdentity } = useQuery({
-    queryKey: ["user-identity"],
-    queryFn: () => overviewEnhancedApi.getUserIdentityStats(),
+    queryKey: ["user-identity", tenant?.tenantId],
+    queryFn: () => overviewEnhancedApi.getUserIdentityStats(tenant?.tenantId),
+    enabled: !!tenant?.tenantId,
   });
 
   // Trends queries
@@ -185,7 +189,7 @@ export default function OverviewPage() {
                   title="Sessions Over Time"
                   data={
                     sessionTrend?.data?.map((d) => ({
-                      period: d.period,
+                      period: toPeriodString(d.period),
                       value: d.count,
                     })) ?? []
                   }
@@ -203,7 +207,7 @@ export default function OverviewPage() {
                   title="Conversion Rate Trend"
                   data={
                     conversionTrend?.data?.map((d) => ({
-                      period: d.period,
+                      period: toPeriodString(d.period),
                       rate: d.conversionRate * 100,
                       total: d.totalSessions,
                     })) ?? []
@@ -221,7 +225,10 @@ export default function OverviewPage() {
                 {/* User Growth Trend */}
                 <StackedTrendChart
                   title="User Growth"
-                  data={userGrowthTrend?.data ?? []}
+                  data={(userGrowthTrend?.data ?? []).map((d) => ({
+                    ...d,
+                    period: toPeriodString(d.period),
+                  }))}
                   summary={{
                     newUsers: userGrowthTrend?.summary?.totalNewUsers,
                     returningUsers:
@@ -287,6 +294,13 @@ export default function OverviewPage() {
       </div>
     </RouteGuard>
   );
+}
+
+/** Ensure chart period is a string (backend may return Date). */
+function toPeriodString(period: string | Date | unknown): string {
+  if (typeof period === "string") return period;
+  if (period instanceof Date) return period.toISOString();
+  return String(period ?? "");
 }
 
 function formatDuration(seconds: number): string {
