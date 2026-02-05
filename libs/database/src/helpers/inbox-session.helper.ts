@@ -8,7 +8,8 @@ import { Repository, In } from "typeorm";
 import {
   InboxSessionEntity,
   SessionStatus,
-} from "../entities/inbox-session.entity";
+  TeamEntity,
+} from "../entities";
 import { normalizeContactIdDigits } from "../utils/canonical-contact-id";
 
 export interface GetOrCreateSessionOptions {
@@ -18,13 +19,17 @@ export interface GetOrCreateSessionOptions {
 }
 
 export class InboxSessionHelper {
-  constructor(private readonly sessionRepo: Repository<InboxSessionEntity>) {}
+  constructor(
+    private readonly sessionRepo: Repository<InboxSessionEntity>,
+    private readonly teamRepo: Repository<TeamEntity>,
+  ) {}
 
   /**
    * Gets or creates an inbox session for a contact.
    * - Normalizes contactId to digits-only
    * - Reuses existing ASSIGNED/UNASSIGNED session
    * - Falls back to any session created in last 60s (handles race condition)
+   * - If creating NEW: automatically assigns Default Team (if found) so it appears in queue.
    * @throws Error if contactId normalizes to empty (no digits)
    */
   async getOrCreateSession(
@@ -76,12 +81,18 @@ export class InboxSessionHelper {
       return session;
     }
 
+    // Creating NEW session: find Default Team for this tenant
+    const defaultTeam = await this.teamRepo.findOne({
+      where: { tenantId, isDefault: true, isActive: true },
+    });
+
     const newSession = this.sessionRepo.create({
       tenantId,
       contactId: normalizedContactId,
       contactName,
       channel,
       status: SessionStatus.UNASSIGNED,
+      assignedTeamId: defaultTeam?.id || undefined, // Auto-assign default team
       context,
     });
 

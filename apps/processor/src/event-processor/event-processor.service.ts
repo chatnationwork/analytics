@@ -38,6 +38,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventConsumer, StreamMessage, QueuedEvent } from "@lib/queue";
 import {
+  TeamEntity,
   EventRepository,
   SessionRepository,
   CreateEventDto,
@@ -73,8 +74,10 @@ export class EventProcessorService {
     private readonly messageRepo: Repository<MessageEntity>,
     @InjectRepository(ResolutionEntity)
     private readonly resolutionRepo: Repository<ResolutionEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepo: Repository<TeamEntity>,
   ) {
-    this.sessionHelper = new InboxSessionHelper(this.inboxSessionRepo);
+    this.sessionHelper = new InboxSessionHelper(this.inboxSessionRepo, this.teamRepo);
   }
 
   async start(): Promise<void> {

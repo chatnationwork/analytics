@@ -504,7 +504,7 @@ export class WhatsappAnalyticsService {
       }
       return undefined;
     };
-    dbStream.on("data", (row: Record<string, unknown>) => {
+    dbStream.on("data", (row: any) => {
       const name =
         (pick(row, "c_name", "ContactEntity_name", "name") as string) ?? "";
       const contactId =

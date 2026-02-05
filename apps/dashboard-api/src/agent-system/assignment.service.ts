@@ -940,6 +940,12 @@ export class AssignmentService {
     let assigned = 0;
     for (let i = 0; i < Math.min(sessions.length, limit); i++) {
       const session = sessions[i];
+      // Sessions from processor (webhook_sync) have assignedTeamId null; set effective team so engine and DB are consistent
+      if (!session.assignedTeamId) {
+        const effectiveTeamId =
+          options?.teamId ?? (await this.getEffectiveTeamId(tenantId));
+        if (effectiveTeamId) session.assignedTeamId = effectiveTeamId;
+      }
       const result = await this.engine.run({
         session,
         source: "queue",
@@ -968,6 +974,8 @@ export class AssignmentService {
 
   /**
    * Checks if the team is currently available based on its schedule.
+   * Shift times are interpreted in the team's timezone (IANA, e.g. Africa/Nairobi).
+   * If timezone is missing or invalid, we treat as closed to avoid assigning outside intended hours.
    */
   async checkScheduleAvailability(
     teamId: string,
@@ -979,11 +987,21 @@ export class AssignmentService {
 
     const { timezone, days, outOfOfficeMessage } = team.schedule;
 
+    if (!timezone || typeof timezone !== "string" || timezone.trim() === "") {
+      this.logger.warn(
+        `Schedule check for team ${teamId}: timezone missing; treating as closed`,
+      );
+      return {
+        isOpen: false,
+        message: outOfOfficeMessage || "We are currently closed.",
+      };
+    }
+
     const now = new Date();
-    // Helper to get day/time in target zone
+    // Helper to get day/time in target zone; throws if timezone is invalid
     const getParts = (d: Date) => {
       const options: Intl.DateTimeFormatOptions = {
-        timeZone: timezone,
+        timeZone: timezone.trim(),
         weekday: "long",
         hour: "numeric",
         minute: "numeric",
@@ -998,7 +1016,18 @@ export class AssignmentService {
       return { day, h, m, mins: h * 60 + m };
     };
 
-    const current = getParts(now);
+    let current: { day: string; h: number; m: number; mins: number };
+    try {
+      current = getParts(now);
+    } catch (err) {
+      this.logger.warn(
+        `Schedule check for team ${teamId}: invalid timezone "${timezone}" (${(err as Error).message}); treating as closed`,
+      );
+      return {
+        isOpen: false,
+        message: outOfOfficeMessage || "We are currently closed.",
+      };
+    }
 
     // Check today's shifts
     const dayShifts = days[current.day] || [];

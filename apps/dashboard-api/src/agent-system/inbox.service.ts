@@ -85,7 +85,7 @@ export class InboxService {
     private readonly whatsappService: WhatsappService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {
-    this.sessionHelper = new InboxSessionHelper(this.sessionRepo);
+    this.sessionHelper = new InboxSessionHelper(this.sessionRepo, this.teamRepo);
   }
 
   /**
@@ -163,7 +163,6 @@ export class InboxService {
 
     return savedMessage;
   }
-
 
   /**
    * Get inbox sessions for an agent.
@@ -289,6 +288,8 @@ export class InboxService {
 
   /**
    * Get unassigned sessions for a team or tenant.
+   * When teamId is provided: returns sessions for that team OR sessions with no team (assignedTeamId IS NULL),
+   * so sessions created by e.g. webhook_sync (processor) can be assigned when "Assign queue" is run for a team.
    */
   async getUnassignedSessions(
     tenantId: string,
@@ -302,7 +303,10 @@ export class InboxService {
       });
 
     if (teamId) {
-      query.andWhere("session.assignedTeamId = :teamId", { teamId });
+      query.andWhere(
+        "(session.assignedTeamId = :teamId OR session.assignedTeamId IS NULL)",
+        { teamId },
+      );
     }
 
     query.orderBy("session.createdAt", "ASC");
@@ -315,7 +319,9 @@ export class InboxService {
    * Since messages are tied to the contact, a session is just a view into that history.
    */
   async getSessionMessages(sessionId: string): Promise<MessageEntity[]> {
-    const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
+    const session = await this.sessionRepo.findOne({
+      where: { id: sessionId },
+    });
     if (!session) {
       throw new NotFoundException(`Session ${sessionId} not found`);
     }
