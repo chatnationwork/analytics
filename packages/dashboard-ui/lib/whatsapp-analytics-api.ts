@@ -1,6 +1,5 @@
 import { fetchWithAuth, fetchBlobWithAuth } from "./api";
 
-
 export type Granularity = "day" | "week" | "month";
 
 export const whatsappAnalyticsApi = {
@@ -80,36 +79,68 @@ export const whatsappAnalyticsApi = {
   getMessageVolumeTrend: async (
     granularity: Granularity = "day",
     periods: number = 30,
+    startDate?: string,
+    endDate?: string,
   ) => {
+    const params = new URLSearchParams({
+      granularity,
+      periods: String(periods),
+    });
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
     return fetchWithAuth(
-      `/whatsapp-analytics/trends/volume?granularity=${granularity}&periods=${periods}`,
+      `/whatsapp-analytics/trends/volume?${params.toString()}`,
     );
   },
 
   getResponseTimeTrend: async (
     granularity: Granularity = "day",
     periods: number = 30,
+    startDate?: string,
+    endDate?: string,
   ) => {
+    const params = new URLSearchParams({
+      granularity,
+      periods: String(periods),
+    });
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
     return fetchWithAuth(
-      `/whatsapp-analytics/trends/response-time?granularity=${granularity}&periods=${periods}`,
+      `/whatsapp-analytics/trends/response-time?${params.toString()}`,
     );
   },
 
   getReadRateTrend: async (
     granularity: Granularity = "day",
     periods: number = 30,
+    startDate?: string,
+    endDate?: string,
   ) => {
+    const params = new URLSearchParams({
+      granularity,
+      periods: String(periods),
+    });
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
     return fetchWithAuth(
-      `/whatsapp-analytics/trends/read-rate?granularity=${granularity}&periods=${periods}`,
+      `/whatsapp-analytics/trends/read-rate?${params.toString()}`,
     );
   },
 
   getNewContactsTrend: async (
     granularity: Granularity = "day",
     periods: number = 30,
+    startDate?: string,
+    endDate?: string,
   ) => {
+    const params = new URLSearchParams({
+      granularity,
+      periods: String(periods),
+    });
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
     return fetchWithAuth(
-      `/whatsapp-analytics/trends/new-contacts?granularity=${granularity}&periods=${periods}`,
+      `/whatsapp-analytics/trends/new-contacts?${params.toString()}`,
     );
   },
 

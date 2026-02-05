@@ -12,15 +12,14 @@ export class WhatsappAnalyticsService {
     const end = endDate || new Date();
     const start =
       startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const [eventStats, totalContacts, newContactsInPeriod] = await Promise.all([
-      this.eventRepository.getWhatsappStats(tenantId, start, end),
-      this.contactRepository.getTotalCount(tenantId),
-      this.contactRepository.getNewContactsInPeriod(tenantId, start, end),
-    ]);
+    const eventStats = await this.eventRepository.getWhatsappStats(
+      tenantId,
+      start,
+      end,
+    );
     return {
       ...eventStats,
-      uniqueContacts: totalContacts,
-      newContacts: newContactsInPeriod,
+      // uniqueContacts and newContacts from events (in-period); do not overwrite with contact repo
     };
   }
 
@@ -137,6 +136,24 @@ export class WhatsappAnalyticsService {
     }
   }
 
+  private resolveTrendDateRange(
+    granularity: "day" | "week" | "month",
+    periods: number,
+    startDateStr?: string,
+    endDateStr?: string,
+  ): { startDate: Date; endDate: Date } {
+    if (startDateStr && endDateStr) {
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    }
+    const endDate = new Date();
+    const startDate = this.calculateStartDate(granularity, periods);
+    return { startDate, endDate };
+  }
+
   /** Serialize period to ISO string and fill missing periods with zeros so charts have a full timeline. */
   private fillVolumeTrendGaps(
     data: { period: Date | string; received: number; sent: number }[],
@@ -189,9 +206,15 @@ export class WhatsappAnalyticsService {
     tenantId: string,
     granularity: "day" | "week" | "month" = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveTrendDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const raw = await this.eventRepository.getWhatsappMessageVolumeTrend(
       tenantId,
@@ -222,9 +245,15 @@ export class WhatsappAnalyticsService {
     tenantId: string,
     granularity: "day" | "week" | "month" = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveTrendDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const data = await this.eventRepository.getWhatsappResponseTimeTrend(
       tenantId,
@@ -326,9 +355,15 @@ export class WhatsappAnalyticsService {
     tenantId: string,
     granularity: "day" | "week" | "month" = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveTrendDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const raw = await this.eventRepository.getWhatsappReadRateTrend(
       tenantId,
@@ -407,9 +442,15 @@ export class WhatsappAnalyticsService {
     tenantId: string,
     granularity: "day" | "week" | "month" = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveTrendDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const raw = await this.contactRepository.getNewContactsTrend(
       tenantId,

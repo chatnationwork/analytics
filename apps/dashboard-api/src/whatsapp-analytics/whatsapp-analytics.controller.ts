@@ -143,11 +143,15 @@ export class WhatsappAnalyticsController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.service.getMessageVolumeTrend(
       req.user.tenantId,
       (granularity as "day" | "week" | "month") || "day",
       periods ? parseInt(periods, 10) : 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -156,11 +160,15 @@ export class WhatsappAnalyticsController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.service.getResponseTimeTrend(
       req.user.tenantId,
       (granularity as "day" | "week" | "month") || "day",
       periods ? parseInt(periods, 10) : 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -169,11 +177,15 @@ export class WhatsappAnalyticsController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.service.getReadRateTrend(
       req.user.tenantId,
       (granularity as "day" | "week" | "month") || "day",
       periods ? parseInt(periods, 10) : 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -182,11 +194,15 @@ export class WhatsappAnalyticsController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.service.getNewContactsTrend(
       req.user.tenantId,
       (granularity as "day" | "week" | "month") || "day",
       periods ? parseInt(periods, 10) : 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -206,7 +222,7 @@ export class WhatsappAnalyticsController {
   @Get("contacts/export")
   async exportContacts(@Request() req: any, @Res() res: FastifyReply) {
     const csvStream = await this.service.exportContacts(req.user.tenantId);
-    
+
     res.header("Content-Type", "text/csv");
     res.header("Content-Disposition", 'attachment; filename="contacts.csv"');
 
@@ -214,9 +230,7 @@ export class WhatsappAnalyticsController {
   }
 
   @Post("contacts/import")
-  async importContacts(
-    @Request() req: FastifyRequest,
-  ) {
+  async importContacts(@Request() req: FastifyRequest) {
     const data = await (req as any).file();
 
     if (!data) {

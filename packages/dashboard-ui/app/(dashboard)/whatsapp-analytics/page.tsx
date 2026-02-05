@@ -14,74 +14,208 @@ import {
   Users,
 } from "lucide-react";
 
+function toYYYYMMDD(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateRangeLabel(start: string, end: string): string {
+  const startD = new Date(start + "T00:00:00");
+  const endD = new Date(end + "T00:00:00");
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+  if (start === end) return startD.toLocaleDateString("en-US", opts);
+  return `${startD.toLocaleDateString("en-US", opts)} – ${endD.toLocaleDateString("en-US", opts)}`;
+}
+
+const PRESETS = [
+  { label: "Today", days: 0 },
+  { label: "Last 7 days", days: 7 },
+  { label: "Last 30 days", days: 30 },
+  { label: "Last 90 days", days: 90 },
+] as const;
+
 export default function WhatsAppAnalyticsPage() {
   const [granularity, setGranularity] = useState<Granularity>("day");
   const periods = granularity === "day" ? 30 : granularity === "week" ? 12 : 12;
+  const today = toYYYYMMDD(new Date());
+  const defaultStart = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return toYYYYMMDD(d);
+  })();
+  const [dateStart, setDateStart] = useState(defaultStart);
+  const [dateEnd, setDateEnd] = useState(today);
+  const [preset, setPreset] = useState<number | null>(30);
+
+  const applyPreset = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days || 0));
+    setDateEnd(toYYYYMMDD(end));
+    setDateStart(toYYYYMMDD(start));
+    setPreset(days === 0 ? 0 : days === 7 ? 7 : days === 90 ? 90 : 30);
+  };
+
+  const dateRangeLabel = formatDateRangeLabel(dateStart, dateEnd);
 
   const { data: stats } = useQuery({
-    queryKey: ["whatsapp-stats"],
-    queryFn: () => whatsappAnalyticsApi.getStats(),
+    queryKey: ["whatsapp-stats", dateStart, dateEnd],
+    queryFn: () => whatsappAnalyticsApi.getStats(dateStart, dateEnd),
   });
 
   const { data: volume } = useQuery({
-    queryKey: ["whatsapp-volume"],
-    queryFn: () => whatsappAnalyticsApi.getVolume(),
+    queryKey: ["whatsapp-volume", dateStart, dateEnd],
+    queryFn: () => whatsappAnalyticsApi.getVolume(dateStart, dateEnd),
   });
 
   const { data: heatmap } = useQuery({
-    queryKey: ["whatsapp-heatmap"],
-    queryFn: () => whatsappAnalyticsApi.getHeatmap(),
+    queryKey: ["whatsapp-heatmap", dateStart, dateEnd],
+    queryFn: () => whatsappAnalyticsApi.getHeatmap(dateStart, dateEnd),
   });
 
   const { data: agents } = useQuery({
-    queryKey: ["whatsapp-agents"],
-    queryFn: () => whatsappAnalyticsApi.getAgents(),
+    queryKey: ["whatsapp-agents", dateStart, dateEnd],
+    queryFn: () => whatsappAnalyticsApi.getAgents(dateStart, dateEnd),
   });
 
   const { data: responseTime } = useQuery({
-    queryKey: ["whatsapp-response-time"],
-    queryFn: () => whatsappAnalyticsApi.getResponseTime(),
+    queryKey: ["whatsapp-response-time", dateStart, dateEnd],
+    queryFn: () => whatsappAnalyticsApi.getResponseTime(dateStart, dateEnd),
   });
 
   const { data: funnel } = useQuery({
-    queryKey: ["whatsapp-funnel"],
-    queryFn: () => whatsappAnalyticsApi.getFunnel(),
+    queryKey: ["whatsapp-funnel", dateStart, dateEnd],
+    queryFn: () => whatsappAnalyticsApi.getFunnel(dateStart, dateEnd),
   });
 
-  // Trend queries
   const { data: volumeTrend } = useQuery({
-    queryKey: ["whatsapp-volume-trend", granularity, periods],
+    queryKey: [
+      "whatsapp-volume-trend",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
     queryFn: () =>
-      whatsappAnalyticsApi.getMessageVolumeTrend(granularity, periods),
+      whatsappAnalyticsApi.getMessageVolumeTrend(
+        granularity,
+        periods,
+        dateStart,
+        dateEnd,
+      ),
   });
 
   const { data: responseTimeTrend } = useQuery({
-    queryKey: ["whatsapp-response-time-trend", granularity, periods],
+    queryKey: [
+      "whatsapp-response-time-trend",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
     queryFn: () =>
-      whatsappAnalyticsApi.getResponseTimeTrend(granularity, periods),
+      whatsappAnalyticsApi.getResponseTimeTrend(
+        granularity,
+        periods,
+        dateStart,
+        dateEnd,
+      ),
   });
 
   const { data: readRateTrend } = useQuery({
-    queryKey: ["whatsapp-read-rate-trend", granularity, periods],
-    queryFn: () => whatsappAnalyticsApi.getReadRateTrend(granularity, periods),
+    queryKey: [
+      "whatsapp-read-rate-trend",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () =>
+      whatsappAnalyticsApi.getReadRateTrend(
+        granularity,
+        periods,
+        dateStart,
+        dateEnd,
+      ),
   });
 
   const { data: newContactsTrend } = useQuery({
-    queryKey: ["whatsapp-new-contacts-trend", granularity, periods],
+    queryKey: [
+      "whatsapp-new-contacts-trend",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
     queryFn: () =>
-      whatsappAnalyticsApi.getNewContactsTrend(granularity, periods),
+      whatsappAnalyticsApi.getNewContactsTrend(
+        granularity,
+        periods,
+        dateStart,
+        dateEnd,
+      ),
   });
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">
-          WhatsApp Analytics
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Insights from WhatsApp events we collect
-        </p>
+      {/* Header + date filter */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">
+              WhatsApp Analytics
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {dateRangeLabel}
+            </p>
+          </div>
+        </div>
+        {/* Date filter */}
+        <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+          <span className="text-sm font-medium text-foreground">
+            Date range
+          </span>
+          {PRESETS.map(({ label, days }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => applyPreset(days)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                preset === days
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card border border-border text-foreground hover:bg-muted/50"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateStart}
+              onChange={(e) => {
+                setDateStart(e.target.value);
+                setPreset(null);
+              }}
+              className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              aria-label="From date"
+            />
+            <span className="text-muted-foreground">to</span>
+            <input
+              type="date"
+              value={dateEnd}
+              onChange={(e) => {
+                setDateEnd(e.target.value);
+                setPreset(null);
+              }}
+              className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              aria-label="To date"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -352,7 +486,7 @@ function StatCard({
 function ResponseTimeHistogram({
   data,
 }: {
-  data: { bucket: string; count: string }[];
+  data: { bucket: string; count: string | number }[];
 }) {
   const buckets = [
     "0-1",
@@ -367,8 +501,8 @@ function ResponseTimeHistogram({
     "9+",
   ];
   const counts = buckets.map((b) => {
-    const found = data.find((d) => d.bucket === b);
-    return found ? parseInt(found.count, 10) : 0;
+    const found = data?.find((d) => d.bucket === b);
+    return found ? Number(found.count) || 0 : 0;
   });
   const max = Math.max(...counts, 1);
 
@@ -582,6 +716,12 @@ function normalizeTrend<T, S>(res: unknown): { data: T[]; summary?: S } {
   return { data: [] };
 }
 
+function toPeriodString(period: string | Date | unknown): string {
+  if (typeof period === "string") return period;
+  if (period instanceof Date) return period.toISOString();
+  return String(period ?? "");
+}
+
 function formatDate(d: string | Date) {
   const date = typeof d === "string" ? new Date(d) : d;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -641,7 +781,7 @@ function MessageVolumeTrendChart({
       <div className="h-48 flex items-end gap-1">
         {receivedSent.map((point, i) => (
           <div
-            key={i}
+            key={toPeriodString(point.period) || i}
             className="flex-1 flex flex-col items-center gap-0.5 group relative"
           >
             <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
@@ -761,7 +901,7 @@ function ResponseTimeTrendChart({
 
           return (
             <div
-              key={i}
+              key={toPeriodString(point.period) || i}
               className="flex-1 flex flex-col items-center gap-1 group relative"
             >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
@@ -842,12 +982,12 @@ function ReadRateTrendChart({
 
           return (
             <div
-              key={i}
+              key={toPeriodString(point.period) || i}
               className="flex-1 flex flex-col items-center gap-1 group relative"
             >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
-                {formatDate(point.period)}: {point.readRate.toFixed(1)}% (
-                {point.readCount}/{point.sent})
+                {formatDate(point.period)}: {Number(point.readRate).toFixed(1)}%
+                ({point.readCount}/{point.sent})
               </div>
               <div
                 className="w-full bg-gradient-to-t from-purple-600 to-purple-400 rounded-t min-h-[2px]"
@@ -933,7 +1073,7 @@ function NewContactsTrendChart({
 
           return (
             <div
-              key={i}
+              key={toPeriodString(point.period) || i}
               className="flex-1 flex flex-col items-center gap-1 group relative"
             >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
