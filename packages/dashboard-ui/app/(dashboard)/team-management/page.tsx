@@ -13,7 +13,12 @@ import {
   type TeamQueueStats,
 } from "@/components/team-management/TeamList";
 import { RouteGuard } from "@/components/auth/RouteGuard";
+import { usePermission } from "@/components/auth/PermissionContext";
+
 export default function TeamManagementPage() {
+  const { can } = usePermission();
+  const canManage = can("teams.manage");
+
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -43,6 +48,8 @@ export default function TeamManagementPage() {
       s.teamId,
       {
         queueSize: s.queueSize,
+        activeChats: s.activeChats ?? 0,
+        agentCount: s.agentCount ?? 0,
         avgWaitTimeMinutes: s.avgWaitTimeMinutes,
         longestWaitTimeMinutes: s.longestWaitTimeMinutes,
         avgResolutionTimeMinutes: s.avgResolutionTimeMinutes ?? null,
@@ -55,7 +62,9 @@ export default function TeamManagementPage() {
   const [assignQueueLoading, setAssignQueueLoading] = useState(false);
 
   return (
-    <RouteGuard permission="teams.manage">
+    <RouteGuard
+      permissions={["teams.manage", "teams.view_all", "teams.view_team"]}
+    >
       <div className="p-8 space-y-8">
         <div className="flex items-center justify-between">
           <div>
@@ -63,12 +72,16 @@ export default function TeamManagementPage() {
               Team Management
             </h2>
             <p className="text-muted-foreground">
-              Manage support teams and agent assignments.
+              {canManage
+                ? "Manage support teams and agent assignments."
+                : "View active chats, queued chats, and agent workload for your teams."}
             </p>
           </div>
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Create Team
-          </Button>
+          {canManage && (
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Create Team
+            </Button>
+          )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -77,76 +90,81 @@ export default function TeamManagementPage() {
           ) : teams.length === 0 ? (
             <Card className="col-span-full p-8 text-center text-muted-foreground border-dashed">
               <Users className="mx-auto h-8 w-8 mb-2 opacity-50" />
-              No teams found. Create your first team to get started.
+              No teams found.{" "}
+              {canManage && "Create your first team to get started."}
             </Card>
           ) : (
             <TeamList
               teams={teams}
               queueStatsByTeamId={queueStatsByTeamId}
               onTeamUpdated={fetchTeams}
+              canManage={canManage}
             />
           )}
         </div>
 
-        {/* Scheduling & queue */}
-        <div className="space-y-6">
-          <h3 className="text-xl font-semibold text-foreground">
-            Scheduling & Queue
-          </h3>
-          <p className="text-sm text-muted-foreground -mt-4">
-            Assign unassigned chats in the queue to available (online) agents.
-            Queue assignment also runs automatically when an agent goes online.
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={assignQueueLoading}
-              onClick={async () => {
-                setAssignQueueLoading(true);
-                try {
-                  const { assigned } = await agentApi.assignQueue();
-                  await Promise.all([
-                    queryClient.invalidateQueries({
-                      queryKey: ["agent-teams-queue-stats"],
-                    }),
-                    queryClient.invalidateQueries({
-                      queryKey: ["agent-status-list"],
-                    }),
-                    queryClient.invalidateQueries({
-                      queryKey: ["agent-status-sessions"],
-                    }),
-                  ]);
-                  if (assigned > 0) {
-                    toast.success(`${assigned} chat(s) assigned from queue`);
-                  } else {
-                    toast.info(
-                      "No queued chats to assign or no agents available",
+        {canManage && (
+          /* Scheduling & queue */
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-foreground">
+              Scheduling & Queue
+            </h3>
+            <p className="text-sm text-muted-foreground -mt-4">
+              Assign unassigned chats in the queue to available (online) agents.
+              Queue assignment also runs automatically when an agent goes
+              online.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={assignQueueLoading}
+                onClick={async () => {
+                  setAssignQueueLoading(true);
+                  try {
+                    const { assigned } = await agentApi.assignQueue();
+                    await Promise.all([
+                      queryClient.invalidateQueries({
+                        queryKey: ["agent-teams-queue-stats"],
+                      }),
+                      queryClient.invalidateQueries({
+                        queryKey: ["agent-status-list"],
+                      }),
+                      queryClient.invalidateQueries({
+                        queryKey: ["agent-status-sessions"],
+                      }),
+                    ]);
+                    if (assigned > 0) {
+                      toast.success(`${assigned} chat(s) assigned from queue`);
+                    } else {
+                      toast.info(
+                        "No queued chats to assign or no agents available",
+                      );
+                    }
+                  } catch (e) {
+                    toast.error(
+                      e instanceof Error ? e.message : "Failed to assign queue",
                     );
+                  } finally {
+                    setAssignQueueLoading(false);
                   }
-                } catch (e) {
-                  toast.error(
-                    e instanceof Error ? e.message : "Failed to assign queue",
-                  );
-                } finally {
-                  setAssignQueueLoading(false);
-                }
-              }}
-            >
-              {assignQueueLoading ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Assigning…
-                </span>
-              ) : (
-                <>
-                  <Inbox className="h-4 w-4 mr-1.5" />
-                  Assign queue
-                </>
-              )}
-            </Button>
+                }}
+              >
+                {assignQueueLoading ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Assigning…
+                  </span>
+                ) : (
+                  <>
+                    <Inbox className="h-4 w-4 mr-1.5" />
+                    Assign queue
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         <CreateTeamDialog
           open={isCreateOpen}

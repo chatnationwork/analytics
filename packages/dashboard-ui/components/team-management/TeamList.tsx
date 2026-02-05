@@ -2,7 +2,15 @@ import { Team, agentApi } from "@/lib/api/agent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Star, Inbox, Clock, CheckCircle } from "lucide-react";
+import {
+  Users,
+  Plus,
+  Star,
+  Inbox,
+  Clock,
+  CheckCircle,
+  MessageSquare,
+} from "lucide-react";
 import { useState } from "react";
 import { AddMemberDialog } from "./AddMemberDialog";
 import { ManageTeamDialog } from "./ManageTeamDialog";
@@ -11,6 +19,8 @@ import { toast } from "sonner";
 
 export interface TeamQueueStats {
   queueSize: number;
+  activeChats: number;
+  agentCount: number;
   avgWaitTimeMinutes: number | null;
   longestWaitTimeMinutes: number | null;
   avgResolutionTimeMinutes: number | null;
@@ -21,6 +31,8 @@ interface TeamListProps {
   teams: Team[];
   queueStatsByTeamId?: Record<string, TeamQueueStats>;
   onTeamUpdated: () => void;
+  /** When false, user can only view (no Add Member, Manage, Set default). */
+  canManage?: boolean;
 }
 
 function formatWaitTime(minutes: number | null): string {
@@ -35,6 +47,7 @@ export function TeamList({
   teams,
   queueStatsByTeamId = {},
   onTeamUpdated,
+  canManage = true,
 }: TeamListProps) {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -79,25 +92,27 @@ export function TeamList({
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-1">
-              {!team.isDefault && (team.memberCount ?? 0) > 0 && (
+            {canManage && (
+              <div className="flex items-center gap-1">
+                {!team.isDefault && (team.memberCount ?? 0) > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDefaultMutation.mutate(team.id)}
+                    disabled={setDefaultMutation.isPending}
+                  >
+                    Set default
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setDefaultMutation.mutate(team.id)}
-                  disabled={setDefaultMutation.isPending}
+                  onClick={() => handleManageTeam(team)}
                 >
-                  Set default
+                  Manage
                 </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleManageTeam(team)}
-              >
-                Manage
-              </Button>
-            </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {team.description && (
@@ -111,9 +126,26 @@ export function TeamList({
               return stats ? (
                 <div className="space-y-2 mb-4 text-xs">
                   <div className="grid grid-cols-3 gap-2 text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
+                    <div
+                      className="flex items-center gap-1.5"
+                      title="Active chats (assigned and accepted)"
+                    >
+                      <MessageSquare className="h-3.5 w-3 shrink-0" />
+                      <span>Active: {stats.activeChats}</span>
+                    </div>
+                    <div
+                      className="flex items-center gap-1.5"
+                      title="Queued (unassigned)"
+                    >
                       <Inbox className="h-3.5 w-3 shrink-0" />
                       <span>Queue: {stats.queueSize}</span>
+                    </div>
+                    <div
+                      className="flex items-center gap-1.5"
+                      title="Active agents in team"
+                    >
+                      <Users className="h-3.5 w-3 shrink-0" />
+                      <span>Agents: {stats.agentCount}</span>
                     </div>
                     <div
                       className="flex items-center gap-1.5"
@@ -162,14 +194,15 @@ export function TeamList({
                 <Users className="mr-1 h-4 w-4" />
                 {team.memberCount || 0} Members
               </div>
-
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => handleAddMember(team)}
-              >
-                <Plus className="mr-1 h-3 w-3" /> Add Member
-              </Button>
+              {canManage && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleAddMember(team)}
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add Member
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

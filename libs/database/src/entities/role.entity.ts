@@ -13,6 +13,10 @@ export enum Permission {
   SETTINGS_MANAGE = "settings.manage",
   USERS_MANAGE = "users.manage",
   TEAMS_MANAGE = "teams.manage",
+  /** View active chats, queued chats, and agent workload across all teams (admins). */
+  TEAMS_VIEW_ALL = "teams.view_all",
+  /** View active chats, queued chats, and agent workload only for teams the user is a member of (team managers). */
+  TEAMS_VIEW_TEAM = "teams.view_team",
   AUDIT_VIEW = "audit.view",
 
   // Team Permissions (Scoped)

@@ -28,6 +28,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import type { AuthUser } from "../auth/auth.service";
 import {
   TeamEntity,
   TeamMemberEntity,
@@ -40,6 +41,10 @@ import {
 } from "@lib/database";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { getRequestContext, type RequestLike } from "../request-context";
+
+const TEAMS_VIEW_ALL = "teams.view_all";
+const TEAMS_VIEW_TEAM = "teams.view_team";
+const TEAMS_MANAGE = "teams.manage";
 
 /**
  * DTO for creating a team
@@ -105,18 +110,56 @@ export class TeamController {
   ) {}
 
   /**
-   * List all teams for the tenant (with member counts)
+   * Resolve which team IDs the user is allowed to view (for visibility: active chats, queued chats, workload).
+   * - teams.manage or teams.view_all: all teams in the tenant.
+   * - teams.view_team only: teams the user is a member of.
+   * - otherwise: none.
+   */
+  private async getAllowedTeamIdsForView(user: AuthUser): Promise<string[]> {
+    const global = user.permissions?.global ?? [];
+    const canViewAll =
+      global.includes(TEAMS_MANAGE) || global.includes(TEAMS_VIEW_ALL);
+    const canViewTeam = global.includes(TEAMS_VIEW_TEAM);
+
+    if (canViewAll) {
+      const teams = await this.teamRepo.find({
+        where: { tenantId: user.tenantId },
+        select: ["id"],
+      });
+      return teams.map((t) => t.id);
+    }
+    if (canViewTeam) {
+      const memberships = await this.memberRepo.find({
+        where: { userId: user.id, isActive: true },
+        select: ["teamId"],
+      });
+      return memberships.map((m) => m.teamId);
+    }
+    return [];
+  }
+
+  /**
+   * List teams the user is allowed to view (with member counts).
+   * Requires teams.manage, teams.view_all, or teams.view_team.
    */
   @Get()
-  async listTeams(@Request() req: { user: { tenantId: string } }) {
+  async listTeams(@Request() req: { user: AuthUser }) {
+    const allowedIds = await this.getAllowedTeamIdsForView(req.user);
+    if (allowedIds.length === 0) {
+      throw new ForbiddenException(
+        "You do not have permission to view team management.",
+      );
+    }
+
     const teams = await this.teamRepo.find({
       where: { tenantId: req.user.tenantId },
       relations: ["members"],
       order: { isDefault: "DESC", createdAt: "ASC" },
     });
 
-    // Add member counts (only active members)
-    return teams.map((team) => ({
+    const filtered = teams.filter((t) => allowedIds.includes(t.id));
+
+    return filtered.map((team) => ({
       ...team,
       memberCount: team.members?.filter((m) => m.isActive).length || 0,
       totalMemberCount: team.members?.length || 0,
@@ -124,30 +167,29 @@ export class TeamController {
   }
 
   /**
-   * Get queue stats per team: queue size, wait time (assign→accept), resolution time (accept→resolved).
+   * Get queue stats per team: queue size, active chats, agent count, wait time, resolution time.
+   * Only returns stats for teams the user is allowed to view (teams.view_all or teams.view_team).
    * Must be declared before @Get(":teamId").
    */
   @Get("queue-stats")
-  async getQueueStats(@Request() req: { user: { tenantId: string } }) {
+  async getQueueStats(@Request() req: { user: AuthUser }) {
     const tenantId = req.user.tenantId;
-    const teams = await this.teamRepo.find({
-      where: { tenantId },
-      select: ["id"],
-    });
-    const teamIds = teams.map((t) => t.id);
-    if (teamIds.length === 0) return [];
+    const allowedIds = await this.getAllowedTeamIdsForView(req.user);
+    if (allowedIds.length === 0) return [];
 
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const result: Array<{
       teamId: string;
       queueSize: number;
+      activeChats: number;
+      agentCount: number;
       avgWaitTimeMinutes: number | null;
       longestWaitTimeMinutes: number | null;
       avgResolutionTimeMinutes: number | null;
       longestResolutionTimeMinutes: number | null;
     }> = [];
 
-    for (const teamId of teamIds) {
+    for (const teamId of allowedIds) {
       const [queueSizeRow] = await this.sessionRepo
         .createQueryBuilder("s")
         .select("COUNT(*)", "count")
@@ -159,6 +201,21 @@ export class TeamController {
         .getRawMany<{ count: string }>();
 
       const queueSize = parseInt(queueSizeRow?.count ?? "0", 10);
+
+      const [activeChatsRow] = await this.sessionRepo
+        .createQueryBuilder("s")
+        .select("COUNT(*)", "count")
+        .where("s.tenantId = :tenantId", { tenantId })
+        .andWhere("s.assignedTeamId = :teamId", { teamId })
+        .andWhere("s.status = :status", { status: SessionStatus.ASSIGNED })
+        .andWhere("s.acceptedAt IS NOT NULL")
+        .getRawMany<{ count: string }>();
+      const activeChats = parseInt(activeChatsRow?.count ?? "0", 10);
+
+      const agentCountResult = await this.memberRepo.count({
+        where: { teamId, isActive: true },
+      });
+      const agentCount = agentCountResult ?? 0;
 
       // Wait time = assignment to accept (only sessions that have been accepted)
       const avgWaitResult = await this.sessionRepo
@@ -239,6 +296,8 @@ export class TeamController {
       result.push({
         teamId,
         queueSize,
+        activeChats,
+        agentCount,
         avgWaitTimeMinutes,
         longestWaitTimeMinutes,
         avgResolutionTimeMinutes,
@@ -272,10 +331,14 @@ export class TeamController {
   }
 
   /**
-   * Get a specific team with members (including user details)
+   * Get a specific team with members (including user details).
+   * Users with teams.view_team only can access teams they are a member of.
    */
   @Get(":teamId")
-  async getTeam(@Param("teamId") teamId: string) {
+  async getTeam(
+    @Request() req: { user: AuthUser },
+    @Param("teamId") teamId: string,
+  ) {
     const team = await this.teamRepo.findOne({
       where: { id: teamId },
       relations: ["members", "members.user"],
@@ -283,6 +346,28 @@ export class TeamController {
 
     if (!team) {
       throw new NotFoundException("Team not found");
+    }
+
+    if (team.tenantId !== req.user.tenantId) {
+      throw new NotFoundException("Team not found");
+    }
+
+    const global = req.user.permissions?.global ?? [];
+    const canViewAll =
+      global.includes(TEAMS_MANAGE) || global.includes(TEAMS_VIEW_ALL);
+    if (!canViewAll && global.includes(TEAMS_VIEW_TEAM)) {
+      const isMember = await this.memberRepo.findOne({
+        where: { teamId, userId: req.user.id, isActive: true },
+      });
+      if (!isMember) {
+        throw new ForbiddenException(
+          "You can only view teams you are a member of.",
+        );
+      }
+    } else if (!canViewAll) {
+      throw new ForbiddenException(
+        "You do not have permission to view this team.",
+      );
     }
 
     return {

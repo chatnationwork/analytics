@@ -310,6 +310,8 @@ export const agentApi = {
       Array<{
         teamId: string;
         queueSize: number;
+        activeChats: number;
+        agentCount: number;
         avgWaitTimeMinutes: number | null;
         longestWaitTimeMinutes: number | null;
         avgResolutionTimeMinutes: number | null;

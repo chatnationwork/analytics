@@ -189,7 +189,12 @@ export function TopNav() {
             ? item.permission
             : undefined;
         if (permission && !can(permission)) return false;
-        if (item.label === "Team Management" && !can("teams.manage"))
+        if (
+          item.label === "Team Management" &&
+          !can("teams.manage") &&
+          !can("teams.view_all") &&
+          !can("teams.view_team")
+        )
           return false;
         return true;
       });
