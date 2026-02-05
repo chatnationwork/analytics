@@ -129,14 +129,17 @@ export default function AgentInboxPage() {
 
   function getCountForFilter(value: InboxFilter): number | null {
     if (!inboxCounts) return null;
+    // Tab value "pending" is displayed as "Active"; API returns key "active"
+    const countKey =
+      value === "pending" ? "active" : (value as keyof AgentInboxCounts);
     if ("all" in inboxCounts && "unassigned" in inboxCounts) {
       const admin = inboxCounts as TenantInboxCounts;
-      const k = value as keyof TenantInboxCounts;
+      const k = countKey as keyof TenantInboxCounts;
       return typeof admin[k] === "number" ? (admin[k] as number) : null;
     }
     const agent = inboxCounts as AgentInboxCounts;
     if (value === "all") return agent.assigned + agent.active + agent.expired;
-    const k = value as keyof AgentInboxCounts;
+    const k = countKey as keyof AgentInboxCounts;
     return typeof agent[k] === "number" ? (agent[k] as number) : null;
   }
 

@@ -52,6 +52,8 @@ export class LoginResponseDto {
       global: string[];
       team: Record<string, string[]>;
     };
+    /** When true, org requires 2FA and user has not set it; client should redirect to 2FA setup. */
+    twoFactorSetupRequired?: boolean;
   };
 
   /** When true, client must submit twoFactorToken + code to POST /auth/2fa/verify */

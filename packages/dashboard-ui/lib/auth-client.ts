@@ -9,6 +9,8 @@ export interface User {
     global: string[];
     team: Record<string, string[]>;
   };
+  /** When true, org requires 2FA and user has not set it; must complete 2FA setup before using the app. */
+  twoFactorSetupRequired?: boolean;
 }
 
 export interface AuthResponse {

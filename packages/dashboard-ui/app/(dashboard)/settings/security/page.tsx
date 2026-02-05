@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { usePermission } from "@/components/auth/PermissionContext";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, Lock } from "lucide-react";
+import { Shield, Lock, AlertCircle } from "lucide-react";
 import { setSessionCookieAction } from "@/app/(auth)/login/actions";
 
 /** Shape of tenant.settings.passwordComplexity (must match backend) */
@@ -35,11 +36,16 @@ const DEFAULT_PASSWORD_COMPLEXITY: PasswordComplexityConfig = {
 /**
  * Security settings page: 2FA and (for super admins) password complexity for new users.
  */
-export default function SettingsSecurityPage() {
+function SettingsSecurityContent() {
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { can } = usePermission();
-  const { login, user: currentUser } = useAuth();
+  const { login, user: currentUser, refreshUser } = useAuth();
   const canConfigurePasswordComplexity = can("settings.password_complexity");
+  const canConfigureTwoFactor = can("settings.two_factor");
+  const isMandatorySetup =
+    currentUser?.twoFactorSetupRequired === true ||
+    searchParams.get("setup2fa") === "1";
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -58,7 +64,7 @@ export default function SettingsSecurityPage() {
   const { data: tenant } = useQuery({
     queryKey: ["tenant-current"],
     queryFn: () => api.getCurrentTenant(),
-    enabled: canConfigurePasswordComplexity,
+    enabled: canConfigurePasswordComplexity || canConfigureTwoFactor,
   });
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -90,11 +96,17 @@ export default function SettingsSecurityPage() {
     }
   }, [status, phone]);
 
+  const tenantTwoFactorRequired = Boolean(
+    (tenant?.settings as { twoFactorRequired?: boolean } | undefined)
+      ?.twoFactorRequired,
+  );
+
   useEffect(() => {
     const settings = tenant?.settings as
       | {
           passwordComplexity?: PasswordComplexityConfig;
           passwordExpiryDays?: number | null;
+          twoFactorRequired?: boolean;
         }
       | undefined;
     const pc = settings?.passwordComplexity;
@@ -129,6 +141,9 @@ export default function SettingsSecurityPage() {
       setPhone(""); // Clear after successful save
       setMessage({ type: "success", text: "Security settings saved." });
       setTimeout(() => setMessage(null), 4000);
+      if (currentUser?.twoFactorSetupRequired) {
+        refreshUser();
+      }
     },
     onError: (err: Error) => {
       setMessage({ type: "error", text: err.message });
@@ -251,6 +266,21 @@ export default function SettingsSecurityPage() {
         </p>
       </div>
 
+      {isMandatorySetup && !twoFactorEnabled && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-foreground">
+              Your organization requires two-factor authentication
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Add your WhatsApp number below and turn on 2FA to continue using
+              the app.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Change password (any authenticated user) */}
       <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
         <div className="flex items-center gap-2">
@@ -360,11 +390,13 @@ export default function SettingsSecurityPage() {
               Two-factor authentication
             </Label>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {twoFactorEnabled
-                ? "2FA is enabled. You'll receive a 6-digit code on WhatsApp at login."
-                : hasValidPhone
-                  ? "Click to enable 2FA with the phone number above."
-                  : "Enter a valid phone number above to enable 2FA."}
+              {tenantTwoFactorRequired && twoFactorEnabled
+                ? "2FA is required by your organization and is enabled."
+                : twoFactorEnabled
+                  ? "2FA is enabled. You'll receive a 6-digit code on WhatsApp at login."
+                  : hasValidPhone
+                    ? "Click to enable 2FA with the phone number above."
+                    : "Enter a valid phone number above to enable 2FA."}
             </p>
           </div>
           <Switch
@@ -374,7 +406,8 @@ export default function SettingsSecurityPage() {
             disabled={
               saving ||
               update2Fa.isPending ||
-              (!twoFactorEnabled && !hasValidPhone)
+              (!twoFactorEnabled && !hasValidPhone) ||
+              (tenantTwoFactorRequired && twoFactorEnabled)
             }
           />
         </div>
@@ -391,6 +424,52 @@ export default function SettingsSecurityPage() {
           </div>
         )}
       </div>
+
+      {/* Require 2FA for organization (users with settings.two_factor, e.g. super admins) */}
+      {canConfigureTwoFactor && (
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <h2 className="text-base font-medium text-foreground">
+                Require 2FA for organization
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                When enabled, all users in this organization must set up
+                two-factor authentication (phone number) before they can use the
+                app.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="org-2fa-required" className="text-sm">
+              Require 2FA for all users
+            </Label>
+            <Switch
+              id="org-2fa-required"
+              checked={tenantTwoFactorRequired}
+              onCheckedChange={async (checked) => {
+                try {
+                  await api.updateTenantSettings({
+                    twoFactorRequired: checked,
+                  });
+                  queryClient.invalidateQueries({
+                    queryKey: ["tenant-current"],
+                  });
+                } catch (err) {
+                  setMessage({
+                    type: "error",
+                    text:
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to update setting",
+                  });
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Password complexity (super admins only) */}
       {canConfigurePasswordComplexity && (
@@ -590,5 +669,22 @@ export default function SettingsSecurityPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SettingsSecurityPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Security</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Loading…</p>
+          </div>
+        </div>
+      }
+    >
+      <SettingsSecurityContent />
+    </Suspense>
   );
 }

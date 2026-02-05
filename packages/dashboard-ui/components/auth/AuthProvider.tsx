@@ -15,6 +15,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  /** Refetch profile (e.g. after completing required 2FA setup). */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,10 +49,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
+  // Redirect to Security (2FA setup) when org requires 2FA and user has not set it
+  useEffect(() => {
+    if (isLoading || !user?.twoFactorSetupRequired) return;
+    const path = typeof window !== "undefined" ? window.location.pathname : "";
+    if (path === "/settings/security" || path.startsWith("/login")) return;
+    router.replace("/settings/security?setup2fa=1");
+  }, [user?.twoFactorSetupRequired, isLoading, router]);
+
   const login = (_token: string, user: User) => {
     // Token is handled by HttpOnly cookie (set by server action)
     // Just update the user state - let caller handle navigation
     setUser(user);
+  };
+
+  const refreshUser = async () => {
+    try {
+      const profile = await authClient.getProfile();
+      setUser(profile);
+    } catch {
+      setUser(null);
+    }
   };
 
   const logout = () => {
@@ -60,7 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, login, logout, refreshUser }}
+    >
       {children}
       <SessionExpiredDialog onLogout={logout} />
     </AuthContext.Provider>

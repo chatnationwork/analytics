@@ -119,6 +119,20 @@ export class TenantsController {
         );
       }
     }
+    // Updating "Require 2FA for organization" requires settings.two_factor (super admins only by default)
+    if (
+      body.settings !== undefined &&
+      Object.prototype.hasOwnProperty.call(body.settings, "twoFactorRequired")
+    ) {
+      const hasPermission = user.permissions?.global?.includes(
+        "settings.two_factor",
+      );
+      if (!hasPermission) {
+        throw new ForbiddenException(
+          "You need permission to enable or disable organization-wide 2FA (settings.two_factor)",
+        );
+      }
+    }
 
     const payload: { name?: string; settings?: Record<string, unknown> } = {
       ...(body.name !== undefined && { name: body.name }),

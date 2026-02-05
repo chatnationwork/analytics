@@ -52,6 +52,8 @@ export interface TenantSettings {
   passwordComplexity?: PasswordComplexityConfig;
   /** Require users to change password after this many days. Null/undefined = no expiry. */
   passwordExpiryDays?: number | null;
+  /** When true, all users in the org must have 2FA enabled (phone set). Only configurable by users with settings.two_factor. */
+  twoFactorRequired?: boolean;
 }
 
 /** Configuration for session management */

@@ -59,6 +59,8 @@ export interface AuthUser {
     global: string[];
     team: Record<string, string[]>;
   };
+  /** When true, org requires 2FA but user has not set it; client must redirect to 2FA setup. */
+  twoFactorSetupRequired?: boolean;
 }
 
 @Injectable()
@@ -369,9 +371,22 @@ export class AuthService {
       throw new UnauthorizedException("User not found");
     }
 
+    const tenants = await this.tenantRepository.findByUserId(userId);
+    const activeTenant = tenants[0];
+    const twoFactorRequired =
+      activeTenant?.settings && "twoFactorRequired" in activeTenant.settings
+        ? !!activeTenant.settings.twoFactorRequired
+        : false;
+
     const twoFactorEnabled = dto.twoFactorEnabled ?? user.twoFactorEnabled;
     let phone =
       dto.phone !== undefined ? this.normalizePhone(dto.phone) : user.phone;
+
+    if (twoFactorRequired && !twoFactorEnabled) {
+      throw new BadRequestException(
+        "Your organization requires two-factor authentication. You cannot disable 2FA.",
+      );
+    }
 
     if (twoFactorEnabled && (!phone || phone.length < 10)) {
       throw new BadRequestException(
@@ -475,6 +490,10 @@ export class AuthService {
     }
 
     const permissions = await this.getUserPermissions(user.id);
+    const twoFactorRequired =
+      (activeTenant.settings as { twoFactorRequired?: boolean } | undefined)
+        ?.twoFactorRequired === true;
+    const twoFactorSetupRequired = twoFactorRequired && !user.twoFactorEnabled;
 
     return {
       id: user.id,
@@ -482,6 +501,7 @@ export class AuthService {
       name: user.name ?? "",
       tenantId: activeTenant.id,
       permissions,
+      twoFactorSetupRequired: twoFactorSetupRequired || undefined,
     };
   }
 
@@ -528,6 +548,13 @@ export class AuthService {
     const permissions = await this.getUserPermissions(user.id);
 
     const tenantId = activeTenant?.id ?? "";
+    const fullUser = await this.userRepository.findById(user.id);
+    const twoFactorRequired =
+      activeTenant?.settings && "twoFactorRequired" in activeTenant.settings
+        ? !!activeTenant.settings.twoFactorRequired
+        : false;
+    const twoFactorSetupRequired =
+      twoFactorRequired && !(fullUser?.twoFactorEnabled === true);
 
     return {
       accessToken,
@@ -539,6 +566,7 @@ export class AuthService {
         name: user.name ?? "",
         tenantId,
         permissions,
+        twoFactorSetupRequired,
       },
     };
   }

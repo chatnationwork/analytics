@@ -25,6 +25,8 @@ export enum Permission {
   SESSION_VIEW_ALL = "session.view_all",
   /** Configure password complexity for the organization (Settings → Security). Super admins only. */
   SETTINGS_PASSWORD_COMPLEXITY = "settings.password_complexity",
+  /** Enable or disable "Require 2FA for organization". When enabled, all users must set up 2FA. Super admins only. */
+  SETTINGS_TWO_FACTOR = "settings.two_factor",
 }
 
 @Entity("roles")

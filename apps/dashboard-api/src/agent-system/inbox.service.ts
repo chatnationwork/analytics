@@ -239,6 +239,7 @@ export class InboxService {
 
   /**
    * Get counts per filter for the agent inbox (for filter badge UI).
+   * Each count uses a fresh query to avoid clone/parameter sharing issues.
    */
   async getAgentInboxCounts(
     tenantId: string,
@@ -250,21 +251,21 @@ export class InboxService {
     expired: number;
   }> {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const base = this.sessionRepo
-      .createQueryBuilder("session")
-      .where("session.tenantId = :tenantId", { tenantId })
-      .andWhere("session.assignedAgentId = :agentId", { agentId });
 
     const [assigned, active, resolved, expired] = await Promise.all([
-      base
-        .clone()
+      this.sessionRepo
+        .createQueryBuilder("session")
+        .where("session.tenantId = :tenantId", { tenantId })
+        .andWhere("session.assignedAgentId = :agentId", { agentId })
         .andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         })
         .andWhere("session.acceptedAt IS NULL")
         .getCount(),
-      base
-        .clone()
+      this.sessionRepo
+        .createQueryBuilder("session")
+        .where("session.tenantId = :tenantId", { tenantId })
+        .andWhere("session.assignedAgentId = :agentId", { agentId })
         .andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         })
@@ -274,14 +275,18 @@ export class InboxService {
           { cutoff: twentyFourHoursAgo },
         )
         .getCount(),
-      base
-        .clone()
+      this.sessionRepo
+        .createQueryBuilder("session")
+        .where("session.tenantId = :tenantId", { tenantId })
+        .andWhere("session.assignedAgentId = :agentId", { agentId })
         .andWhere("session.status = :status", {
           status: SessionStatus.RESOLVED,
         })
         .getCount(),
-      base
-        .clone()
+      this.sessionRepo
+        .createQueryBuilder("session")
+        .where("session.tenantId = :tenantId", { tenantId })
+        .andWhere("session.assignedAgentId = :agentId", { agentId })
         .andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         })
@@ -296,6 +301,7 @@ export class InboxService {
 
   /**
    * Get counts per filter for the tenant inbox (admin view).
+   * Each count uses a fresh query to avoid clone/parameter sharing issues.
    */
   async getTenantInboxCounts(tenantId: string): Promise<{
     all: number;
@@ -306,33 +312,34 @@ export class InboxService {
     expired: number;
   }> {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const base = this.sessionRepo
-      .createQueryBuilder("session")
-      .where("session.tenantId = :tenantId", { tenantId });
 
     const [all, assigned, unassigned, active, resolved, expired] =
       await Promise.all([
-        base
-          .clone()
+        this.sessionRepo
+          .createQueryBuilder("session")
+          .where("session.tenantId = :tenantId", { tenantId })
           .andWhere("session.status != :resolved", {
             resolved: SessionStatus.RESOLVED,
           })
           .getCount(),
-        base
-          .clone()
+        this.sessionRepo
+          .createQueryBuilder("session")
+          .where("session.tenantId = :tenantId", { tenantId })
           .andWhere("session.status = :status", {
             status: SessionStatus.ASSIGNED,
           })
           .andWhere("session.acceptedAt IS NULL")
           .getCount(),
-        base
-          .clone()
+        this.sessionRepo
+          .createQueryBuilder("session")
+          .where("session.tenantId = :tenantId", { tenantId })
           .andWhere("session.status = :status", {
             status: SessionStatus.UNASSIGNED,
           })
           .getCount(),
-        base
-          .clone()
+        this.sessionRepo
+          .createQueryBuilder("session")
+          .where("session.tenantId = :tenantId", { tenantId })
           .andWhere("session.status = :status", {
             status: SessionStatus.ASSIGNED,
           })
@@ -342,14 +349,16 @@ export class InboxService {
             { cutoff: twentyFourHoursAgo },
           )
           .getCount(),
-        base
-          .clone()
+        this.sessionRepo
+          .createQueryBuilder("session")
+          .where("session.tenantId = :tenantId", { tenantId })
           .andWhere("session.status = :status", {
             status: SessionStatus.RESOLVED,
           })
           .getCount(),
-        base
-          .clone()
+        this.sessionRepo
+          .createQueryBuilder("session")
+          .where("session.tenantId = :tenantId", { tenantId })
           .andWhere("session.status = :status", {
             status: SessionStatus.ASSIGNED,
           })
