@@ -172,6 +172,34 @@ export class AgentInboxController {
   }
 
   /**
+   * Get counts per filter for inbox (for filter tab badges).
+   * Returns different shape for agent vs admin (session.view_all).
+   */
+  @Get("counts")
+  async getInboxCounts(
+    @Request()
+    req: {
+      user: {
+        id: string;
+        tenantId: string;
+        permissions?: { global?: string[] };
+      };
+    },
+  ) {
+    const canViewAll =
+      req.user.permissions?.global?.includes(
+        Permission.SESSION_VIEW_ALL as string,
+      ) ?? false;
+    if (canViewAll) {
+      return this.inboxService.getTenantInboxCounts(req.user.tenantId);
+    }
+    return this.inboxService.getAgentInboxCounts(
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
+  /**
    * Get unassigned chats in the queue
    */
   @Get("unassigned")

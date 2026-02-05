@@ -169,11 +169,12 @@ export class InboxService {
 
   /**
    * Get inbox sessions for an agent.
-   * Returns sessions assigned to the agent, filtered by type:
-   * - 'all': All sessions (including resolved)
-   * - 'pending': Sessions that are ASSIGNED but not resolved
-   * - 'resolved': Sessions that are RESOLVED
-   * - 'expired': Sessions where lastMessageAt > 24 hours ago and still ASSIGNED
+   * Filter semantics:
+   * - 'assigned': Assigned to agent but not yet accepted (acceptedAt IS NULL)
+   * - 'pending' (active): Assigned, accepted, and open (last message within 24h)
+   * - 'resolved': RESOLVED
+   * - 'expired': ASSIGNED with lastMessageAt > 24h ago
+   * - 'all': All assigned to agent except resolved (assigned + active + expired)
    */
   async getAgentInbox(
     tenantId: string,
@@ -188,29 +189,30 @@ export class InboxService {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     switch (filter) {
-      case "all":
-        // Show all sessions assigned to this agent
-        break;
-      case "pending":
-        // Show only ASSIGNED sessions (not resolved, not expired)
+      case "assigned":
+        // Assigned but not yet accepted
         query.andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         });
+        query.andWhere("session.acceptedAt IS NULL");
+        break;
+      case "pending":
+        // Active: assigned, accepted, not expired
+        query.andWhere("session.status = :status", {
+          status: SessionStatus.ASSIGNED,
+        });
+        query.andWhere("session.acceptedAt IS NOT NULL");
         query.andWhere(
           "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
-          {
-            cutoff: twentyFourHoursAgo,
-          },
+          { cutoff: twentyFourHoursAgo },
         );
         break;
       case "resolved":
-        // Show only RESOLVED sessions
         query.andWhere("session.status = :status", {
           status: SessionStatus.RESOLVED,
         });
         break;
       case "expired":
-        // Show ASSIGNED sessions where lastMessageAt > 24 hours ago
         query.andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         });
@@ -218,8 +220,13 @@ export class InboxService {
           cutoff: twentyFourHoursAgo,
         });
         break;
+      case "all":
+        // All assigned to agent except resolved
+        query.andWhere("session.status != :resolved", {
+          resolved: SessionStatus.RESOLVED,
+        });
+        break;
       default:
-        // Default: show all non-resolved sessions (pending + expired)
         query.andWhere("session.status != :resolved", {
           resolved: SessionStatus.RESOLVED,
         });
@@ -231,8 +238,136 @@ export class InboxService {
   }
 
   /**
+   * Get counts per filter for the agent inbox (for filter badge UI).
+   */
+  async getAgentInboxCounts(
+    tenantId: string,
+    agentId: string,
+  ): Promise<{
+    assigned: number;
+    active: number;
+    resolved: number;
+    expired: number;
+  }> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const base = this.sessionRepo
+      .createQueryBuilder("session")
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.assignedAgentId = :agentId", { agentId });
+
+    const [assigned, active, resolved, expired] = await Promise.all([
+      base
+        .clone()
+        .andWhere("session.status = :status", {
+          status: SessionStatus.ASSIGNED,
+        })
+        .andWhere("session.acceptedAt IS NULL")
+        .getCount(),
+      base
+        .clone()
+        .andWhere("session.status = :status", {
+          status: SessionStatus.ASSIGNED,
+        })
+        .andWhere("session.acceptedAt IS NOT NULL")
+        .andWhere(
+          "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
+          { cutoff: twentyFourHoursAgo },
+        )
+        .getCount(),
+      base
+        .clone()
+        .andWhere("session.status = :status", {
+          status: SessionStatus.RESOLVED,
+        })
+        .getCount(),
+      base
+        .clone()
+        .andWhere("session.status = :status", {
+          status: SessionStatus.ASSIGNED,
+        })
+        .andWhere("session.lastMessageAt <= :cutoff", {
+          cutoff: twentyFourHoursAgo,
+        })
+        .getCount(),
+    ]);
+
+    return { assigned, active, resolved, expired };
+  }
+
+  /**
+   * Get counts per filter for the tenant inbox (admin view).
+   */
+  async getTenantInboxCounts(tenantId: string): Promise<{
+    all: number;
+    assigned: number;
+    unassigned: number;
+    active: number;
+    resolved: number;
+    expired: number;
+  }> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const base = this.sessionRepo
+      .createQueryBuilder("session")
+      .where("session.tenantId = :tenantId", { tenantId });
+
+    const [all, assigned, unassigned, active, resolved, expired] =
+      await Promise.all([
+        base
+          .clone()
+          .andWhere("session.status != :resolved", {
+            resolved: SessionStatus.RESOLVED,
+          })
+          .getCount(),
+        base
+          .clone()
+          .andWhere("session.status = :status", {
+            status: SessionStatus.ASSIGNED,
+          })
+          .andWhere("session.acceptedAt IS NULL")
+          .getCount(),
+        base
+          .clone()
+          .andWhere("session.status = :status", {
+            status: SessionStatus.UNASSIGNED,
+          })
+          .getCount(),
+        base
+          .clone()
+          .andWhere("session.status = :status", {
+            status: SessionStatus.ASSIGNED,
+          })
+          .andWhere("session.acceptedAt IS NOT NULL")
+          .andWhere(
+            "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
+            { cutoff: twentyFourHoursAgo },
+          )
+          .getCount(),
+        base
+          .clone()
+          .andWhere("session.status = :status", {
+            status: SessionStatus.RESOLVED,
+          })
+          .getCount(),
+        base
+          .clone()
+          .andWhere("session.status = :status", {
+            status: SessionStatus.ASSIGNED,
+          })
+          .andWhere("session.lastMessageAt <= :cutoff", {
+            cutoff: twentyFourHoursAgo,
+          })
+          .getCount(),
+      ]);
+
+    return { all, assigned, unassigned, active, resolved, expired };
+  }
+
+  /**
    * Get all inbox sessions for a tenant (assigned and unassigned).
    * Used when the user has session.view_all (e.g. super admin).
+   * - 'all': Excludes resolved so the same contact does not appear multiple times.
+   * - 'assigned': Assigned but not yet accepted (acceptedAt IS NULL).
+   * - 'pending' (active): Assigned, accepted, not expired.
    */
   async getTenantInbox(
     tenantId: string,
@@ -246,11 +381,16 @@ export class InboxService {
 
     switch (filter) {
       case "all":
+        // Exclude resolved to avoid same user appearing multiple times
+        query.andWhere("session.status != :resolved", {
+          resolved: SessionStatus.RESOLVED,
+        });
         break;
       case "assigned":
         query.andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         });
+        query.andWhere("session.acceptedAt IS NULL");
         break;
       case "unassigned":
         query.andWhere("session.status = :status", {
@@ -261,6 +401,7 @@ export class InboxService {
         query.andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         });
+        query.andWhere("session.acceptedAt IS NOT NULL");
         query.andWhere(
           "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
           { cutoff: twentyFourHoursAgo },

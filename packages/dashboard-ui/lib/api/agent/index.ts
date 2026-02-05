@@ -132,6 +132,24 @@ export async function uploadMedia(
   return (json.data ?? json) as { url: string; filename: string };
 }
 
+/** Counts per filter for agent inbox (assigned, active, resolved, expired) */
+export interface AgentInboxCounts {
+  assigned: number;
+  active: number;
+  resolved: number;
+  expired: number;
+}
+
+/** Counts per filter for tenant (admin) inbox */
+export interface TenantInboxCounts {
+  all: number;
+  assigned: number;
+  unassigned: number;
+  active: number;
+  resolved: number;
+  expired: number;
+}
+
 export const agentApi = {
   /**
    * Get the agent's inbox with optional filter
@@ -139,6 +157,16 @@ export const agentApi = {
   getInbox: async (filter?: InboxFilter) => {
     const query = filter ? `?filter=${filter}` : "";
     return fetchWithAuth<InboxSession[]>(`/agent/inbox${query}`);
+  },
+
+  /**
+   * Get counts per filter for inbox (for filter tab badges).
+   * Returns AgentInboxCounts for agents, TenantInboxCounts for admin (session.view_all).
+   */
+  getInboxCounts: async (): Promise<AgentInboxCounts | TenantInboxCounts> => {
+    return fetchWithAuth<AgentInboxCounts | TenantInboxCounts>(
+      "/agent/inbox/counts",
+    );
   },
 
   getUnassigned: async (teamId?: string) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,8 @@ import {
   InboxFilter,
   TeamWrapUpReport,
   type SendMessagePayload,
+  type AgentInboxCounts,
+  type TenantInboxCounts,
 } from "@/lib/api/agent";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
@@ -36,7 +39,8 @@ const FILTER_TABS_AGENT: {
   label: string;
   icon: React.ReactNode;
 }[] = [
-  { value: "all", label: "Assigned", icon: <Inbox className="h-4 w-4" /> },
+  { value: "all", label: "All", icon: <Inbox className="h-4 w-4" /> },
+  { value: "assigned", label: "Assigned", icon: <Inbox className="h-4 w-4" /> },
   { value: "pending", label: "Active", icon: <Clock className="h-4 w-4" /> },
   {
     value: "resolved",
@@ -91,6 +95,7 @@ export default function AgentInboxPage() {
     TeamWrapUpReport | null | undefined
   >(undefined);
   const [showContactPanel, setShowContactPanel] = useState(false);
+  const queryClient = useQueryClient();
 
   // Fetch current user and permissions on mount
   useEffect(() => {
@@ -116,6 +121,24 @@ export default function AgentInboxPage() {
       setLoading(false);
     }
   }, [filter]);
+
+  const { data: inboxCounts } = useQuery({
+    queryKey: ["agent-inbox-counts"],
+    queryFn: () => agentApi.getInboxCounts(),
+  });
+
+  function getCountForFilter(value: InboxFilter): number | null {
+    if (!inboxCounts) return null;
+    if ("all" in inboxCounts && "unassigned" in inboxCounts) {
+      const admin = inboxCounts as TenantInboxCounts;
+      const k = value as keyof TenantInboxCounts;
+      return typeof admin[k] === "number" ? (admin[k] as number) : null;
+    }
+    const agent = inboxCounts as AgentInboxCounts;
+    if (value === "all") return agent.assigned + agent.active + agent.expired;
+    const k = value as keyof AgentInboxCounts;
+    return typeof agent[k] === "number" ? (agent[k] as number) : null;
+  }
 
   // Initial fetch and when filter changes
   useEffect(() => {
@@ -215,11 +238,16 @@ export default function AgentInboxPage() {
     }
   };
 
+  const invalidateInboxCounts = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["agent-inbox-counts"] });
+  }, [queryClient]);
+
   const handleAcceptSession = async (sessionId: string) => {
     try {
       const updated = await agentApi.acceptSession(sessionId);
       toast.success("Chat accepted");
       fetchInbox();
+      invalidateInboxCounts();
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, ...updated } : s)),
       );
@@ -234,6 +262,7 @@ export default function AgentInboxPage() {
       toast.error(message);
       // Refresh so list reflects current state (e.g. chat taken by another agent)
       fetchInbox();
+      invalidateInboxCounts();
       if (selectedSessionId === sessionId) {
         setSelectedSessionId(null);
       }
@@ -251,6 +280,7 @@ export default function AgentInboxPage() {
     await agentApi.resolveSession(selectedSessionId, data);
     // Refresh inbox
     fetchInbox();
+    invalidateInboxCounts();
     // Update local session status
     setSessions((prev) =>
       prev.map((s) =>
@@ -268,6 +298,7 @@ export default function AgentInboxPage() {
     await agentApi.transferSession(selectedSessionId, targetAgentId, reason);
     // Refresh inbox - the session will no longer appear in our inbox
     fetchInbox();
+    invalidateInboxCounts();
     // Clear selection since it's transferred
     setSelectedSessionId(null);
     setMessages([]);
@@ -316,20 +347,34 @@ export default function AgentInboxPage() {
             {(canViewAllChats
               ? FILTER_TABS_SUPER_ADMIN
               : FILTER_TABS_AGENT
-            ).map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setFilter(tab.value)}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  filter === tab.value
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.icon}
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            ))}
+            ).map((tab) => {
+              const count = getCountForFilter(tab.value);
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => setFilter(tab.value)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    filter === tab.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.icon}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  {count != null && (
+                    <span
+                      className={`tabular-nums ${
+                        filter === tab.value
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      ({count})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-0">
@@ -427,28 +472,30 @@ export default function AgentInboxPage() {
                       <ArrowRightLeft className="h-4 w-4" />
                       Transfer
                     </Button>
-                    <Button
-                      size="sm"
-                      onClick={async () => {
-                        if (selectedSession?.assignedTeamId) {
-                          try {
-                            const team = await agentApi.getTeam(
-                              selectedSession.assignedTeamId,
-                            );
-                            setResolveWrapUpConfig(team.wrapUpReport ?? null);
-                          } catch {
+                    {hasAcceptedSelected && (
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          if (selectedSession?.assignedTeamId) {
+                            try {
+                              const team = await agentApi.getTeam(
+                                selectedSession.assignedTeamId,
+                              );
+                              setResolveWrapUpConfig(team.wrapUpReport ?? null);
+                            } catch {
+                              setResolveWrapUpConfig(null);
+                            }
+                          } else {
                             setResolveWrapUpConfig(null);
                           }
-                        } else {
-                          setResolveWrapUpConfig(null);
-                        }
-                        setShowResolveDialog(true);
-                      }}
-                      className="gap-1.5 bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      Resolve
-                    </Button>
+                          setShowResolveDialog(true);
+                        }}
+                        className="gap-1.5 bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        Resolve
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
