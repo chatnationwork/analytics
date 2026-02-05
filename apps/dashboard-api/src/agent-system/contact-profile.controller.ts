@@ -106,4 +106,20 @@ export class ContactProfileController {
       limit ? Math.min(parseInt(limit, 10) || 20, 50) : 20,
     );
   }
+
+  /** Wrap-up reports (resolutions) for this contact – for the contact card History tab */
+  @Get(":contactId/resolutions")
+  async getResolutions(
+    @CurrentUser() user: AuthUser,
+    @Param("contactId") contactId: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.contactProfileService.getContactResolutions(
+      user.tenantId,
+      contactId,
+      page ? parseInt(page, 10) || 1 : 1,
+      limit ? Math.min(parseInt(limit, 10) || 20, 50) : 20,
+    );
+  }
 }

@@ -284,6 +284,8 @@ export const agentApi = {
         queueSize: number;
         avgWaitTimeMinutes: number | null;
         longestWaitTimeMinutes: number | null;
+        avgResolutionTimeMinutes: number | null;
+        longestResolutionTimeMinutes: number | null;
       }>
     >("/agent/teams/queue-stats");
   },
@@ -429,6 +431,26 @@ export const agentApi = {
       total: typeof payload?.total === "number" ? payload.total : 0,
     };
   },
+
+  /** Wrap-up reports (resolutions) for this contact – for the contact card History tab */
+  getContactResolutions: async (
+    contactId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<{ data: ContactResolution[]; total: number }> => {
+    const params = new URLSearchParams();
+    if (page != null) params.set("page", String(page));
+    if (limit != null) params.set("limit", String(limit));
+    const q = params.toString() ? `?${params}` : "";
+    const res = await fetchWithAuthFull<{
+      data: { data: ContactResolution[]; total: number };
+    }>(`/agent/contacts/${contactId}/resolutions${q}`);
+    const payload = res?.data;
+    return {
+      data: Array.isArray(payload?.data) ? payload.data : [],
+      total: typeof payload?.total === "number" ? payload.total : 0,
+    };
+  },
 };
 
 export interface ContactProfile {
@@ -465,6 +487,19 @@ export interface ContactHistoryEntry {
   actorId: string | null;
   actorName: string | null;
   details: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/** A single wrap-up report (resolution) for a contact's past session */
+export interface ContactResolution {
+  id: string;
+  sessionId: string;
+  category: string;
+  outcome: string;
+  notes: string | null;
+  formData: Record<string, string | number | boolean> | null;
+  resolvedByAgentId: string;
+  resolvedByAgentName: string | null;
   createdAt: string;
 }
 

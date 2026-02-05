@@ -30,6 +30,8 @@ export interface AuditLogsParams {
   endDate?: string;
   action?: string;
   actorId?: string;
+  resourceType?: string;
+  resourceId?: string;
   page?: number;
   limit?: number;
 }
@@ -42,6 +44,8 @@ export async function getAuditLogs(
   if (params.endDate) search.set("endDate", params.endDate);
   if (params.action) search.set("action", params.action);
   if (params.actorId) search.set("actorId", params.actorId);
+  if (params.resourceType) search.set("resourceType", params.resourceType);
+  if (params.resourceId) search.set("resourceId", params.resourceId);
   if (params.page != null) search.set("page", String(params.page));
   if (params.limit != null) search.set("limit", String(params.limit));
 

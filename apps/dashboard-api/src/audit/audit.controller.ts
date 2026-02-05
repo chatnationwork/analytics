@@ -28,6 +28,8 @@ export class AuditController {
     @Query("endDate") endDate?: string,
     @Query("action") action?: string,
     @Query("actorId") actorId?: string,
+    @Query("resourceType") resourceType?: string,
+    @Query("resourceId") resourceId?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
   ) {
@@ -41,6 +43,8 @@ export class AuditController {
       endDate: end && !isNaN(end.getTime()) ? end : undefined,
       action: action?.trim() || undefined,
       actorId: actorId?.trim() || undefined,
+      resourceType: resourceType?.trim() || undefined,
+      resourceId: resourceId?.trim() || undefined,
       page: pageNum,
       limit: limitNum,
     });

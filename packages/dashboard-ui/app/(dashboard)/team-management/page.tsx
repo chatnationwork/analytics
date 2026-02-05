@@ -45,6 +45,8 @@ export default function TeamManagementPage() {
         queueSize: s.queueSize,
         avgWaitTimeMinutes: s.avgWaitTimeMinutes,
         longestWaitTimeMinutes: s.longestWaitTimeMinutes,
+        avgResolutionTimeMinutes: s.avgResolutionTimeMinutes ?? null,
+        longestResolutionTimeMinutes: s.longestResolutionTimeMinutes ?? null,
       },
     ]),
   );

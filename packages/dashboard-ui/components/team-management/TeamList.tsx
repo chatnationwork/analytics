@@ -2,7 +2,7 @@ import { Team, agentApi } from "@/lib/api/agent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Star, Inbox, Clock } from "lucide-react";
+import { Users, Plus, Star, Inbox, Clock, CheckCircle } from "lucide-react";
 import { useState } from "react";
 import { AddMemberDialog } from "./AddMemberDialog";
 import { ManageTeamDialog } from "./ManageTeamDialog";
@@ -13,6 +13,8 @@ export interface TeamQueueStats {
   queueSize: number;
   avgWaitTimeMinutes: number | null;
   longestWaitTimeMinutes: number | null;
+  avgResolutionTimeMinutes: number | null;
+  longestResolutionTimeMinutes: number | null;
 }
 
 interface TeamListProps {
@@ -107,22 +109,49 @@ export function TeamList({
             {(() => {
               const stats = queueStatsByTeamId[team.id];
               return stats ? (
-                <div className="grid grid-cols-3 gap-2 mb-4 text-xs">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Inbox className="h-3.5 w-3 shrink-0" />
-                    <span>Queue: {stats.queueSize}</span>
+                <div className="space-y-2 mb-4 text-xs">
+                  <div className="grid grid-cols-3 gap-2 text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Inbox className="h-3.5 w-3 shrink-0" />
+                      <span>Queue: {stats.queueSize}</span>
+                    </div>
+                    <div
+                      className="flex items-center gap-1.5"
+                      title="Assign → accept"
+                    >
+                      <Clock className="h-3.5 w-3 shrink-0" />
+                      <span>
+                        Avg wait: {formatWaitTime(stats.avgWaitTimeMinutes)}
+                      </span>
+                    </div>
+                    <div
+                      className="flex items-center gap-1.5"
+                      title="Longest assign → accept"
+                    >
+                      <Clock className="h-3.5 w-3 shrink-0" />
+                      <span>
+                        Longest: {formatWaitTime(stats.longestWaitTimeMinutes)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Clock className="h-3.5 w-3 shrink-0" />
-                    <span>
-                      Avg wait: {formatWaitTime(stats.avgWaitTimeMinutes)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Clock className="h-3.5 w-3 shrink-0" />
-                    <span>
-                      Longest: {formatWaitTime(stats.longestWaitTimeMinutes)}
-                    </span>
+                  <div
+                    className="grid grid-cols-2 gap-2 text-muted-foreground"
+                    title="Accept → resolved"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle className="h-3.5 w-3 shrink-0" />
+                      <span>
+                        Avg resolve:{" "}
+                        {formatWaitTime(stats.avgResolutionTimeMinutes)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle className="h-3.5 w-3 shrink-0" />
+                      <span>
+                        Longest resolve:{" "}
+                        {formatWaitTime(stats.longestResolutionTimeMinutes)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ) : null;

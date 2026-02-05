@@ -7,6 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ContactRepository } from "@lib/database";
 import { ContactNoteEntity } from "@lib/database/entities/contact-note.entity";
+import { ResolutionEntity } from "@lib/database/entities/resolution.entity";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { UserRepository } from "@lib/database";
 
@@ -47,12 +48,27 @@ export interface ContactHistoryEntryDto {
   createdAt: string;
 }
 
+/** A single wrap-up report (resolution) for a contact's past session */
+export interface ContactResolutionDto {
+  id: string;
+  sessionId: string;
+  category: string;
+  outcome: string;
+  notes: string | null;
+  formData: Record<string, string | number | boolean> | null;
+  resolvedByAgentId: string;
+  resolvedByAgentName: string | null;
+  createdAt: string;
+}
+
 @Injectable()
 export class ContactProfileService {
   constructor(
     private readonly contactRepository: ContactRepository,
     @InjectRepository(ContactNoteEntity)
     private readonly noteRepo: Repository<ContactNoteEntity>,
+    @InjectRepository(ResolutionEntity)
+    private readonly resolutionRepo: Repository<ResolutionEntity>,
     private readonly auditService: AuditService,
     private readonly userRepository: UserRepository,
   ) {}
@@ -218,6 +234,56 @@ export class ContactProfileService {
     }));
 
     return { data: entries, total };
+  }
+
+  /**
+   * List wrap-up reports (resolutions) for this contact, i.e. past sessions
+   * that were resolved with category/notes/formData. Used by the contact
+   * card History tab.
+   */
+  async getContactResolutions(
+    tenantId: string,
+    contactId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: ContactResolutionDto[]; total: number }> {
+    const qb = this.resolutionRepo
+      .createQueryBuilder("r")
+      .innerJoin("r.session", "s")
+      .where("s.tenantId = :tenantId", { tenantId })
+      .andWhere("s.contactId = :contactId", { contactId })
+      .orderBy("r.createdAt", "DESC")
+      .skip((Math.max(page, 1) - 1) * limit)
+      .take(limit);
+
+    const [rows, total] = await qb.getManyAndCount();
+
+    const agentIds = [
+      ...new Set(rows.map((r) => r.resolvedByAgentId).filter(Boolean)),
+    ];
+    const users =
+      agentIds.length > 0
+        ? await Promise.all(
+            agentIds.map((id) => this.userRepository.findById(id)),
+          )
+        : [];
+    const nameMap = new Map(
+      agentIds.map((id, i) => [id, users[i]?.name ?? null]),
+    );
+
+    const data: ContactResolutionDto[] = rows.map((r) => ({
+      id: r.id,
+      sessionId: r.sessionId,
+      category: r.category,
+      outcome: r.outcome,
+      notes: r.notes ?? null,
+      formData: r.formData ?? null,
+      resolvedByAgentId: r.resolvedByAgentId,
+      resolvedByAgentName: nameMap.get(r.resolvedByAgentId) ?? null,
+      createdAt: r.createdAt.toISOString(),
+    }));
+
+    return { data, total };
   }
 
   private toProfileDto(c: {

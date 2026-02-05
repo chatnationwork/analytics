@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
 import {
   agentApi,
   type ContactProfile,
   type ContactNote,
-  type ContactHistoryEntry,
+  type ContactResolution,
   type UpdateContactProfileDto,
 } from "@/lib/api/agent";
 import { toast } from "sonner";
@@ -19,11 +20,12 @@ import {
   Save,
   Loader2,
   StickyNote,
-  History,
   Phone,
   Mail,
   KeyRound,
   Calendar,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 
 const HISTORY_PAGE_SIZE = 20;
@@ -44,8 +46,8 @@ export function ContactProfilePanel({
 
   const [profile, setProfile] = useState<ContactProfile | null>(null);
   const [notes, setNotes] = useState<ContactNote[]>([]);
-  const [history, setHistory] = useState<ContactHistoryEntry[]>([]);
-  const [historyTotal, setHistoryTotal] = useState(0);
+  const [resolutions, setResolutions] = useState<ContactResolution[]>([]);
+  const [resolutionsTotal, setResolutionsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addingNote, setAddingNote] = useState(false);
@@ -57,7 +59,7 @@ export function ContactProfilePanel({
   const [editEmail, setEditEmail] = useState("");
   const [editMetadata, setEditMetadata] = useState<Record<string, string>>({});
   const [newNoteContent, setNewNoteContent] = useState("");
-  const [historyPage, setHistoryPage] = useState(1);
+  const [resolutionsPage, setResolutionsPage] = useState(1);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -100,21 +102,21 @@ export function ContactProfilePanel({
     }
   }, [contactId]);
 
-  const fetchHistory = useCallback(
+  const fetchResolutions = useCallback(
     async (page: number = 1) => {
       try {
-        const { data, total } = await agentApi.getContactHistory(
+        const { data, total } = await agentApi.getContactResolutions(
           contactId,
           page,
           HISTORY_PAGE_SIZE,
         );
-        setHistory(Array.isArray(data) ? data : []);
-        setHistoryTotal(typeof total === "number" ? total : 0);
-        setHistoryPage(page);
+        setResolutions(Array.isArray(data) ? data : []);
+        setResolutionsTotal(typeof total === "number" ? total : 0);
+        setResolutionsPage(page);
       } catch (e) {
-        console.error("Failed to fetch history:", e);
-        setHistory([]);
-        setHistoryTotal(0);
+        console.error("Failed to fetch resolutions:", e);
+        setResolutions([]);
+        setResolutionsTotal(0);
       }
     },
     [contactId],
@@ -122,10 +124,10 @@ export function ContactProfilePanel({
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchProfile(), fetchNotes(), fetchHistory(1)]).finally(() =>
-      setLoading(false),
+    Promise.all([fetchProfile(), fetchNotes(), fetchResolutions(1)]).finally(
+      () => setLoading(false),
     );
-  }, [fetchProfile, fetchNotes, fetchHistory]);
+  }, [fetchProfile, fetchNotes, fetchResolutions]);
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -154,7 +156,6 @@ export function ContactProfilePanel({
       const updated = await agentApi.updateContactProfile(contactId, dto);
       setProfile(updated);
       toast.success("Profile updated");
-      fetchHistory(1);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update profile");
     } finally {
@@ -383,56 +384,83 @@ export function ContactProfilePanel({
             value="history"
             className="flex-1 overflow-y-auto mt-0 p-3 data-[state=inactive]:hidden flex flex-col min-h-0"
           >
-            <div className="flex items-center gap-2 mb-2">
-              <History className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">
-                Profile changes
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                Wrap-up reports
               </span>
+              <Link
+                href={`/audit-logs?resourceType=contact&resourceId=${encodeURIComponent(contactId)}`}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                View activity log
+                <ExternalLink className="h-3 w-3" />
+              </Link>
             </div>
-            {history.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No history yet.</p>
+            {resolutions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No wrap-up reports yet.
+              </p>
             ) : (
               <ul className="space-y-2">
-                {history.map((entry) => (
+                {resolutions.map((r) => (
                   <li
-                    key={entry.id}
+                    key={r.id}
                     className="rounded-lg border bg-muted/20 p-2 text-xs"
                   >
                     <p className="font-medium text-foreground">
-                      {entry.actorName ?? "System"}
+                      {r.resolvedByAgentName ?? "Agent"}
                     </p>
                     <p className="text-muted-foreground capitalize">
-                      {entry.action.replace(/_/g, " ")}
+                      {r.category}
+                      {r.outcome && r.outcome !== "resolved"
+                        ? ` · ${r.outcome}`
+                        : ""}
                     </p>
-                    {entry.details &&
-                      typeof entry.details === "object" &&
-                      Object.keys(entry.details).length > 0 && (
-                        <pre className="mt-1 text-[10px] text-muted-foreground overflow-x-auto whitespace-pre-wrap wrap-break-word">
-                          {JSON.stringify(entry.details, null, 0)}
-                        </pre>
+                    {r.notes && (
+                      <p className="mt-1 text-foreground/90 whitespace-pre-wrap">
+                        {r.notes}
+                      </p>
+                    )}
+                    {r.formData &&
+                      typeof r.formData === "object" &&
+                      Object.keys(r.formData).length > 0 && (
+                        <div className="mt-1.5 space-y-0.5">
+                          {Object.entries(r.formData).map(([k, v]) => (
+                            <p
+                              key={k}
+                              className="text-[10px] text-muted-foreground"
+                            >
+                              <span className="font-medium">{k}:</span>{" "}
+                              {String(v)}
+                            </p>
+                          ))}
+                        </div>
                       )}
                     <p className="text-muted-foreground mt-1">
-                      {formatDate(entry.createdAt)}
+                      {formatDate(r.createdAt)}
                     </p>
                   </li>
                 ))}
               </ul>
             )}
-            {historyTotal > HISTORY_PAGE_SIZE && (
+            {resolutionsTotal > HISTORY_PAGE_SIZE && (
               <div className="flex gap-2 mt-2 justify-center">
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={historyPage <= 1}
-                  onClick={() => fetchHistory(historyPage - 1)}
+                  disabled={resolutionsPage <= 1}
+                  onClick={() => fetchResolutions(resolutionsPage - 1)}
                 >
                   Previous
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={historyPage * HISTORY_PAGE_SIZE >= historyTotal}
-                  onClick={() => fetchHistory(historyPage + 1)}
+                  disabled={
+                    resolutionsPage * HISTORY_PAGE_SIZE >= resolutionsTotal
+                  }
+                  onClick={() => fetchResolutions(resolutionsPage + 1)}
                 >
                   Next
                 </Button>

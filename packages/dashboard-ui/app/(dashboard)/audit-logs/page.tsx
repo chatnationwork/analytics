@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Table,
@@ -22,7 +23,13 @@ import {
 } from "@/components/ui/select";
 import { getAuditLogs, type AuditLogEntry } from "@/lib/audit-api";
 import { RouteGuard } from "@/components/auth/RouteGuard";
-import { ShieldCheck, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+  ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Loader2,
+} from "lucide-react";
 
 const ACTION_OPTIONS: { value: string; label: string }[] = [
   { value: "all", label: "All actions" },
@@ -61,13 +68,24 @@ function DetailsCell({ details }: { details: Record<string, unknown> | null }) {
   );
 }
 
-export default function AuditLogsPage() {
+function AuditLogsContent() {
+  const searchParams = useSearchParams();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [action, setAction] = useState("all");
   const [actorId, setActorId] = useState("");
+  const [resourceType, setResourceType] = useState("");
+  const [resourceId, setResourceId] = useState("");
   const [page, setPage] = useState(1);
   const limit = 25;
+
+  useEffect(() => {
+    const rt = searchParams.get("resourceType") ?? "";
+    const rid = searchParams.get("resourceId") ?? "";
+    setResourceType(rt);
+    setResourceId(rid);
+    if (rt || rid) setPage(1);
+  }, [searchParams]);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: [
@@ -76,6 +94,8 @@ export default function AuditLogsPage() {
       endDate || undefined,
       action || undefined,
       actorId || undefined,
+      resourceType || undefined,
+      resourceId || undefined,
       page,
       limit,
     ],
@@ -85,6 +105,8 @@ export default function AuditLogsPage() {
         endDate: endDate || undefined,
         action: action && action !== "all" ? action : undefined,
         actorId: actorId.trim() || undefined,
+        resourceType: resourceType.trim() || undefined,
+        resourceId: resourceId.trim() || undefined,
         page,
         limit,
       }),
@@ -106,6 +128,12 @@ export default function AuditLogsPage() {
             System-wide audit trail: logins, config changes, and chat lifecycle
             events.
           </p>
+          {resourceType === "contact" && resourceId && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Showing activity for contact{" "}
+              <span className="font-mono text-foreground">{resourceId}</span>
+            </p>
+          )}
         </div>
 
         <Card>
@@ -168,6 +196,34 @@ export default function AuditLogsPage() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && (setPage(1), refetch())
                   }
+                  className="w-[180px]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">
+                  Resource type
+                </label>
+                <Input
+                  placeholder="e.g. contact"
+                  value={resourceType}
+                  onChange={(e) => {
+                    setResourceType(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-[120px]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">
+                  Resource ID
+                </label>
+                <Input
+                  placeholder="e.g. contact ID"
+                  value={resourceId}
+                  onChange={(e) => {
+                    setResourceId(e.target.value);
+                    setPage(1);
+                  }}
                   className="w-[180px]"
                 />
               </div>
@@ -299,5 +355,19 @@ export default function AuditLogsPage() {
         </Card>
       </div>
     </RouteGuard>
+  );
+}
+
+export default function AuditLogsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[200px] text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      }
+    >
+      <AuditLogsContent />
+    </Suspense>
   );
 }

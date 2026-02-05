@@ -708,6 +708,13 @@ export class InboxService {
   ): Promise<void> {
     const eventId = randomUUID();
 
+    // Resolution time = accept → resolved (or assign → resolved if acceptedAt missing)
+    const acceptedAt = session.acceptedAt ?? session.assignedAt;
+    const resolutionTimeSeconds =
+      acceptedAt && resolution.createdAt
+        ? (resolution.createdAt.getTime() - acceptedAt.getTime()) / 1000
+        : undefined;
+
     const event: CreateEventDto = {
       eventId,
       messageId: eventId,
@@ -729,6 +736,9 @@ export class InboxService {
         category: resolution.category,
         outcome: resolution.outcome,
         notes: resolution.notes,
+        ...(resolutionTimeSeconds != null && resolutionTimeSeconds >= 0
+          ? { resolution_time_seconds: resolutionTimeSeconds }
+          : {}),
       },
     };
 
