@@ -296,7 +296,12 @@ export class InboxService {
         .getCount(),
     ]);
 
-    return { assigned, active, resolved, expired };
+    return {
+      assigned: Number(assigned) || 0,
+      active: Number(active) || 0,
+      resolved: Number(resolved) || 0,
+      expired: Number(expired) || 0,
+    };
   }
 
   /**
@@ -368,7 +373,14 @@ export class InboxService {
           .getCount(),
       ]);
 
-    return { all, assigned, unassigned, active, resolved, expired };
+    return {
+      all: Number(all) || 0,
+      assigned: Number(assigned) || 0,
+      unassigned: Number(unassigned) || 0,
+      active: Number(active) || 0,
+      resolved: Number(resolved) || 0,
+      expired: Number(expired) || 0,
+    };
   }
 
   /**

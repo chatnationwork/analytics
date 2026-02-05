@@ -97,6 +97,10 @@ export default function AgentInboxPage() {
   const [showContactPanel, setShowContactPanel] = useState(false);
   const queryClient = useQueryClient();
 
+  const invalidateInboxCounts = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["agent-inbox-counts"] });
+  }, [queryClient]);
+
   // Fetch current user and permissions on mount
   useEffect(() => {
     authClient
@@ -115,12 +119,13 @@ export default function AgentInboxPage() {
       setLoading(true);
       const data = await agentApi.getInbox(filter);
       setSessions(data);
+      invalidateInboxCounts();
     } catch (error) {
       console.error("Failed to fetch inbox:", error);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, invalidateInboxCounts]);
 
   const { data: inboxCounts } = useQuery({
     queryKey: ["agent-inbox-counts"],
@@ -129,18 +134,30 @@ export default function AgentInboxPage() {
 
   function getCountForFilter(value: InboxFilter): number | null {
     if (!inboxCounts) return null;
-    // Tab value "pending" is displayed as "Active"; API returns key "active"
     const countKey =
       value === "pending" ? "active" : (value as keyof AgentInboxCounts);
+    const toNum = (v: unknown): number | null => {
+      if (typeof v === "number" && !Number.isNaN(v)) return v;
+      if (typeof v === "string") {
+        const n = Number(v);
+        return !Number.isNaN(n) ? n : null;
+      }
+      return null;
+    };
     if ("all" in inboxCounts && "unassigned" in inboxCounts) {
       const admin = inboxCounts as TenantInboxCounts;
       const k = countKey as keyof TenantInboxCounts;
-      return typeof admin[k] === "number" ? (admin[k] as number) : null;
+      return toNum(admin[k]);
     }
     const agent = inboxCounts as AgentInboxCounts;
-    if (value === "all") return agent.assigned + agent.active + agent.expired;
-    const k = countKey as keyof AgentInboxCounts;
-    return typeof agent[k] === "number" ? (agent[k] as number) : null;
+    if (value === "all") {
+      return (
+        (toNum(agent.assigned) ?? 0) +
+        (toNum(agent.active) ?? 0) +
+        (toNum(agent.expired) ?? 0)
+      );
+    }
+    return toNum(agent[countKey as keyof AgentInboxCounts]);
   }
 
   // Initial fetch and when filter changes
@@ -241,24 +258,20 @@ export default function AgentInboxPage() {
     }
   };
 
-  const invalidateInboxCounts = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["agent-inbox-counts"] });
-  }, [queryClient]);
-
   const handleAcceptSession = async (sessionId: string) => {
     try {
       const updated = await agentApi.acceptSession(sessionId);
       toast.success("Chat accepted");
-      fetchInbox();
       invalidateInboxCounts();
-      setSessions((prev) =>
-        prev.map((s) => (s.id === sessionId ? { ...s, ...updated } : s)),
-      );
       setAcceptedSessions((prev) => {
         const next = new Set(prev);
         next.add(sessionId);
         return next;
       });
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, ...updated } : s)),
+      );
+      setFilter("pending");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to accept chat";
