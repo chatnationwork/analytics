@@ -9,6 +9,7 @@ import {
   ContactRepository,
   InboxSessionHelper,
   normalizeContactIdDigits,
+  TeamEntity,
 } from "@lib/database";
 
 import { CaptureEventDto } from "@lib/events";
@@ -24,9 +25,11 @@ export class MessageStorageService {
     private readonly sessionRepo: Repository<InboxSessionEntity>,
     @InjectRepository(MessageEntity)
     private readonly messageRepo: Repository<MessageEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepo: Repository<TeamEntity>,
     private readonly contactRepo: ContactRepository,
   ) {
-    this.sessionHelper = new InboxSessionHelper(this.sessionRepo);
+    this.sessionHelper = new InboxSessionHelper(this.sessionRepo, this.teamRepo);
   }
 
 
