@@ -12,6 +12,49 @@ import { EventRepository } from "@lib/database";
 
 type Granularity = "day" | "week" | "month";
 
+/** Default journey step keys -> display labels (config/API can override per tenant later). */
+export const DEFAULT_JOURNEY_LABELS: Record<string, string> = {
+  "Sales Invoice": "Sales Invoice",
+  "Credit Note": "Credit Note",
+  "Buyer-Initiated Invoices": "Buyer-Initiated Invoices",
+  eTIMS: "eTIMS",
+  "NIL Filing": "NIL Filing",
+  MRI: "MRI",
+  TOT: "TOT",
+  PAYE: "PAYE",
+  VAT: "VAT",
+  Partnership: "Partnership",
+  Excise: "Excise",
+  "PIN Registration": "PIN Registration",
+  "PIN Retrieve": "PIN Retrieve",
+  "PIN Change": "PIN Change",
+  "PIN Update": "PIN Update",
+  "PIN Reactivate": "PIN Reactivate",
+  "PIN Obligations": "PIN Obligations",
+  "TCC Application": "TCC Application",
+  "TCC Reprint": "TCC Reprint",
+  "F88 Declaration": "F88 Declaration",
+  TIMV: "TIMV",
+  TEMV: "Extend TIMV",
+  "Extend TIMV": "Extend TIMV",
+  Forms: "Forms",
+  Status: "Status",
+  eSlip: "eSlip",
+  NITA: "NITA",
+  AHL: "AHL",
+  "PIN Check": "PIN Check",
+  "Invoice Check": "Invoice Check",
+  "TCC Check": "TCC Check",
+  "Staff Check": "Staff Check",
+  Station: "Station",
+  "Import Check": "Import Check",
+  Refund: "Refund",
+  "Report Fraud": "Report Fraud",
+  More: "More",
+  tax: "Tax",
+  unknown: "Other",
+};
+
 @Injectable()
 export class JourneysService {
   constructor(private readonly eventRepository: EventRepository) {}
@@ -35,9 +78,36 @@ export class JourneysService {
         break;
     }
 
-    // Start from beginning of the day
     startDate.setHours(0, 0, 0, 0);
     return startDate;
+  }
+
+  /**
+   * Resolve start/end dates: use explicit startDate/endDate when both provided (ISO date strings),
+   * otherwise use granularity + periods. End date is set to end of day when explicit.
+   */
+  private resolveDateRange(options: {
+    startDate?: string;
+    endDate?: string;
+    granularity: Granularity;
+    periods: number;
+  }): { startDate: Date; endDate: Date } {
+    const {
+      startDate: startStr,
+      endDate: endStr,
+      granularity,
+      periods,
+    } = options;
+    if (startStr && endStr) {
+      const startDate = new Date(startStr);
+      const endDate = new Date(endStr);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    }
+    const endDate = new Date();
+    const startDate = this.calculateStartDate(granularity, periods);
+    return { startDate, endDate };
   }
 
   /**
@@ -47,9 +117,15 @@ export class JourneysService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange({
+      startDate: startDateStr,
+      endDate: endDateStr,
+      granularity,
+      periods,
+    });
 
     const stats = await this.eventRepository.getSelfServeVsAssistedStats(
       tenantId,
@@ -98,9 +174,15 @@ export class JourneysService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange({
+      startDate: startDateStr,
+      endDate: endDateStr,
+      granularity,
+      periods,
+    });
 
     const data = await this.eventRepository.getHandoffRateTrend(
       tenantId,
@@ -167,9 +249,15 @@ export class JourneysService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange({
+      startDate: startDateStr,
+      endDate: endDateStr,
+      granularity,
+      periods,
+    });
 
     const data = await this.eventRepository.getHandoffByStep(
       tenantId,
@@ -206,9 +294,15 @@ export class JourneysService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange({
+      startDate: startDateStr,
+      endDate: endDateStr,
+      granularity,
+      periods,
+    });
 
     const data = await this.eventRepository.getHandoffReasons(
       tenantId,
@@ -241,9 +335,15 @@ export class JourneysService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange({
+      startDate: startDateStr,
+      endDate: endDateStr,
+      granularity,
+      periods,
+    });
 
     const stats = await this.eventRepository.getTimeToHandoff(
       tenantId,
@@ -275,9 +375,15 @@ export class JourneysService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange({
+      startDate: startDateStr,
+      endDate: endDateStr,
+      granularity,
+      periods,
+    });
 
     const data = await this.eventRepository.getJourneyBreakdown(
       tenantId,
@@ -310,9 +416,15 @@ export class JourneysService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange({
+      startDate: startDateStr,
+      endDate: endDateStr,
+      granularity,
+      periods,
+    });
 
     const data = await this.eventRepository.getAgentHandoffStats(
       tenantId,
@@ -336,5 +448,12 @@ export class JourneysService {
       startDate,
       endDate,
     };
+  }
+
+  /**
+   * Get journey step keys -> display labels (config-driven; can be extended per tenant later).
+   */
+  getJourneyLabels(): Record<string, string> {
+    return { ...DEFAULT_JOURNEY_LABELS };
   }
 }

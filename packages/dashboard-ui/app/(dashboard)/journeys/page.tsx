@@ -18,7 +18,6 @@ import {
   Clock,
   TrendingUp,
   TrendingDown,
-  ArrowRightLeft,
 } from "lucide-react";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import {
@@ -28,71 +27,46 @@ import {
   getHandoffReasons,
   getTimeToHandoff,
   getJourneyBreakdown,
+  getAgentPerformance,
+  getJourneyLabels,
   type HandoffTrendDataPoint,
   type HandoffByStepItem,
   type HandoffReasonItem,
   type JourneyBreakdownItem,
+  type AgentPerformanceItem,
 } from "@/lib/journeys-api";
 
 type Granularity = "day" | "week" | "month";
 
-// Journey step key -> display label (from SERVICE_CATEGORIES / SERVICE_URLS).
-// Self-serve = has URL (web); assisted = no URL or handed off. Both can become assisted via handoff.
-const JOURNEY_LABELS: Record<string, string> = {
-  // eTIMS & Invoicing
-  "Sales Invoice": "Sales Invoice",
-  "Credit Note": "Credit Note",
-  "Buyer-Initiated Invoices": "Buyer-Initiated Invoices",
-  eTIMS: "eTIMS",
-  // Return Filing
-  "NIL Filing": "NIL Filing",
-  MRI: "MRI",
-  TOT: "TOT",
-  PAYE: "PAYE",
-  VAT: "VAT",
-  Partnership: "Partnership",
-  Excise: "Excise",
-  // PIN
-  "PIN Registration": "PIN Registration",
-  "PIN Retrieve": "PIN Retrieve",
-  "PIN Change": "PIN Change",
-  "PIN Update": "PIN Update",
-  "PIN Reactivate": "PIN Reactivate",
-  "PIN Obligations": "PIN Obligations",
-  // Tax Compliance
-  "TCC Application": "TCC Application",
-  "TCC Reprint": "TCC Reprint",
-  // Customs
-  "F88 Declaration": "F88 Declaration",
-  TIMV: "TIMV",
-  TEMV: "Extend TIMV",
-  "Extend TIMV": "Extend TIMV",
-  Forms: "Forms",
-  Status: "Status",
-  // Payments
-  eSlip: "eSlip",
-  NITA: "NITA",
-  AHL: "AHL",
-  // Verification
-  "PIN Check": "PIN Check",
-  "Invoice Check": "Invoice Check",
-  "TCC Check": "TCC Check",
-  "Staff Check": "Staff Check",
-  Station: "Station",
-  "Import Check": "Import Check",
-  // Other
-  Refund: "Refund",
-  "Report Fraud": "Report Fraud",
-  More: "More",
-  tax: "Tax",
-  unknown: "Other",
-};
+function toYYYYMMDD(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
-function getJourneyLabel(step: string): string {
-  return (
-    JOURNEY_LABELS[step] ??
-    step.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-  );
+function formatDateRangeLabel(start: string, end: string): string {
+  const startD = new Date(start + "T00:00:00");
+  const endD = new Date(end + "T00:00:00");
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+  if (start === end) return startD.toLocaleDateString("en-US", opts);
+  return `${startD.toLocaleDateString("en-US", opts)} – ${endD.toLocaleDateString("en-US", opts)}`;
+}
+
+function getJourneyLabelFromMap(
+  labels: Record<string, string> | undefined,
+  step: string,
+): string {
+  if (labels?.[step]) return labels[step];
+  return step.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Ensure chart period is a string (backend may return Date). */
+function toPeriodString(period: string | Date | unknown): string {
+  if (typeof period === "string") return period;
+  if (period instanceof Date) return period.toISOString();
+  return String(period ?? "");
 }
 
 // =============================================================================
@@ -252,8 +226,8 @@ function HandoffTrendChart({ data }: { data: HandoffTrendDataPoint[] }) {
   }
 
   const maxValue = Math.max(...data.map((d) => d.totalSessions));
-  const formatPeriod = (period: string) => {
-    const date = new Date(period);
+  const formatPeriod = (period: string | Date) => {
+    const date = typeof period === "string" ? new Date(period) : period;
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
@@ -268,7 +242,7 @@ function HandoffTrendChart({ data }: { data: HandoffTrendDataPoint[] }) {
 
           return (
             <div
-              key={i}
+              key={toPeriodString(d.period) || i}
               className="group relative flex flex-1 flex-col items-center"
               title={`${formatPeriod(d.period)}: ${d.selfServe} self-serve, ${d.assisted} assisted`}
             >
@@ -293,8 +267,8 @@ function HandoffTrendChart({ data }: { data: HandoffTrendDataPoint[] }) {
         })}
       </div>
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{formatPeriod(data[0]?.period || "")}</span>
-        <span>{formatPeriod(data[data.length - 1]?.period || "")}</span>
+        <span>{formatPeriod(data[0]?.period ?? "")}</span>
+        <span>{formatPeriod(data[data.length - 1]?.period ?? "")}</span>
       </div>
       <div className="flex justify-center gap-6 text-xs">
         <div className="flex items-center gap-1">
@@ -329,7 +303,7 @@ function HandoffRateTrendChart({ data }: { data: HandoffTrendDataPoint[] }) {
           const height = maxRate > 0 ? (d.handoffRate / maxRate) * 100 : 0;
           return (
             <div
-              key={i}
+              key={toPeriodString(d.period) || i}
               className="group relative flex flex-1 flex-col items-center justify-end"
               title={`Handoff Rate: ${d.handoffRate.toFixed(1)}%`}
             >
@@ -496,45 +470,156 @@ function JourneyBreakdownTable({
   );
 }
 
+// Agent performance table
+function AgentPerformanceTable({ data }: { data: AgentPerformanceItem[] }) {
+  if (!data?.length) {
+    return (
+      <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+        No agent handoff data for this period
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left py-3 font-medium text-foreground">
+              Agent
+            </th>
+            <th className="text-right py-3 font-medium text-foreground">
+              Handoffs
+            </th>
+            <th className="text-right py-3 font-medium text-foreground">
+              Unique sessions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={row.agentId || i} className="border-b border-border/50">
+              <td className="py-2.5 font-medium text-foreground">
+                {row.agentId || "—"}
+              </td>
+              <td className="py-2.5 text-right text-muted-foreground">
+                {row.totalHandoffs.toLocaleString()}
+              </td>
+              <td className="py-2.5 text-right text-muted-foreground">
+                {row.uniqueSessions.toLocaleString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // =============================================================================
 // MAIN PAGE COMPONENT
 // =============================================================================
 
+const PRESETS = [
+  { label: "Today", days: 0 },
+  { label: "Last 7 days", days: 7 },
+  { label: "Last 30 days", days: 30 },
+  { label: "Last 90 days", days: 90 },
+] as const;
+
 export default function JourneysPage() {
   const [granularity, setGranularity] = useState<Granularity>("day");
+  const today = toYYYYMMDD(new Date());
+  const defaultStart = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return toYYYYMMDD(d);
+  })();
+  const [dateStart, setDateStart] = useState(defaultStart);
+  const [dateEnd, setDateEnd] = useState(today);
+  const [preset, setPreset] = useState<number | null>(30);
 
-  // Calculate periods based on granularity
+  const applyPreset = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days || 0));
+    setDateEnd(toYYYYMMDD(end));
+    setDateStart(toYYYYMMDD(start));
+    setPreset(days === 0 ? 0 : days === 7 ? 7 : days === 90 ? 90 : 30);
+  };
+
   const periods = granularity === "day" ? 30 : granularity === "week" ? 12 : 6;
+  const dateRangeLabel = formatDateRangeLabel(dateStart, dateEnd);
 
-  // Fetch data
   const overviewQuery = useQuery({
-    queryKey: ["journeys-overview", granularity, periods],
-    queryFn: () => getJourneyOverview(granularity, periods),
+    queryKey: ["journeys-overview", granularity, periods, dateStart, dateEnd],
+    queryFn: () => getJourneyOverview(granularity, periods, dateStart, dateEnd),
   });
 
   const handoffTrendQuery = useQuery({
-    queryKey: ["journeys-handoff-trend", granularity, periods],
-    queryFn: () => getHandoffTrend(granularity, periods),
+    queryKey: [
+      "journeys-handoff-trend",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getHandoffTrend(granularity, periods, dateStart, dateEnd),
   });
 
   const handoffByStepQuery = useQuery({
-    queryKey: ["journeys-handoff-by-step", granularity, periods],
-    queryFn: () => getHandoffByStep(granularity, periods),
+    queryKey: [
+      "journeys-handoff-by-step",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getHandoffByStep(granularity, periods, dateStart, dateEnd),
   });
 
   const handoffReasonsQuery = useQuery({
-    queryKey: ["journeys-handoff-reasons", granularity, periods],
-    queryFn: () => getHandoffReasons(granularity, periods),
+    queryKey: [
+      "journeys-handoff-reasons",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getHandoffReasons(granularity, periods, dateStart, dateEnd),
   });
 
   const timeToHandoffQuery = useQuery({
-    queryKey: ["journeys-time-to-handoff", granularity, periods],
-    queryFn: () => getTimeToHandoff(granularity, periods),
+    queryKey: [
+      "journeys-time-to-handoff",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getTimeToHandoff(granularity, periods, dateStart, dateEnd),
   });
 
   const journeyBreakdownQuery = useQuery({
-    queryKey: ["journeys-by-journey", granularity, periods],
-    queryFn: () => getJourneyBreakdown(granularity, periods),
+    queryKey: ["journeys-by-journey", granularity, periods, dateStart, dateEnd],
+    queryFn: () =>
+      getJourneyBreakdown(granularity, periods, dateStart, dateEnd),
+  });
+
+  const agentPerformanceQuery = useQuery({
+    queryKey: [
+      "journeys-agent-performance",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () =>
+      getAgentPerformance(granularity, periods, dateStart, dateEnd),
+  });
+
+  const labelsQuery = useQuery({
+    queryKey: ["journeys-labels"],
+    queryFn: getJourneyLabels,
   });
 
   const overview = overviewQuery.data;
@@ -543,6 +628,11 @@ export default function JourneysPage() {
   const handoffReasons = handoffReasonsQuery.data;
   const timeToHandoff = timeToHandoffQuery.data;
   const journeyBreakdown = journeyBreakdownQuery.data;
+  const agentPerformance = agentPerformanceQuery.data;
+  const journeyLabels = labelsQuery.data;
+
+  const getLabel = (step: string) =>
+    getJourneyLabelFromMap(journeyLabels, step);
 
   const isLoading =
     overviewQuery.isLoading ||
@@ -552,26 +642,73 @@ export default function JourneysPage() {
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">
-              Self-Serve Analytics
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Self-serve vs assisted journey breakdown
-            </p>
+        {/* Header + date filter */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">
+                Self-Serve Analytics
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {dateRangeLabel}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={granularity}
+                onChange={(e) => setGranularity(e.target.value as Granularity)}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="Select time granularity"
+              >
+                <option value="day">Daily</option>
+                <option value="week">Weekly</option>
+                <option value="month">Monthly</option>
+              </select>
+            </div>
           </div>
-          <select
-            value={granularity}
-            onChange={(e) => setGranularity(e.target.value as Granularity)}
-            className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            aria-label="Select time granularity"
-          >
-            <option value="day">Daily</option>
-            <option value="week">Weekly</option>
-            <option value="month">Monthly</option>
-          </select>
+          {/* Date filter */}
+          <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+            <span className="text-sm font-medium text-foreground">
+              Date range
+            </span>
+            {PRESETS.map(({ label, days }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => applyPreset(days)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  preset === days
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border text-foreground hover:bg-muted/50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => {
+                  setDateStart(e.target.value);
+                  setPreset(null);
+                }}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="From date"
+              />
+              <span className="text-muted-foreground">to</span>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => {
+                  setDateEnd(e.target.value);
+                  setPreset(null);
+                }}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="To date"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Loading */}
@@ -725,7 +862,7 @@ export default function JourneysPage() {
               </p>
               <JourneyBreakdownTable
                 data={journeyBreakdown?.data ?? []}
-                getLabel={getJourneyLabel}
+                getLabel={getLabel}
               />
             </div>
 
@@ -752,6 +889,39 @@ export default function JourneysPage() {
                 </p>
                 <HandoffReasonsChart data={handoffReasons?.data || []} />
               </div>
+            </div>
+
+            {/* Agent performance */}
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <h2 className="text-base font-semibold text-foreground">
+                Agent performance
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5 mb-4">
+                Handoffs and unique sessions per agent in this period
+              </p>
+              {agentPerformance?.summary && (
+                <div className="flex gap-4 mb-4 text-sm text-muted-foreground">
+                  <span>
+                    Total handoffs:{" "}
+                    <strong className="text-foreground">
+                      {agentPerformance.summary.totalHandoffs.toLocaleString()}
+                    </strong>
+                  </span>
+                  <span>
+                    Agents:{" "}
+                    <strong className="text-foreground">
+                      {agentPerformance.summary.totalAgents}
+                    </strong>
+                  </span>
+                  <span>
+                    Avg per agent:{" "}
+                    <strong className="text-foreground">
+                      {agentPerformance.summary.avgHandoffsPerAgent.toLocaleString()}
+                    </strong>
+                  </span>
+                </div>
+              )}
+              <AgentPerformanceTable data={agentPerformance?.data ?? []} />
             </div>
           </>
         )}

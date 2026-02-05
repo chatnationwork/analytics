@@ -1631,16 +1631,17 @@ export class EventRepository {
       [tenantId, startDate, endDate, granularity],
     );
 
-    // Get handoffs per period
+    // Get assisted sessions per period (distinct sessions with at least one handoff)
     const handoffsResult = await this.repo.query(
       `
       SELECT 
         DATE_TRUNC($4, timestamp) as period,
-        COUNT(*) as handoffs
+        COUNT(DISTINCT "sessionId") as handoffs
       FROM events
       WHERE "tenantId" = $1
         AND "eventName" = 'agent.handoff'
         AND timestamp BETWEEN $2 AND $3
+        AND "sessionId" IS NOT NULL
       GROUP BY DATE_TRUNC($4, timestamp)
       ORDER BY period ASC
       `,

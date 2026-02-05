@@ -20,18 +20,23 @@ export class JourneysController {
   /**
    * GET /journeys/overview
    * Get self-serve vs assisted journey overview stats.
+   * Optional startDate/endDate (ISO date YYYY-MM-DD) override granularity+periods.
    */
   @Get("overview")
   async getOverview(
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     const numPeriods = periods ? parseInt(periods, 10) : 30;
     return this.journeysService.getOverview(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       numPeriods,
+      startDate,
+      endDate,
     );
   }
 
@@ -44,12 +49,16 @@ export class JourneysController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     const numPeriods = periods ? parseInt(periods, 10) : 30;
     return this.journeysService.getHandoffTrend(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       numPeriods,
+      startDate,
+      endDate,
     );
   }
 
@@ -62,12 +71,16 @@ export class JourneysController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     const numPeriods = periods ? parseInt(periods, 10) : 30;
     return this.journeysService.getHandoffByStep(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       numPeriods,
+      startDate,
+      endDate,
     );
   }
 
@@ -80,12 +93,16 @@ export class JourneysController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     const numPeriods = periods ? parseInt(periods, 10) : 30;
     return this.journeysService.getHandoffReasons(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       numPeriods,
+      startDate,
+      endDate,
     );
   }
 
@@ -98,12 +115,16 @@ export class JourneysController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     const numPeriods = periods ? parseInt(periods, 10) : 30;
     return this.journeysService.getTimeToHandoff(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       numPeriods,
+      startDate,
+      endDate,
     );
   }
 
@@ -116,12 +137,16 @@ export class JourneysController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     const numPeriods = periods ? parseInt(periods, 10) : 30;
     return this.journeysService.getJourneyBreakdown(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       numPeriods,
+      startDate,
+      endDate,
     );
   }
 
@@ -134,12 +159,25 @@ export class JourneysController {
     @Request() req: any,
     @Query("granularity") granularity?: string,
     @Query("periods") periods?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     const numPeriods = periods ? parseInt(periods, 10) : 30;
     return this.journeysService.getAgentPerformance(
       req.user.tenantId,
       (granularity as Granularity) || "day",
       numPeriods,
+      startDate,
+      endDate,
     );
+  }
+
+  /**
+   * GET /journeys/journey-labels
+   * Get journey step keys -> display labels (config-driven).
+   */
+  @Get("journey-labels")
+  getJourneyLabels() {
+    return this.journeysService.getJourneyLabels();
   }
 }
