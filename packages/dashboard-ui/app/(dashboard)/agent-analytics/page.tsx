@@ -11,6 +11,35 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+
+function toYYYYMMDD(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateRangeLabel(start: string, end: string): string {
+  const startD = new Date(start + "T00:00:00");
+  const endD = new Date(end + "T00:00:00");
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+  if (start === end) return startD.toLocaleDateString("en-US", opts);
+  return `${startD.toLocaleDateString("en-US", opts)} – ${endD.toLocaleDateString("en-US", opts)}`;
+}
+
+function toPeriodString(period: string | Date | unknown): string {
+  if (typeof period === "string") return period;
+  if (period instanceof Date) return period.toISOString();
+  return String(period ?? "");
+}
+
+const PRESETS = [
+  { label: "Today", days: 0 },
+  { label: "Last 7 days", days: 7 },
+  { label: "Last 30 days", days: 30 },
+  { label: "Last 90 days", days: 90 },
+] as const;
 import {
   CheckCircle,
   ArrowRightLeft,
@@ -114,10 +143,10 @@ function ResolutionTrendChart({ data }: { data: ResolutionTrendDataPoint[] }) {
       <div className="h-full flex items-end gap-1">
         {data.map((point, i) => {
           const height = (point.resolvedCount / maxCount) * 100;
-          const date = new Date(point.period);
+          const date = new Date(toPeriodString(point.period));
           return (
             <div
-              key={i}
+              key={toPeriodString(point.period) || i}
               className="flex-1 flex flex-col items-center gap-1 group relative"
             >
               <div
@@ -175,10 +204,10 @@ function TransferTrendChart({ data }: { data: TransferTrendDataPoint[] }) {
       <div className="h-full flex items-end gap-1">
         {data.map((point, i) => {
           const height = (point.transferCount / maxCount) * 100;
-          const date = new Date(point.period);
+          const date = new Date(toPeriodString(point.period));
           return (
             <div
-              key={i}
+              key={toPeriodString(point.period) || i}
               className="flex-1 flex flex-col items-center gap-1 group relative"
             >
               <div
@@ -604,85 +633,191 @@ function AgentDetailsTable({ data }: { data: AgentDetailedItem[] }) {
 // =============================================================================
 
 export default function AgentAnalyticsPage() {
-  const [granularity, setGranularity] = useState<Granularity>("day");
+  const granularity: Granularity = "day";
+  const periods = 30;
 
-  const periods = granularity === "day" ? 30 : granularity === "week" ? 12 : 6;
+  const today = toYYYYMMDD(new Date());
+  const defaultStart = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return toYYYYMMDD(d);
+  })();
+  const [dateStart, setDateStart] = useState(defaultStart);
+  const [dateEnd, setDateEnd] = useState(today);
+  const [preset, setPreset] = useState<number | null>(30);
+
+  const applyPreset = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days || 0));
+    setDateEnd(toYYYYMMDD(end));
+    setDateStart(toYYYYMMDD(start));
+    setPreset(days === 0 ? 0 : days === 7 ? 7 : days === 90 ? 90 : 30);
+  };
+
+  const dateRangeLabel = formatDateRangeLabel(dateStart, dateEnd);
 
   // Queries
   const { data: dashboard, isLoading: loadingDashboard } = useQuery({
-    queryKey: ["agent-analytics-dashboard", granularity, periods],
-    queryFn: () => getDashboardStats(granularity, periods),
+    queryKey: [
+      "agent-analytics-dashboard",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getDashboardStats(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: resolutionTrend } = useQuery({
-    queryKey: ["agent-analytics-resolution-trend", granularity, periods],
-    queryFn: () => getResolutionTrend(granularity, periods),
+    queryKey: [
+      "agent-analytics-resolution-trend",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getResolutionTrend(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: resolutionByCategory } = useQuery({
-    queryKey: ["agent-analytics-resolution-category", granularity, periods],
-    queryFn: () => getResolutionByCategory(granularity, periods),
+    queryKey: [
+      "agent-analytics-resolution-category",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () =>
+      getResolutionByCategory(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: transferTrend } = useQuery({
-    queryKey: ["agent-analytics-transfer-trend", granularity, periods],
-    queryFn: () => getTransferTrend(granularity, periods),
+    queryKey: [
+      "agent-analytics-transfer-trend",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getTransferTrend(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: transferByReason } = useQuery({
-    queryKey: ["agent-analytics-transfer-reason", granularity, periods],
-    queryFn: () => getTransferByReason(granularity, periods),
+    queryKey: [
+      "agent-analytics-transfer-reason",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () =>
+      getTransferByReason(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: leaderboard } = useQuery({
-    queryKey: ["agent-analytics-leaderboard", granularity, periods],
-    queryFn: () => getAgentLeaderboard(granularity, periods),
+    queryKey: [
+      "agent-analytics-leaderboard",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () =>
+      getAgentLeaderboard(granularity, periods, 10, dateStart, dateEnd),
   });
 
   const { data: agentActivity } = useQuery({
-    queryKey: ["agent-analytics-activity", granularity, periods],
-    queryFn: () => getAgentActivity(granularity, periods),
+    queryKey: [
+      "agent-analytics-activity",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getAgentActivity(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: agentDetails } = useQuery({
-    queryKey: ["agent-analytics-details", granularity, periods],
-    queryFn: () => getAgentDetailedStats(granularity, periods),
+    queryKey: [
+      "agent-analytics-details",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () =>
+      getAgentDetailedStats(granularity, periods, dateStart, dateEnd),
   });
 
   const { data: workload } = useQuery({
-    queryKey: ["agent-analytics-workload", granularity, periods],
-    queryFn: () => getAgentWorkload(granularity, periods),
+    queryKey: [
+      "agent-analytics-workload",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () => getAgentWorkload(granularity, periods, dateStart, dateEnd),
   });
 
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Agent Analytics
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Team performance, resolutions, transfers, and workload metrics
-            </p>
+        {/* Header + date filter */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">
+                Agent Analytics
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {dateRangeLabel}
+              </p>
+            </div>
           </div>
-
-          {/* Granularity Selector */}
-          <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
-            {(["day", "week", "month"] as Granularity[]).map((g) => (
+          {/* Date range filter */}
+          <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+            <span className="text-sm font-medium text-foreground">
+              Date range
+            </span>
+            {PRESETS.map(({ label, days }) => (
               <button
-                key={g}
-                onClick={() => setGranularity(g)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  granularity === g
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                key={label}
+                type="button"
+                onClick={() => applyPreset(days)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  preset === days
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border text-foreground hover:bg-muted/50"
                 }`}
               >
-                {g.charAt(0).toUpperCase() + g.slice(1)}
+                {label}
               </button>
             ))}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => {
+                  setDateStart(e.target.value);
+                  setPreset(null);
+                }}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="From date"
+              />
+              <span className="text-muted-foreground">to</span>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => {
+                  setDateEnd(e.target.value);
+                  setPreset(null);
+                }}
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="To date"
+              />
+            </div>
           </div>
         </div>
 

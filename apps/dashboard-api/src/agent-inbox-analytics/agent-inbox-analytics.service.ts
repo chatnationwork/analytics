@@ -56,15 +56,145 @@ export class AgentInboxAnalyticsService {
   }
 
   /**
+   * Resolve start/end dates: use explicit startDate/endDate when both provided (ISO strings),
+   * otherwise use granularity + periods.
+   */
+  private resolveDateRange(
+    granularity: Granularity,
+    periods: number,
+    startDateStr?: string,
+    endDateStr?: string,
+  ): { startDate: Date; endDate: Date } {
+    if (startDateStr && endDateStr) {
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    }
+    const endDate = new Date();
+    const startDate = this.calculateStartDate(granularity, periods);
+    return { startDate, endDate };
+  }
+
+  /** Fill resolution trend gaps so chart has one point per period (period as ISO string). */
+  private fillResolutionTrendGaps(
+    data: {
+      period: Date | string;
+      resolvedCount: number;
+      activeAgents: number;
+    }[],
+    startDate: Date,
+    endDate: Date,
+    granularity: Granularity,
+  ): { period: string; resolvedCount: number; activeAgents: number }[] {
+    const toKey = (d: Date) => {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      if (granularity === "day") return `${y}-${m}-${day}`;
+      if (granularity === "week") {
+        const jan1 = new Date(Date.UTC(y, 0, 1));
+        const weekNo = Math.ceil(
+          (d.getTime() - jan1.getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
+        return `${y}-W${weekNo}`;
+      }
+      return `${y}-${m}`;
+    };
+    const map = new Map<
+      string,
+      { resolvedCount: number; activeAgents: number }
+    >();
+    for (const row of data) {
+      const p =
+        typeof row.period === "string" ? new Date(row.period) : row.period;
+      map.set(toKey(p), {
+        resolvedCount: row.resolvedCount,
+        activeAgents: row.activeAgents,
+      });
+    }
+    const out: {
+      period: string;
+      resolvedCount: number;
+      activeAgents: number;
+    }[] = [];
+    const curr = new Date(startDate);
+    curr.setUTCHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setUTCHours(23, 59, 59, 999);
+    while (curr <= end) {
+      const key = toKey(curr);
+      const row = map.get(key) ?? { resolvedCount: 0, activeAgents: 0 };
+      out.push({ period: curr.toISOString(), ...row });
+      if (granularity === "day") curr.setUTCDate(curr.getUTCDate() + 1);
+      else if (granularity === "week") curr.setUTCDate(curr.getUTCDate() + 7);
+      else curr.setUTCMonth(curr.getUTCMonth() + 1);
+    }
+    return out;
+  }
+
+  /** Fill transfer trend gaps so chart has one point per period (period as ISO string). */
+  private fillTransferTrendGaps(
+    data: { period: Date | string; transferCount: number }[],
+    startDate: Date,
+    endDate: Date,
+    granularity: Granularity,
+  ): { period: string; transferCount: number }[] {
+    const toKey = (d: Date) => {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      if (granularity === "day") return `${y}-${m}-${day}`;
+      if (granularity === "week") {
+        const jan1 = new Date(Date.UTC(y, 0, 1));
+        const weekNo = Math.ceil(
+          (d.getTime() - jan1.getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
+        return `${y}-W${weekNo}`;
+      }
+      return `${y}-${m}`;
+    };
+    const map = new Map<string, number>();
+    for (const row of data) {
+      const p =
+        typeof row.period === "string" ? new Date(row.period) : row.period;
+      map.set(toKey(p), row.transferCount);
+    }
+    const out: { period: string; transferCount: number }[] = [];
+    const curr = new Date(startDate);
+    curr.setUTCHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setUTCHours(23, 59, 59, 999);
+    while (curr <= end) {
+      const key = toKey(curr);
+      out.push({
+        period: curr.toISOString(),
+        transferCount: map.get(key) ?? 0,
+      });
+      if (granularity === "day") curr.setUTCDate(curr.getUTCDate() + 1);
+      else if (granularity === "week") curr.setUTCDate(curr.getUTCDate() + 7);
+      else curr.setUTCMonth(curr.getUTCMonth() + 1);
+    }
+    return out;
+  }
+
+  /**
    * Get resolution analytics overview.
    */
   async getResolutionOverview(
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const stats = await this.eventRepository.getResolutionStats(
       tenantId,
@@ -98,18 +228,31 @@ export class AgentInboxAnalyticsService {
   }
 
   /**
-   * Get resolution trend over time.
+   * Get resolution trend over time. Fills gaps so chart has one point per period.
    */
   async getResolutionTrend(
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
-    const data = await this.eventRepository.getResolutionTrend(
+    const raw = await this.eventRepository.getResolutionTrend(
       tenantId,
+      startDate,
+      endDate,
+      granularity,
+    );
+
+    const data = this.fillResolutionTrendGaps(
+      raw,
       startDate,
       endDate,
       granularity,
@@ -120,7 +263,6 @@ export class AgentInboxAnalyticsService {
       0,
     );
 
-    // Calculate trend (first half vs second half)
     const midpoint = Math.floor(data.length / 2);
     const firstHalf = data.slice(0, midpoint);
     const secondHalf = data.slice(midpoint);
@@ -160,9 +302,15 @@ export class AgentInboxAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const data = await this.eventRepository.getResolutionByCategory(
       tenantId,
@@ -201,6 +349,8 @@ export class AgentInboxAnalyticsService {
     periods: number = 30,
     page: number = 1,
     limit: number = 20,
+    startDateStr?: string,
+    endDateStr?: string,
   ): Promise<{
     data: Array<{
       id: string;
@@ -222,8 +372,12 @@ export class AgentInboxAnalyticsService {
     endDate: string;
     granularity: string;
   }> {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const qb = this.resolutionRepo
       .createQueryBuilder("r")
@@ -278,9 +432,15 @@ export class AgentInboxAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const stats = await this.eventRepository.getTransferStats(
       tenantId,
@@ -314,18 +474,31 @@ export class AgentInboxAnalyticsService {
   }
 
   /**
-   * Get transfer trend over time.
+   * Get transfer trend over time. Fills gaps so chart has one point per period.
    */
   async getTransferTrend(
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
-    const data = await this.eventRepository.getTransferTrend(
+    const raw = await this.eventRepository.getTransferTrend(
       tenantId,
+      startDate,
+      endDate,
+      granularity,
+    );
+
+    const data = this.fillTransferTrendGaps(
+      raw,
       startDate,
       endDate,
       granularity,
@@ -336,7 +509,6 @@ export class AgentInboxAnalyticsService {
       0,
     );
 
-    // Calculate trend
     const midpoint = Math.floor(data.length / 2);
     const firstHalf = data.slice(0, midpoint);
     const secondHalf = data.slice(midpoint);
@@ -376,9 +548,15 @@ export class AgentInboxAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const data = await this.eventRepository.getTransferByReason(
       tenantId,
@@ -468,9 +646,15 @@ export class AgentInboxAnalyticsService {
     granularity: Granularity = "day",
     periods: number = 30,
     limit: number = 10,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const data = await this.eventRepository.getAgentResolutionLeaderboard(
       tenantId,
@@ -505,14 +689,32 @@ export class AgentInboxAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const [resolutions, transfers, expiredChats, agentSummary] =
       await Promise.all([
-        this.getResolutionOverview(tenantId, granularity, periods),
-        this.getTransferOverview(tenantId, granularity, periods),
+        this.getResolutionOverview(
+          tenantId,
+          granularity,
+          periods,
+          startDateStr,
+          endDateStr,
+        ),
+        this.getTransferOverview(
+          tenantId,
+          granularity,
+          periods,
+          startDateStr,
+          endDateStr,
+        ),
         this.getExpiredChatsOverview(tenantId),
         this.eventRepository.getAgentPerformanceSummary(
           tenantId,
@@ -562,9 +764,15 @@ export class AgentInboxAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const data = await this.eventRepository.getAgentActivityTrend(
       tenantId,
@@ -604,9 +812,15 @@ export class AgentInboxAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const data = await this.eventRepository.getAgentDetailedStats(
       tenantId,
@@ -659,9 +873,15 @@ export class AgentInboxAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const data = await this.eventRepository.getAgentWorkloadDistribution(
       tenantId,
@@ -691,9 +911,15 @@ export class AgentInboxAnalyticsService {
     tenantId: string,
     granularity: Granularity = "day",
     periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
   ) {
-    const endDate = new Date();
-    const startDate = this.calculateStartDate(granularity, periods);
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
 
     const current = await this.eventRepository.getAgentPerformanceSummary(
       tenantId,

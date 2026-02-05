@@ -184,41 +184,68 @@ export interface AgentLeaderboardResponse {
   granularity: string;
 }
 
+function buildParams(
+  granularity: string,
+  periods: number,
+  startDate?: string,
+  endDate?: string,
+  extra?: Record<string, string | number>,
+): string {
+  const params = new URLSearchParams({
+    granularity,
+    periods: String(periods),
+  });
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  if (extra) {
+    for (const [k, v] of Object.entries(extra)) params.set(k, String(v));
+  }
+  return params.toString();
+}
+
 // API functions
 
 export async function getDashboardStats(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<DashboardStatsResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/dashboard?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/dashboard?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getResolutionOverview(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<ResolutionOverviewResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/resolutions?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/resolutions?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getResolutionTrend(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<ResolutionTrendResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/resolutions/trend?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/resolutions/trend?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getResolutionByCategory(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<ResolutionByCategoryResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/resolutions/by-category?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/resolutions/by-category?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
@@ -227,36 +254,44 @@ export async function getResolutionSubmissions(
   periods: number = 30,
   page: number = 1,
   limit: number = 20,
+  startDate?: string,
+  endDate?: string,
 ): Promise<ResolutionSubmissionsResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/resolutions/submissions?granularity=${granularity}&periods=${periods}&page=${page}&limit=${limit}`,
+    `/agent-inbox-analytics/resolutions/submissions?${buildParams(granularity, periods, startDate, endDate, { page, limit })}`,
   );
 }
 
 export async function getTransferOverview(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<TransferOverviewResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/transfers?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/transfers?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getTransferTrend(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<TransferTrendResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/transfers/trend?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/transfers/trend?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getTransferByReason(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<TransferByReasonResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/transfers/by-reason?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/transfers/by-reason?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
@@ -268,9 +303,11 @@ export async function getAgentLeaderboard(
   granularity: Granularity = "day",
   periods: number = 30,
   limit: number = 10,
+  startDate?: string,
+  endDate?: string,
 ): Promise<AgentLeaderboardResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/leaderboard?granularity=${granularity}&periods=${periods}&limit=${limit}`,
+    `/agent-inbox-analytics/leaderboard?${buildParams(granularity, periods, startDate, endDate, { limit })}`,
   );
 }
 
@@ -354,35 +391,43 @@ export interface AgentPerformanceSummaryResponse {
 export async function getAgentActivity(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<AgentActivityResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/agents/activity?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/agents/activity?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getAgentDetailedStats(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<AgentDetailedResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/agents/detailed?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/agents/detailed?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getAgentWorkload(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<AgentWorkloadResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/agents/workload?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/agents/workload?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
 
 export async function getAgentPerformanceSummary(
   granularity: Granularity = "day",
   periods: number = 30,
+  startDate?: string,
+  endDate?: string,
 ): Promise<AgentPerformanceSummaryResponse> {
   return fetchWithAuth(
-    `/agent-inbox-analytics/agents/summary?granularity=${granularity}&periods=${periods}`,
+    `/agent-inbox-analytics/agents/summary?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }

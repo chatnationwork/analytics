@@ -26,11 +26,15 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getDashboardStats(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -42,11 +46,15 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getResolutionOverview(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -58,11 +66,15 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getResolutionTrend(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -74,11 +86,15 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getResolutionByCategory(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -91,6 +107,8 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
     @Query("page") page: string = "1",
     @Query("limit") limit: string = "20",
   ) {
@@ -102,6 +120,8 @@ export class AgentInboxAnalyticsController {
       parseInt(periods, 10) || 30,
       p,
       l,
+      startDate,
+      endDate,
     );
   }
 
@@ -113,11 +133,15 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getTransferOverview(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -129,11 +153,15 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getTransferTrend(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -145,11 +173,15 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getTransferByReason(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
@@ -169,6 +201,8 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
     @Query("limit") limit: string = "10",
   ) {
     return this.analyticsService.getAgentLeaderboard(
@@ -176,6 +210,8 @@ export class AgentInboxAnalyticsController {
       granularity,
       parseInt(periods, 10) || 30,
       parseInt(limit, 10) || 10,
+      startDate,
+      endDate,
     );
   }
 
@@ -191,59 +227,66 @@ export class AgentInboxAnalyticsController {
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getAgentActivityTrend(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
-  /**
-   * Get detailed stats for all agents.
-   */
   @Get("agents/detailed")
   async getAgentDetails(
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getAgentDetailedStats(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
-  /**
-   * Get agent workload distribution.
-   */
   @Get("agents/workload")
   async getAgentWorkload(
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getAgentWorkloadDistribution(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 
-  /**
-   * Get agent performance summary.
-   */
   @Get("agents/summary")
   async getAgentSummary(
     @Request() req: { user: { tenantId: string } },
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
     return this.analyticsService.getAgentPerformanceSummary(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
     );
   }
 }
