@@ -175,4 +175,11 @@ export const whatsappAnalyticsApi = {
       headers: {},
     });
   },
+
+  deactivateContact: async (contactId: string) => {
+    return fetchWithAuth(
+      `/whatsapp-analytics/contacts/${encodeURIComponent(contactId)}/deactivate`,
+      { method: "PATCH" },
+    ) as Promise<{ success: boolean; contactId: string }>;
+  },
 };

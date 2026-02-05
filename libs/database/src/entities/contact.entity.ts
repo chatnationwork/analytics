@@ -50,6 +50,10 @@ export class ContactEntity {
   @Column({ type: "int", default: 0 })
   messageCount: number;
 
+  /** When set, contact is deactivated (hidden from list/export; admins can deactivate). */
+  @Column({ type: "timestamptz", nullable: true })
+  deactivatedAt: Date | null;
+
   @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 

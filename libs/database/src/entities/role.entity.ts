@@ -31,6 +31,16 @@ export enum Permission {
   SETTINGS_PASSWORD_COMPLEXITY = "settings.password_complexity",
   /** Enable or disable "Require 2FA for organization". When enabled, all users must set up 2FA. Super admins only. */
   SETTINGS_TWO_FACTOR = "settings.two_factor",
+
+  // Contact permissions (Contacts page / WhatsApp analytics contacts)
+  /** View contact list and export. */
+  CONTACTS_VIEW = "contacts.view",
+  /** Create contacts (e.g. import). Admins only by default. */
+  CONTACTS_CREATE = "contacts.create",
+  /** Update contact details. All users by default. */
+  CONTACTS_UPDATE = "contacts.update",
+  /** Deactivate a contact (soft disable). Admins only by default. */
+  CONTACTS_DEACTIVATE = "contacts.deactivate",
 }
 
 @Entity("roles")

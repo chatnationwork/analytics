@@ -142,13 +142,6 @@ export function TeamList({
                     </div>
                     <div
                       className="flex items-center gap-1.5"
-                      title="Active agents in team"
-                    >
-                      <Users className="h-3.5 w-3 shrink-0" />
-                      <span>Agents: {stats.agentCount}</span>
-                    </div>
-                    <div
-                      className="flex items-center gap-1.5"
                       title="Assign → accept"
                     >
                       <Clock className="h-3.5 w-3 shrink-0" />

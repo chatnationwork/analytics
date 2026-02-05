@@ -33,9 +33,13 @@ export class RbacService implements OnModuleInit {
         Permission.TEAMS_MANAGE,
         Permission.TEAMS_VIEW_ALL,
         Permission.AUDIT_VIEW,
+        Permission.CONTACTS_VIEW,
+        Permission.CONTACTS_CREATE,
+        Permission.CONTACTS_UPDATE,
+        Permission.CONTACTS_DEACTIVATE,
       ],
-      auditor: [Permission.ANALYTICS_VIEW, Permission.AUDIT_VIEW],
-      member: [],
+      auditor: [Permission.ANALYTICS_VIEW, Permission.AUDIT_VIEW, Permission.CONTACTS_VIEW],
+      member: [Permission.CONTACTS_VIEW, Permission.CONTACTS_UPDATE],
 
       // --- Team Roles ---
       [TeamRole.MANAGER]: [

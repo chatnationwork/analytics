@@ -43,7 +43,7 @@ const navGroups = [
     title: "",
     items: [
       { href: "/agent-inbox", label: "Inbox", icon: Inbox },
-      { href: "/contacts", label: "Contacts", icon: Contact },
+      { href: "/contacts", label: "Contacts", icon: Contact, permission: "contacts.view" },
       { href: "/team-management", label: "Team Management", icon: Users },
     ],
   },

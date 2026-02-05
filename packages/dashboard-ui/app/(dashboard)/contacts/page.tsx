@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   Table,
   TableBody,
@@ -65,12 +66,30 @@ function ContactProfileDialog({
   contact,
   open,
   onOpenChange,
+  canDeactivate,
+  onDeactivate,
 }: {
   contact: AnalyticsContact | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canDeactivate?: boolean;
+  onDeactivate?: (contactId: string) => Promise<void>;
 }) {
+  const [deactivating, setDeactivating] = useState(false);
   if (!contact) return null;
+
+  const handleDeactivate = async () => {
+    if (!canDeactivate || !onDeactivate) return;
+    if (!confirm("Deactivate this contact? They will be removed from the list and export.")) return;
+    setDeactivating(true);
+    try {
+      await onDeactivate(contact.contact_id);
+      onOpenChange(false);
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -106,6 +125,18 @@ function ContactProfileDialog({
               {contact.message_count.toLocaleString()}
             </p>
           </div>
+          {canDeactivate && onDeactivate && (
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDeactivate}
+                disabled={deactivating}
+              >
+                {deactivating ? "Deactivating…" : "Deactivate contact"}
+              </Button>
+            </DialogFooter>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -182,6 +213,7 @@ function ImportContactsDialog({
 }
 
 export default function ContactsPage() {
+  const { user } = useAuth();
   const [page, setPage] = useState(1);
   const [selectedContact, setSelectedContact] =
     useState<AnalyticsContact | null>(null);
@@ -189,6 +221,8 @@ export default function ContactsPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const queryClient = useQueryClient();
+  const canCreate = user?.permissions?.global?.includes("contacts.create") === true;
+  const canDeactivate = user?.permissions?.global?.includes("contacts.deactivate") === true;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["whatsapp-analytics-contacts", page, PAGE_SIZE],
@@ -234,10 +268,12 @@ export default function ContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Import
-          </Button>
+          {canCreate && (
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Import
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => exportMutation.mutate()}
@@ -361,6 +397,18 @@ export default function ContactsPage() {
         contact={selectedContact}
         open={profileOpen}
         onOpenChange={setProfileOpen}
+        canDeactivate={canDeactivate}
+        onDeactivate={
+          canDeactivate
+            ? async (contactId) => {
+                await whatsappAnalyticsApi.deactivateContact(contactId);
+                toast.success("Contact deactivated");
+                queryClient.invalidateQueries({
+                  queryKey: ["whatsapp-analytics-contacts"],
+                });
+              }
+            : undefined
+        }
       />
 
       <ImportContactsDialog

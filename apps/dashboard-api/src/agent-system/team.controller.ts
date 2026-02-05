@@ -568,10 +568,14 @@ export class TeamController {
   }
 
   /**
-   * Get members of a team
+   * Get members of a team, including assigned chats today per member.
    */
   @Get(":teamId/members")
-  async getMembers(@Param("teamId") teamId: string) {
+  async getMembers(
+    @Request() req: { user: AuthUser },
+    @Param("teamId") teamId: string,
+  ) {
+    const tenantId = req.user.tenantId;
     const team = await this.teamRepo.findOne({ where: { id: teamId } });
     if (!team) {
       throw new NotFoundException("Team not found");
@@ -583,6 +587,26 @@ export class TeamController {
       order: { joinedAt: "DESC" },
     });
 
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    const assignedTodayByUser = new Map<string, number>();
+    if (members.length > 0) {
+      const userIds = members.map((m) => m.userId);
+      const rows = await this.sessionRepo
+        .createQueryBuilder("s")
+        .select("s.assignedAgentId", "userId")
+        .addSelect("COUNT(*)::int", "cnt")
+        .where("s.tenantId = :tenantId", { tenantId })
+        .andWhere("s.assignedAgentId IN (:...userIds)", { userIds })
+        .andWhere("s.assignedAt >= :todayStart", { todayStart })
+        .groupBy("s.assignedAgentId")
+        .getRawMany<{ userId: string; cnt: string }>();
+      rows.forEach((r) =>
+        assignedTodayByUser.set(r.userId, parseInt(r.cnt ?? "0", 10)),
+      );
+    }
+
     return members.map((m) => ({
       id: m.id,
       userId: m.userId,
@@ -591,6 +615,7 @@ export class TeamController {
       role: m.role,
       isActive: m.isActive,
       joinedAt: m.joinedAt,
+      assignedToday: assignedTodayByUser.get(m.userId) ?? 0,
     }));
   }
 

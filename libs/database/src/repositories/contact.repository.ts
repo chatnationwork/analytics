@@ -4,7 +4,7 @@
 
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { IsNull, Repository } from "typeorm";
 import { ContactEntity } from "../entities/contact.entity";
 
 @Injectable()
@@ -109,7 +109,7 @@ export class ContactRepository {
     limit: number;
   }> {
     const [data, total] = await this.repo.findAndCount({
-      where: { tenantId },
+      where: { tenantId, deactivatedAt: IsNull() },
       order: { lastSeen: "DESC" },
       skip: (page - 1) * limit,
       take: limit,
@@ -117,9 +117,22 @@ export class ContactRepository {
     return { data, total, page, limit };
   }
 
-  /** Total contact count for a tenant (from contacts table). */
+  /** Total contact count for a tenant (active only: not deactivated). */
   async getTotalCount(tenantId: string): Promise<number> {
-    return this.repo.count({ where: { tenantId } });
+    return this.repo.count({
+      where: { tenantId, deactivatedAt: IsNull() },
+    });
+  }
+
+  /**
+   * Deactivate a contact (soft). Excludes from list and export. Requires contacts.deactivate permission.
+   */
+  async deactivate(tenantId: string, contactId: string): Promise<ContactEntity | null> {
+    await this.repo.update(
+      { tenantId, contactId },
+      { deactivatedAt: new Date() },
+    );
+    return this.findOne(tenantId, contactId);
   }
 
   /**
@@ -150,6 +163,7 @@ export class ContactRepository {
     return this.repo
       .createQueryBuilder("c")
       .where("c.tenantId = :tenantId", { tenantId })
+      .andWhere("c.deactivatedAt IS NULL")
       .andWhere("c.firstSeen BETWEEN :start AND :end", {
         start: startDate,
         end: endDate,
@@ -173,10 +187,9 @@ export class ContactRepository {
       `
       SELECT DATE_TRUNC($4, c."firstSeen") AS period, COUNT(*)::int AS "newContacts"
       FROM contacts c
-      WHERE c."tenantId" = $1 AND c."firstSeen" BETWEEN $2 AND $3
+      WHERE c."tenantId" = $1 AND c."firstSeen" BETWEEN $2 AND $3 AND c."deactivatedAt" IS NULL
       GROUP BY DATE_TRUNC($4, c."firstSeen")
       ORDER BY period ASC
-
       `,
       [tenantId, startDate, endDate, trunc],
     );
@@ -204,6 +217,7 @@ export class ContactRepository {
         "c.lastSeen AS lastSeen",
       ])
       .where("c.tenantId = :tenantId", { tenantId })
+      .andWhere("c.deactivatedAt IS NULL")
       .orderBy("c.lastSeen", "DESC")
       .stream();
   }

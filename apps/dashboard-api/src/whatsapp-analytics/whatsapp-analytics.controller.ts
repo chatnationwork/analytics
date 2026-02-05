@@ -2,15 +2,23 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Query,
   Request,
   Res,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
+  Param,
 } from "@nestjs/common";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { Permission } from "@lib/database";
 import { WhatsappAnalyticsService } from "./whatsapp-analytics.service";
+
+function hasPermission(user: { permissions?: { global?: string[] } }, permission: Permission): boolean {
+  return user.permissions?.global?.includes(permission) === true;
+}
 
 @Controller("whatsapp-analytics")
 @UseGuards(JwtAuthGuard)
@@ -212,6 +220,9 @@ export class WhatsappAnalyticsController {
     @Query("page") page?: string,
     @Query("limit") limit?: string,
   ) {
+    if (!hasPermission(req.user, Permission.CONTACTS_VIEW)) {
+      throw new ForbiddenException("You need contacts.view permission to list contacts.");
+    }
     return this.service.getContacts(
       req.user.tenantId,
       page ? parseInt(page, 10) : 1,
@@ -221,6 +232,9 @@ export class WhatsappAnalyticsController {
 
   @Get("contacts/export")
   async exportContacts(@Request() req: any, @Res() res: FastifyReply) {
+    if (!hasPermission(req.user, Permission.CONTACTS_VIEW)) {
+      throw new ForbiddenException("You need contacts.view permission to export contacts.");
+    }
     const csvStream = await this.service.exportContacts(req.user.tenantId);
 
     res.header("Content-Type", "text/csv");
@@ -231,6 +245,9 @@ export class WhatsappAnalyticsController {
 
   @Post("contacts/import")
   async importContacts(@Request() req: FastifyRequest) {
+    if (!hasPermission((req as any).user, Permission.CONTACTS_CREATE)) {
+      throw new ForbiddenException("You need contacts.create permission to import contacts.");
+    }
     const data = await (req as any).file();
 
     if (!data) {
@@ -238,5 +255,16 @@ export class WhatsappAnalyticsController {
     }
     const buffer = await data.toBuffer();
     return this.service.importContacts((req as any).user.tenantId, buffer);
+  }
+
+  @Patch("contacts/:contactId/deactivate")
+  async deactivateContact(@Request() req: any, @Param("contactId") contactId: string) {
+    if (!hasPermission(req.user, Permission.CONTACTS_DEACTIVATE)) {
+      throw new ForbiddenException("You need contacts.deactivate permission to deactivate a contact.");
+    }
+    if (!contactId?.trim()) {
+      throw new BadRequestException("contactId is required");
+    }
+    return this.service.deactivateContact(req.user.tenantId, contactId.trim());
   }
 }

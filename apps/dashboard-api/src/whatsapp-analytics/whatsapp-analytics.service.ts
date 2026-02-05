@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { EventRepository, ContactRepository } from "@lib/database";
 
 @Injectable()
@@ -667,5 +667,13 @@ export class WhatsappAnalyticsService {
       success: true,
       importedCount: contactsToUpsert.length,
     };
+  }
+
+  async deactivateContact(tenantId: string, contactId: string) {
+    const contact = await this.contactRepository.deactivate(tenantId, contactId);
+    if (!contact) {
+      throw new NotFoundException("Contact not found");
+    }
+    return { success: true, contactId: contact.contactId };
   }
 }

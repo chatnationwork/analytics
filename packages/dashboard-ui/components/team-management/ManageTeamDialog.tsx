@@ -50,6 +50,8 @@ interface ExtendedTeamMember extends TeamMember {
   email: string;
   isActive: boolean;
   joinedAt: string;
+  /** Chats assigned to this member today. */
+  assignedToday?: number;
 }
 
 const DAYS = [
@@ -493,6 +495,11 @@ export function ManageTeamDialog({
                           <div className="text-xs text-muted-foreground">
                             {member.email}
                           </div>
+                          {typeof member.assignedToday === "number" && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              Assigned today: {member.assignedToday}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
