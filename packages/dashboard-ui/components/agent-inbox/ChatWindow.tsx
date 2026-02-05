@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import { Message } from "@/lib/api/agent";
 import { cn } from "@/lib/utils";
 import {
@@ -144,6 +147,13 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
 }
 
 export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
+
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm min-h-0">
@@ -153,7 +163,10 @@ export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
   }
 
   return (
-    <div className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-4 space-y-4">
+    <div
+      ref={scrollContainerRef}
+      className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-4 space-y-4"
+    >
       {messages.map((msg) => {
         const isOutbound = msg.direction === "outbound";
 
