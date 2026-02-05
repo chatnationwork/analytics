@@ -309,7 +309,13 @@ export function ContactProfilePanel({
               </div>
               {profile && (
                 <div className="text-xs text-muted-foreground space-y-0.5 pt-1 border-t">
-                  <p>First seen: {formatDate(profile.firstSeen)}</p>
+                  <p>Date created: {formatDate(profile.firstSeen)}</p>
+                  <p>
+                    Normalized time:{" "}
+                    {profile.firstSeen
+                      ? new Date(profile.firstSeen).toISOString()
+                      : "—"}
+                  </p>
                   <p>Last seen: {formatDate(profile.lastSeen)}</p>
                   <p>Messages: {profile.messageCount}</p>
                 </div>

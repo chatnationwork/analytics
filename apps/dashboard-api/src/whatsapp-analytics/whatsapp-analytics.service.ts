@@ -535,7 +535,14 @@ export class WhatsappAnalyticsService {
     const { stringify } = await import("csv-stringify");
     const stringifier = stringify({
       header: true,
-      columns: ["Name", "Phone", "Message Count", "First Seen", "Last Seen"],
+      columns: [
+        "Name",
+        "Phone",
+        "Message Count",
+        "Date created",
+        "Last Seen",
+        "Normalized time",
+      ],
     });
 
     const pick = (row: Record<string, unknown>, ...keys: string[]) => {
@@ -547,42 +554,53 @@ export class WhatsappAnalyticsService {
     };
     dbStream.on("data", (row: any) => {
       const name =
-        (pick(row, "c_name", "ContactEntity_name", "name") as string) ?? "";
+        (pick(row, "name", "c_name", "ContactEntity_name") as string) ?? "";
       const contactId =
         (pick(
           row,
+          "contactId",
+          "contactid",
           "c_contactId",
           "ContactEntity_contactId",
-          "contactId",
         ) as string) ?? "";
       const rowCount =
         (pick(
           row,
+          "messageCount",
+          "messagecount",
           "c_messageCount",
           "ContactEntity_messageCount",
-          "messageCount",
         ) as number) ?? 0;
       const messageCount = contactId
         ? (messageCounts[contactId] ?? rowCount)
         : rowCount;
       const firstSeen = pick(
         row,
+        "firstSeen",
+        "firstseen",
         "c_firstSeen",
         "ContactEntity_firstSeen",
-        "firstSeen",
       );
       const lastSeen = pick(
         row,
+        "lastSeen",
+        "lastseen",
         "c_lastSeen",
         "ContactEntity_lastSeen",
-        "lastSeen",
       );
+      const dateCreatedIso = firstSeen
+        ? new Date(firstSeen as string | Date).toISOString()
+        : "";
+      const lastSeenIso = lastSeen
+        ? new Date(lastSeen as string | Date).toISOString()
+        : "";
       stringifier.write([
         name,
         contactId,
         messageCount,
-        firstSeen ? new Date(firstSeen as string | Date).toISOString() : "",
-        lastSeen ? new Date(lastSeen as string | Date).toISOString() : "",
+        dateCreatedIso,
+        lastSeenIso,
+        dateCreatedIso,
       ]);
     });
 

@@ -21,7 +21,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { whatsappAnalyticsApi } from "@/lib/whatsapp-analytics-api";
-import { ChevronLeft, ChevronRight, Upload, Download, Loader2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  Download,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +47,15 @@ function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString(undefined, {
       dateStyle: "medium",
     });
+  } catch {
+    return iso;
+  }
+}
+
+function formatNormalizedTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    return d.toISOString();
   } catch {
     return iso;
   }
@@ -72,8 +87,14 @@ function ContactProfileDialog({
             <p className="font-mono text-xs break-all">{contact.contact_id}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">First seen</span>
+            <span className="text-muted-foreground">Date created</span>
             <p className="font-medium">{formatDate(contact.first_seen)}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Normalized time</span>
+            <p className="font-mono text-xs">
+              {formatNormalizedTime(contact.first_seen)}
+            </p>
           </div>
           <div>
             <span className="text-muted-foreground">Last seen</span>
@@ -132,15 +153,19 @@ function ImportContactsDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid w-full max-w-sm items-center gap-1.5">
             <Label htmlFor="csvFile">CSV File</Label>
-            <Input 
-              id="csvFile" 
-              type="file" 
+            <Input
+              id="csvFile"
+              type="file"
               accept=".csv"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!file || importMutation.isPending}>
@@ -162,7 +187,7 @@ export default function ContactsPage() {
     useState<AnalyticsContact | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  
+
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -213,7 +238,11 @@ export default function ContactsPage() {
             <Upload className="mr-2 h-4 w-4" />
             Import
           </Button>
-          <Button variant="outline" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending}
+          >
             {exportMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -251,7 +280,8 @@ export default function ContactsPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Contact ID</TableHead>
-                    <TableHead>First seen</TableHead>
+                    <TableHead>Date created</TableHead>
+                    <TableHead>Normalized time</TableHead>
                     <TableHead>Last seen</TableHead>
                     <TableHead className="text-right">Messages</TableHead>
                   </TableRow>
@@ -260,10 +290,11 @@ export default function ContactsPage() {
                   {data.data.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={5}
+                        colSpan={6}
                         className="text-center py-8 text-[var(--muted)]"
                       >
-                        No contacts found. Import contacts or wait for incoming messages.
+                        No contacts found. Import contacts or wait for incoming
+                        messages.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -280,6 +311,9 @@ export default function ContactsPage() {
                           {c.contact_id}
                         </TableCell>
                         <TableCell>{formatDate(c.first_seen)}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {formatNormalizedTime(c.first_seen)}
+                        </TableCell>
                         <TableCell>{formatDate(c.last_seen)}</TableCell>
                         <TableCell className="text-right">
                           {c.message_count.toLocaleString()}
@@ -328,11 +362,15 @@ export default function ContactsPage() {
         open={profileOpen}
         onOpenChange={setProfileOpen}
       />
-      
-      <ImportContactsDialog 
-        open={importOpen} 
-        onOpenChange={setImportOpen} 
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["whatsapp-analytics-contacts"] })} 
+
+      <ImportContactsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={() =>
+          queryClient.invalidateQueries({
+            queryKey: ["whatsapp-analytics-contacts"],
+          })
+        }
       />
     </div>
   );
