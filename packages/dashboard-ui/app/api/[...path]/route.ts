@@ -64,9 +64,14 @@ async function proxyRequest(
   const searchParams = request.nextUrl.search;
 
   const headers: Record<string, string> = {};
+  const contentType = request.headers.get("content-type") ?? "";
 
   if (["POST", "PUT", "PATCH"].includes(method)) {
-    headers["Content-Type"] = "application/json";
+    if (contentType.toLowerCase().includes("multipart/form-data")) {
+      headers["Content-Type"] = contentType;
+    } else {
+      headers["Content-Type"] = "application/json";
+    }
   }
 
   if (token) {
@@ -81,9 +86,14 @@ async function proxyRequest(
   });
 
   try {
-    const body = ["GET", "HEAD", "DELETE"].includes(method)
-      ? undefined
-      : await request.text();
+    let body: string | ArrayBuffer | undefined;
+    if (["GET", "HEAD", "DELETE"].includes(method)) {
+      body = undefined;
+    } else if (contentType.toLowerCase().includes("multipart/form-data")) {
+      body = await request.arrayBuffer();
+    } else {
+      body = await request.text();
+    }
 
     const response = await fetch(`${url}${searchParams}`, {
       method,
