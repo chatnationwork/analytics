@@ -51,7 +51,11 @@ import {
   MessageType,
   InboxSessionHelper,
 } from "@lib/database";
-import { isMessageEvent, isInboundMessage, WhatsAppEventNames } from "@lib/events";
+import {
+  isMessageEvent,
+  isInboundMessage,
+  WhatsAppEventNames,
+} from "@lib/events";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { GeoipEnricher } from "../enrichers/geoip.enricher";
@@ -77,7 +81,10 @@ export class EventProcessorService {
     @InjectRepository(TeamEntity)
     private readonly teamRepo: Repository<TeamEntity>,
   ) {
-    this.sessionHelper = new InboxSessionHelper(this.inboxSessionRepo, this.teamRepo);
+    this.sessionHelper = new InboxSessionHelper(
+      this.inboxSessionRepo,
+      this.teamRepo,
+    );
   }
 
   async start(): Promise<void> {
@@ -321,8 +328,25 @@ export class EventProcessorService {
       props.type === "audio"
     ) {
       messageType = props.type as MessageType;
-      content = `[${props.type.toUpperCase()}]`;
+      const caption =
+        (props.caption as string) ||
+        (typeof props.text === "object" && props.text != null
+          ? (props.text as { body?: string }).body
+          : undefined) ||
+        (typeof props.text === "string" ? props.text : undefined);
+      content =
+        (caption && String(caption).trim()) || `[${props.type.toUpperCase()}]`;
     }
+
+    // For inbox UI previews: ensure metadata.media_url is set (support media_url, link, or image.link)
+    const imageObj = props.image as { link?: string } | undefined;
+    const mediaUrl =
+      (props.media_url as string) ||
+      (props.link as string) ||
+      (imageObj && typeof imageObj === "object" && imageObj.link) ||
+      undefined;
+    const metadata =
+      mediaUrl && !props.media_url ? { ...props, media_url: mediaUrl } : props;
 
     const message = this.messageRepo.create({
       contactId: session.contactId,
@@ -333,10 +357,9 @@ export class EventProcessorService {
       type: messageType,
       content,
       senderId: isInbound ? undefined : event.userId || undefined,
-      metadata: props,
+      metadata,
       createdAt: event.timestamp,
     });
-
 
     await this.messageRepo.save(message);
     this.logger.log(`Synced message to Inbox: ${message.id} (${direction})`);
@@ -404,7 +427,6 @@ export class EventProcessorService {
         externalId = props.to;
       }
     }
-
 
     // Run enrichers only for web channel (UA/GeoIP not applicable for WhatsApp)
     const geo = isWebChannel

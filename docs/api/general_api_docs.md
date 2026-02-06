@@ -84,6 +84,15 @@ Receive a batch of analytics events from the SDK.
 }
 ```
 
+**Message and media events:** For events that represent messages with attachments (e.g. `message.sent`, `message.received`), include media details in `properties`:
+
+| Property    | Type   | Description                                                      |
+| ----------- | ------ | ---------------------------------------------------------------- |
+| `media_url` | string | Public URL of the uploaded file (image, video, audio, document). |
+| `filename`  | string | Optional. Display filename for documents.                        |
+
+**How messages and media get to the inbox:** Events sent to `POST /v1/capture` are stored in the `events` table (with `properties` as JSON). The processor consumes these events and syncs message events (`message.sent`, `message.received`) into the **messages** table used by the agent inbox. Each message row has `type`, `content`, and **`metadata`** (JSON). The processor copies the event’s `properties` into `message.metadata`, so any `properties.media_url` (or `properties.filename`) is stored there. The inbox API returns messages with `metadata`; the UI uses `metadata.media_url` to show image/video/audio/document previews. No separate `media_url` column is required—use `properties.media_url` in capture and it will appear in the inbox.
+
 #### Response (200 OK)
 
 ```json

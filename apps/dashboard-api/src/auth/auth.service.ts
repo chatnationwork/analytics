@@ -20,6 +20,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import { randomUUID, randomBytes, createHash } from "crypto";
+import { validate as uuidValidate } from "uuid";
 import {
   UserRepository,
   TenantRepository,
@@ -570,6 +571,7 @@ export class AuthService {
    * Used by TwoFactorEnforcementInterceptor to block non-whitelisted API access.
    */
   async is2FaSetupRequired(userId: string): Promise<boolean> {
+    if (!uuidValidate(userId)) return false;
     const user = await this.userRepository.findById(userId);
     if (!user) return false;
     const tenants = await this.tenantRepository.findByUserId(userId);

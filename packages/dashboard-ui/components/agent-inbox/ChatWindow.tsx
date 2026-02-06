@@ -33,10 +33,17 @@ function getMessageBody(msg: Message): string {
   return msg.content ?? "";
 }
 
+function getMediaUrl(meta: Record<string, unknown>): string | null {
+  const url = meta.media_url;
+  if (typeof url === "string" && url.trim()) return url;
+  return null;
+}
+
 function MessageBubbleContent({ msg }: { msg: Message }) {
   const isOutbound = msg.direction === "outbound";
   const meta = msg.metadata ?? {};
   const content = getMessageBody(msg);
+  const mediaUrl = getMediaUrl(meta);
 
   // Text
   if (msg.type === "text" || !msg.type) {
@@ -47,50 +54,102 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
     );
   }
 
-  // Image
+  // Image — show thumbnail when we have a URL
   if (msg.type === "image") {
     return (
       <div className="flex flex-col gap-1.5 min-w-0">
-        <div className="flex items-center gap-2 rounded-md bg-black/10 dark:bg-white/10 p-2">
-          <ImageIcon className="h-8 w-8 shrink-0 opacity-80" />
-          <span className="text-xs truncate">Image</span>
-        </div>
+        {mediaUrl ? (
+          <a
+            href={mediaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-md overflow-hidden border border-black/10 dark:border-white/10 max-w-[280px] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent"
+          >
+            <img
+              src={mediaUrl}
+              alt={content || "Image"}
+              className="max-h-64 w-full object-contain bg-black/5 dark:bg-white/5"
+            />
+          </a>
+        ) : (
+          <div className="flex items-center gap-2 rounded-md bg-black/10 dark:bg-white/10 p-2">
+            <ImageIcon className="h-8 w-8 shrink-0 opacity-80" />
+            <span className="text-xs truncate">Image</span>
+          </div>
+        )}
         {content && <p className="text-xs opacity-90 mt-0.5">{content}</p>}
       </div>
     );
   }
 
-  // Video
+  // Video — show preview or link
   if (msg.type === "video") {
     return (
       <div className="flex flex-col gap-1.5 min-w-0">
-        <div className="flex items-center gap-2 rounded-md bg-black/10 dark:bg-white/10 p-2">
-          <Video className="h-8 w-8 shrink-0 opacity-80" />
-          <span className="text-xs truncate">Video</span>
-        </div>
+        {mediaUrl ? (
+          <div className="rounded-md overflow-hidden border border-black/10 dark:border-white/10 max-w-[280px] bg-black/5 dark:bg-white/5">
+            <video
+              src={mediaUrl}
+              controls
+              preload="metadata"
+              className="max-h-64 w-full"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-md bg-black/10 dark:bg-white/10 p-2">
+            <Video className="h-8 w-8 shrink-0 opacity-80" />
+            <span className="text-xs truncate">Video</span>
+          </div>
+        )}
         {content && <p className="text-xs opacity-90 mt-0.5">{content}</p>}
       </div>
     );
   }
 
-  // Audio
+  // Audio — inline player when we have a URL
   if (msg.type === "audio") {
     return (
-      <div className="flex items-center gap-2 rounded-md bg-black/10 dark:bg-white/10 p-2">
-        <Mic className="h-6 w-6 shrink-0 opacity-80" />
-        <span className="text-xs">Audio</span>
+      <div className="flex flex-col gap-1.5 min-w-0">
+        <div className="flex items-center gap-2 rounded-md bg-black/10 dark:bg-white/10 p-2">
+          <Mic className="h-6 w-6 shrink-0 opacity-80" />
+          {mediaUrl ? (
+            <audio
+              src={mediaUrl}
+              controls
+              className="max-w-full h-8 min-w-[180px]"
+            />
+          ) : (
+            <span className="text-xs">Audio</span>
+          )}
+        </div>
       </div>
     );
   }
 
-  // Document
+  // Document — filename + download link when we have a URL
   if (msg.type === "document") {
     const fn = (meta.filename as string) || content || "Document";
     return (
       <div className="flex flex-col gap-1.5 min-w-0">
         <div className="flex items-center gap-2 rounded-md bg-black/10 dark:bg-white/10 p-2">
           <FileText className="h-6 w-6 shrink-0 opacity-80" />
-          <span className="text-xs truncate">{fn}</span>
+          <div className="min-w-0 flex-1 flex items-center gap-2">
+            <span className="text-xs truncate">{fn}</span>
+            {mediaUrl && (
+              <a
+                href={mediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "shrink-0 inline-flex items-center gap-1 text-xs underline",
+                  isOutbound ? "text-primary-foreground/90" : "text-primary",
+                )}
+              >
+                Open
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
         </div>
         {content && content !== fn && (
           <p className="text-xs opacity-90 mt-0.5">{content}</p>

@@ -44,6 +44,10 @@ export class TwoFactorEnforcementInterceptor implements NestInterceptor {
     if (!user?.id) {
       return next.handle();
     }
+    // API-key–authenticated requests use a placeholder id, not a real user; skip 2FA check
+    if (user.id === "system-api-key") {
+      return next.handle();
+    }
 
     const required = await this.authService.is2FaSetupRequired(user.id);
     if (!required) {
