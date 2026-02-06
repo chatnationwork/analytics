@@ -316,6 +316,49 @@ export class AgentInboxController {
   }
 
   /**
+   * Send reengagement template to the contact for an expired chat.
+   * Template "reengagement" uses contact name as body variable.
+   * Must be declared before :sessionId/message so "reengage" is not matched as message.
+   */
+  @Post(":sessionId/reengage")
+  async reengage(
+    @Request() req: { user: { id: string; tenantId: string } },
+    @Param("sessionId") sessionId: string,
+  ) {
+    const session = await this.inboxService.getSession(sessionId);
+
+    if (session.assignedAgentId !== req.user.id) {
+      throw new ForbiddenException("You are not assigned to this session");
+    }
+    if (session.status === SessionStatus.RESOLVED) {
+      throw new ForbiddenException(
+        "Cannot send reengagement for a resolved session",
+      );
+    }
+
+    const account = (session.context as Record<string, unknown>)?.account as
+      | string
+      | undefined;
+    const contactName =
+      (session.contactName ?? "")?.trim() || session.contactId || "there";
+
+    const result = await this.whatsappService.sendReengagementTemplate(
+      req.user.tenantId,
+      session.contactId,
+      contactName,
+      { account },
+    );
+
+    if (!result.success) {
+      throw new ForbiddenException(
+        result.error ?? "Failed to send reengagement message",
+      );
+    }
+
+    return { success: true, messageId: result.messageId };
+  }
+
+  /**
    * Send a message in a session (text, image, video, audio, document, location).
    * Uses WhatsApp Cloud API format; request is sent to CRM endpoint.
    */

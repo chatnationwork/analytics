@@ -277,6 +277,18 @@ export const agentApi = {
   },
 
   /**
+   * Send reengagement template message to the contact (for expired chats).
+   */
+  sendReengagement: async (
+    sessionId: string,
+  ): Promise<{ success: boolean; messageId?: string }> => {
+    return fetchWithAuth(`/agent/inbox/${sessionId}/reengage`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
+  /**
    * Transfer a session to another agent
    */
   transferSession: async (

@@ -389,6 +389,84 @@ export class WhatsappService {
   }
 
   /**
+   * Send reengagement template via WhatsApp.
+   * Template "reengagement" has body with one text parameter (contact name).
+   * Used from inbox for expired chats to re-engage the user.
+   */
+  async sendReengagementTemplate(
+    tenantId: string,
+    to: string,
+    contactName: string,
+    options?: { account?: string },
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const integration = await this.crmService.getActiveIntegration(
+      tenantId,
+      options?.account,
+    );
+
+    if (!integration || !integration.config?.phoneNumberId) {
+      return {
+        success: false,
+        error: "WhatsApp not configured for this tenant",
+      };
+    }
+
+    const { phoneNumberId } = integration.config;
+    const token = integration.apiKey;
+    const baseUrl = (integration.apiUrl || "").replace(/\/$/, "");
+    const url = `${baseUrl}/api/meta/v21.0/${phoneNumberId}/messages`;
+    const finalNumber = to.replace(/[^\d]/g, "");
+    const variableText = (contactName || "there").trim() || "there";
+
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: finalNumber,
+      type: "template",
+      template: {
+        language: { policy: "deterministic", code: "en" },
+        name: "reengagement",
+        components: [
+          {
+            type: "body",
+            parameters: [{ type: "text", text: variableText }],
+          },
+        ],
+      },
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Error sending reengagement template:", data);
+        return {
+          success: false,
+          error:
+            data.error?.message || "Failed to send reengagement via WhatsApp",
+        };
+      }
+
+      return {
+        success: true,
+        messageId: data.messages?.[0]?.id,
+      };
+    } catch (error: any) {
+      console.error("Network error sending reengagement template:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Send 2FA code via WhatsApp template "2fa".
    * Template has body (one text param = code) and optional button (one text param).
    * Uses the tenant's first/active CRM integration credentials.

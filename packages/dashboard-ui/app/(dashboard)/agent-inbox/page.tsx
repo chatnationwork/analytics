@@ -14,6 +14,7 @@ import {
   Archive,
   UserX,
   User,
+  Send,
 } from "lucide-react";
 import { ChatList } from "@/components/agent-inbox/ChatList";
 import { ChatWindow } from "@/components/agent-inbox/ChatWindow";
@@ -100,6 +101,7 @@ export default function AgentInboxPage() {
     TeamWrapUpReport | null | undefined
   >(undefined);
   const [showContactPanel, setShowContactPanel] = useState(false);
+  const [reengageLoading, setReengageLoading] = useState(false);
   const queryClient = useQueryClient();
 
   const invalidateInboxCounts = useCallback(() => {
@@ -374,6 +376,21 @@ export default function AgentInboxPage() {
     });
   };
 
+  const handleReengage = async () => {
+    if (!selectedSessionId || !selectedSession) return;
+    setReengageLoading(true);
+    try {
+      await agentApi.sendReengagement(selectedSessionId);
+      toast.success("Re-engagement message sent");
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Failed to send re-engagement message",
+      );
+    } finally {
+      setReengageLoading(false);
+    }
+  };
+
   // Check if a session is expired (no activity for 24+ hours)
   const isSessionExpired = (session: InboxSession) => {
     if (!session.lastMessageAt) return false;
@@ -534,6 +551,25 @@ export default function AgentInboxPage() {
                   <User className="h-4 w-4" />
                   <span className="hidden sm:inline">Contact</span>
                 </Button>
+                {selectedSession &&
+                  isSessionExpired(selectedSession) &&
+                  selectedSession.status !== "resolved" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleReengage}
+                      disabled={reengageLoading}
+                      className="gap-1.5"
+                      title="Send re-engagement template message to the contact"
+                    >
+                      {reengageLoading ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      <span className="hidden sm:inline">Re-engage</span>
+                    </Button>
+                  )}
                 {selectedSession &&
                   selectedSession.status !== "resolved" &&
                   !hasAcceptedSelected && (
