@@ -267,15 +267,17 @@ function SettingsSecurityContent() {
       </div>
 
       {isMandatorySetup && !twoFactorEnabled && (
-        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-foreground">
-              Your organization requires two-factor authentication
+        <div className="rounded-xl border-2 border-amber-500/60 bg-amber-500/15 p-5 flex items-start gap-4">
+          <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-semibold text-foreground text-base">
+              Set up 2FA to access the rest of the app
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Add your WhatsApp number below and turn on 2FA to continue using
-              the app.
+            <p className="text-sm text-muted-foreground">
+              Your organization requires two-factor authentication. You
+              currently only have access to this Security page. Add your
+              WhatsApp number below and turn on 2FA to unlock Inbox, Analytics,
+              and all other features.
             </p>
           </div>
         </div>

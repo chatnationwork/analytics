@@ -8,7 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import { User, authClient } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
@@ -23,10 +23,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 import { SessionExpiredDialog } from "../session/SessionExpiredDialog";
 
+/** Paths allowed when org requires 2FA and user has not set it (only Settings → Security). */
+function isAllowedWithout2Fa(pathname: string): boolean {
+  if (pathname.startsWith("/login")) return true;
+  if (pathname === "/settings" || pathname === "/settings/security")
+    return true;
+  return false;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const initAuth = async () => {
@@ -49,13 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  // Redirect to Security (2FA setup) when org requires 2FA and user has not set it
+  // Enforce 2FA: when org requires 2FA and user has not set it, only allow Settings (Security) and login
   useEffect(() => {
     if (isLoading || !user?.twoFactorSetupRequired) return;
-    const path = typeof window !== "undefined" ? window.location.pathname : "";
-    if (path === "/settings/security" || path.startsWith("/login")) return;
+    const path = pathname ?? "";
+    if (isAllowedWithout2Fa(path)) return;
     router.replace("/settings/security?setup2fa=1");
-  }, [user?.twoFactorSetupRequired, isLoading, router]);
+  }, [user?.twoFactorSetupRequired, isLoading, pathname, router]);
 
   const login = (_token: string, user: User) => {
     // Token is handled by HttpOnly cookie (set by server action)

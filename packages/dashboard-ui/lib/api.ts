@@ -106,6 +106,14 @@ function scheduleAuthRedirect(reason: LogoutReason): void {
   // Auto-redirecting here causes a reload loop if the user is already on a page triggering 401s.
 }
 
+/** When org requires 2FA and user has not set it, API returns 403 with this code. */
+function redirectIf2FaRequired(errorData: { code?: string }): void {
+  if (typeof window === "undefined") return;
+  if (errorData?.code === "TWO_FACTOR_SETUP_REQUIRED") {
+    window.location.href = "/settings/security?setup2fa=1";
+  }
+}
+
 export async function fetchWithAuth<T = any>(
   url: string,
   options: RequestInit = {},
@@ -122,6 +130,14 @@ export async function fetchWithAuth<T = any>(
   if (!res.ok) {
     // Try to get error message from response
     const errorData = await res.json().catch(() => ({}));
+
+    if (res.status === 403 && errorData?.code === "TWO_FACTOR_SETUP_REQUIRED") {
+      redirectIf2FaRequired(errorData);
+      throw new Error(
+        errorData.message ||
+          "Set up two-factor authentication in Settings → Security to continue.",
+      );
+    }
 
     // Handle 401 - schedule redirect to login
     if (res.status === 401) {
@@ -162,6 +178,13 @@ export async function fetchWithAuthFull<T = unknown>(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
+    if (res.status === 403 && errorData?.code === "TWO_FACTOR_SETUP_REQUIRED") {
+      redirectIf2FaRequired(errorData);
+      throw new Error(
+        errorData.message ||
+          "Set up two-factor authentication in Settings → Security to continue.",
+      );
+    }
     if (res.status === 401 && shouldRedirectOn401()) {
       const reason: LogoutReason = errorData.message
         ?.toLowerCase?.()

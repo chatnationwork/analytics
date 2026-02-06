@@ -472,6 +472,22 @@ export class AuthService {
   }
 
   /**
+   * Returns true when the org requires 2FA and the user has not enabled it.
+   * Used by TwoFactorEnforcementInterceptor to block non-whitelisted API access.
+   */
+  async is2FaSetupRequired(userId: string): Promise<boolean> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) return false;
+    const tenants = await this.tenantRepository.findByUserId(userId);
+    const activeTenant = tenants[0];
+    if (!activeTenant) return false;
+    const twoFactorRequired =
+      (activeTenant.settings as { twoFactorRequired?: boolean } | undefined)
+        ?.twoFactorRequired === true;
+    return twoFactorRequired && !user.twoFactorEnabled;
+  }
+
+  /**
    * Get user by ID (for JWT validation).
    */
   async validateUser(userId: string): Promise<AuthUser | null> {

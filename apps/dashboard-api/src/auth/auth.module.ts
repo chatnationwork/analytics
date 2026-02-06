@@ -12,9 +12,11 @@ import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { APP_INTERCEPTOR } from "@nestjs/core";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
+import { TwoFactorEnforcementInterceptor } from "./two-factor-enforcement.interceptor";
 import { DatabaseModule } from "@lib/database";
 import { TwoFaVerificationEntity } from "@lib/database/entities/two-fa-verification.entity";
 import { RbacModule } from "../agent-system/rbac.module";
@@ -48,7 +50,14 @@ import { WhatsappModule } from "../whatsapp/whatsapp.module";
     RbacModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TwoFactorEnforcementInterceptor,
+    },
+  ],
   exports: [AuthService, JwtStrategy],
 })
 export class AuthModule {}
