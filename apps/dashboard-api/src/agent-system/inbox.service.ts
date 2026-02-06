@@ -1004,6 +1004,85 @@ export class InboxService {
   }
 
   /**
+   * Bulk transfer multiple sessions to one agent.
+   * Caller must have session.bulk_transfer permission; no requirement to be the assigned agent.
+   * Resolved sessions are skipped; only sessions in the same tenant are transferred.
+   */
+  async bulkTransferSessions(
+    tenantId: string,
+    sessionIds: string[],
+    initiatorId: string,
+    toAgentId: string,
+    reason?: string,
+  ): Promise<{
+    transferred: number;
+    errors: Array<{ sessionId: string; message: string }>;
+  }> {
+    const errors: Array<{ sessionId: string; message: string }> = [];
+    let transferred = 0;
+
+    for (const sessionId of sessionIds) {
+      try {
+        const session = await this.getSession(sessionId);
+        if (session.tenantId !== tenantId) {
+          errors.push({ sessionId, message: "Session not in tenant" });
+          continue;
+        }
+        if (session.status === SessionStatus.RESOLVED) {
+          errors.push({
+            sessionId,
+            message: "Cannot transfer resolved session",
+          });
+          continue;
+        }
+
+        const previousAgentId = session.assignedAgentId;
+        session.assignedAgentId = toAgentId;
+        session.acceptedAt = null;
+
+        const context = (session.context as Record<string, unknown>) || {};
+        const transfers =
+          (context.transfers as Array<Record<string, unknown>>) || [];
+        transfers.push({
+          from: previousAgentId,
+          to: toAgentId,
+          reason: reason ?? "bulk_transfer",
+          timestamp: new Date().toISOString(),
+        });
+        session.context = { ...context, transfers };
+
+        await this.sessionRepo.save(session);
+
+        try {
+          await this.fireTransferEvent(
+            session,
+            previousAgentId ?? initiatorId,
+            toAgentId,
+            reason ?? "bulk_transfer",
+          );
+        } catch (err) {
+          this.logger.warn(
+            `Failed to fire bulk transfer event for ${sessionId}: ${(err as Error).message}`,
+          );
+        }
+
+        transferred++;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        errors.push({ sessionId, message });
+      }
+    }
+
+    if (transferred > 0) {
+      this.logger.log(
+        `Bulk transfer: ${transferred} session(s) to ${toAgentId} by ${initiatorId}`,
+      );
+    }
+
+    return { transferred, errors };
+  }
+
+  /**
    * Fire an analytics event when a session is transferred.
    * When reason is "takeover", properties include isTakeover: true for analytics.
    */

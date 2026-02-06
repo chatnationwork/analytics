@@ -86,6 +86,13 @@ interface TransferSessionDto {
   reason?: string;
 }
 
+/** DTO for bulk transfer (requires session.bulk_transfer permission). */
+interface BulkTransferDto {
+  sessionIds: string[];
+  targetAgentId: string;
+  reason?: string;
+}
+
 /** DTO for presence (go online/offline). reason = display label (e.g. available, busy, off_shift). */
 interface PresenceDto {
   status: "online" | "offline";
@@ -514,6 +521,68 @@ export class AgentInboxController {
       requestContext: getRequestContext(expressReq),
     });
     return session;
+  }
+
+  /**
+   * Bulk transfer sessions to one agent. Requires session.bulk_transfer permission.
+   * Route must be declared before :sessionId/transfer so "transfer/bulk" is not matched as sessionId.
+   */
+  @Post("transfer/bulk")
+  async bulkTransfer(
+    @Request()
+    req: {
+      user: {
+        id: string;
+        tenantId: string;
+        permissions?: { global?: string[] };
+      };
+    },
+    @Req() expressReq: RequestLike,
+    @Body() dto: BulkTransferDto,
+  ) {
+    if (
+      !req.user.permissions?.global?.includes(
+        Permission.SESSION_BULK_TRANSFER as string,
+      )
+    ) {
+      throw new ForbiddenException(
+        "You do not have permission to bulk transfer chats",
+      );
+    }
+
+    const sessionIds = Array.isArray(dto.sessionIds)
+      ? dto.sessionIds.filter((id) => typeof id === "string" && id.length > 0)
+      : [];
+    if (sessionIds.length === 0) {
+      return { transferred: 0, errors: [] };
+    }
+
+    const result = await this.inboxService.bulkTransferSessions(
+      req.user.tenantId,
+      sessionIds,
+      req.user.id,
+      dto.targetAgentId,
+      dto.reason,
+    );
+
+    for (const sessionId of sessionIds.slice(0, result.transferred)) {
+      await this.auditService.log({
+        tenantId: req.user.tenantId,
+        actorId: req.user.id,
+        actorType: "user",
+        action: AuditActions.CHAT_SESSION_TRANSFERRED,
+        resourceType: "session",
+        resourceId: sessionId,
+        details: {
+          bulkTransfer: true,
+          toAgentId: dto.targetAgentId,
+          reason: dto.reason,
+        },
+        requestContext: getRequestContext(expressReq),
+      });
+    }
+
+    return result;
   }
 
   /**

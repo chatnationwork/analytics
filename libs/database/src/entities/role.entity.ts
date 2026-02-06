@@ -25,6 +25,8 @@ export enum Permission {
   SESSION_VIEW = "session.view",
   SESSION_MANAGE = "session.manage",
   AGENT_ASSIGN = "agent.assign",
+  /** Bulk transfer multiple chats to an agent (team managers and above). */
+  SESSION_BULK_TRANSFER = "session.bulk_transfer",
   /** Super admins: view all chats (assigned and unassigned) in the inbox */
   SESSION_VIEW_ALL = "session.view_all",
   /** Configure password complexity for the organization (Settings → Security). Super admins only. */

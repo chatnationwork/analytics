@@ -291,6 +291,23 @@ export const agentApi = {
   },
 
   /**
+   * Bulk transfer multiple sessions to one agent. Requires session.bulk_transfer permission.
+   */
+  bulkTransferSessions: async (
+    sessionIds: string[],
+    targetAgentId: string,
+    reason?: string,
+  ): Promise<{
+    transferred: number;
+    errors: Array<{ sessionId: string; message: string }>;
+  }> => {
+    return fetchWithAuth("/agent/inbox/transfer/bulk", {
+      method: "POST",
+      body: JSON.stringify({ sessionIds, targetAgentId, reason }),
+    });
+  },
+
+  /**
    * Get available agents for transferring a session
    */
   getAvailableAgents: async () => {

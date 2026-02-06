@@ -13,6 +13,10 @@ interface ChatListProps {
   selectedSessionId?: string;
   onSelectSession: (session: InboxSession) => void;
   isExpired?: (session: InboxSession) => boolean;
+  /** When true, show checkboxes for bulk transfer (non-resolved only). */
+  canBulkTransfer?: boolean;
+  bulkSelectedIds?: Set<string>;
+  onBulkToggle?: (sessionId: string) => void;
 }
 
 export function ChatList({
@@ -20,6 +24,9 @@ export function ChatList({
   selectedSessionId,
   onSelectSession,
   isExpired,
+  canBulkTransfer = false,
+  bulkSelectedIds,
+  onBulkToggle,
 }: ChatListProps) {
   if (sessions.length === 0) {
     return (
@@ -68,75 +75,105 @@ export function ChatList({
     <div className="flex flex-col space-y-1 p-2">
       {sessions.map((session) => {
         const expired = isExpired?.(session);
+        const canSelectBulk =
+          canBulkTransfer &&
+          session.status !== "resolved" &&
+          onBulkToggle &&
+          bulkSelectedIds !== undefined;
+        const isBulkSelected = canSelectBulk && bulkSelectedIds.has(session.id);
 
         return (
-          <button
+          <div
             key={session.id}
-            onClick={() => onSelectSession(session)}
             className={cn(
-              "flex items-start gap-3 rounded-lg p-3 text-left text-sm transition-all hover:bg-accent",
+              "flex items-center gap-2 rounded-lg text-sm transition-all",
               selectedSessionId === session.id ? "bg-accent" : "transparent",
               expired && "border-l-2 border-orange-500",
             )}
           >
-            <div
+            {canSelectBulk && (
+              <label className="shrink-0 p-2 rounded hover:bg-muted cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isBulkSelected}
+                  onChange={() => onBulkToggle(session.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={
+                    isBulkSelected
+                      ? "Deselect for bulk transfer"
+                      : "Select for bulk transfer"
+                  }
+                  className="h-4 w-4 rounded border-input"
+                />
+              </label>
+            )}
+            <button
+              type="button"
+              onClick={() => onSelectSession(session)}
               className={cn(
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                session.status === "resolved"
-                  ? "bg-green-500/10"
-                  : expired
-                    ? "bg-orange-500/10"
-                    : "bg-muted",
+                "flex items-start gap-3 flex-1 rounded-lg p-3 text-left transition-all hover:bg-accent min-w-0",
+                !canSelectBulk && "rounded-l-lg",
               )}
             >
-              <User
+              <div
                 className={cn(
-                  "h-5 w-5",
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
                   session.status === "resolved"
-                    ? "text-green-500"
+                    ? "bg-green-500/10"
                     : expired
-                      ? "text-orange-500"
-                      : "opacity-50",
+                      ? "bg-orange-500/10"
+                      : "bg-muted",
                 )}
-              />
-            </div>
-
-            <div className="flex-1 overflow-hidden">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold truncate text-sm">
-                  {session.contactName?.trim() ||
-                    session.contactId ||
-                    "Unknown User"}
-                </span>
-                {session.lastMessageAt && (
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                    {new Date(session.lastMessageAt).toLocaleDateString([], {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                )}
+              >
+                <User
+                  className={cn(
+                    "h-5 w-5",
+                    session.status === "resolved"
+                      ? "text-green-500"
+                      : expired
+                        ? "text-orange-500"
+                        : "opacity-50",
+                  )}
+                />
               </div>
 
-              <div className="flex flex-col gap-1 mt-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-mono truncate">
-                    {session.contactId}
+              <div className="flex-1 overflow-hidden">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold truncate text-sm">
+                    {session.contactName?.trim() ||
+                      session.contactId ||
+                      "Unknown User"}
                   </span>
-                  {getStatusBadge(session)}
+                  {session.lastMessageAt && (
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      {new Date(session.lastMessageAt).toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  )}
                 </div>
-                <span className="text-xs text-foreground/80 truncate font-medium">
-                  {((session.context as Record<string, unknown>)
-                    ?.issue as string) ||
-                    ((session.context as Record<string, unknown>)
-                      ?.subject as string) ||
-                    "General Inquiry"}
-                </span>
+
+                <div className="flex flex-col gap-1 mt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-mono truncate">
+                      {session.contactId}
+                    </span>
+                    {getStatusBadge(session)}
+                  </div>
+                  <span className="text-xs text-foreground/80 truncate font-medium">
+                    {((session.context as Record<string, unknown>)
+                      ?.issue as string) ||
+                      ((session.context as Record<string, unknown>)
+                        ?.subject as string) ||
+                      "General Inquiry"}
+                  </span>
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
+          </div>
         );
       })}
     </div>

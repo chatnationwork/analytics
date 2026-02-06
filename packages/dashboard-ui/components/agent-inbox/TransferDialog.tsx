@@ -10,6 +10,8 @@ interface TransferDialogProps {
   onClose: () => void;
   onTransfer: (targetAgentId: string, reason?: string) => Promise<void>;
   contactName?: string;
+  /** When set, show "Transfer N chats" (bulk transfer mode). */
+  sessionCount?: number;
 }
 
 export function TransferDialog({
@@ -17,6 +19,7 @@ export function TransferDialog({
   onClose,
   onTransfer,
   contactName,
+  sessionCount,
 }: TransferDialogProps) {
   const [agents, setAgents] = useState<AvailableAgent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
@@ -83,7 +86,9 @@ export function TransferDialog({
           <div className="flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-blue-500" />
             <h2 className="text-lg font-semibold text-foreground">
-              Transfer Chat
+              {sessionCount != null && sessionCount > 1
+                ? `Transfer ${sessionCount} chats`
+                : "Transfer Chat"}
             </h2>
           </div>
           <button
@@ -94,10 +99,15 @@ export function TransferDialog({
           </button>
         </div>
 
-        {contactName && (
+        {contactName && sessionCount == null && (
           <p className="text-sm text-muted-foreground mb-4">
             Transferring chat with{" "}
             <span className="font-medium text-foreground">{contactName}</span>
+          </p>
+        )}
+        {sessionCount != null && sessionCount > 1 && (
+          <p className="text-sm text-muted-foreground mb-4">
+            All selected chats will be transferred to the chosen agent.
           </p>
         )}
 
@@ -199,7 +209,11 @@ export function TransferDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={!selectedAgentId || isSubmitting}>
-              {isSubmitting ? "Transferring..." : "Transfer Chat"}
+              {isSubmitting
+                ? "Transferring..."
+                : sessionCount != null && sessionCount > 1
+                  ? "Transfer chats"
+                  : "Transfer Chat"}
             </Button>
           </div>
         </form>

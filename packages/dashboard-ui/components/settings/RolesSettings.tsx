@@ -138,10 +138,11 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     }
   };
 
-  /** Human-readable label for a permission string (e.g. analytics.view → View) */
+  /** Human-readable label for a permission string (e.g. session.bulk_transfer → Bulk transfer) */
   const permissionLabel = (perm: string) => {
     const part = perm.split(".").pop() ?? perm;
-    return part.charAt(0).toUpperCase() + part.slice(1);
+    const withSpaces = part.replace(/_/g, " ");
+    return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
   };
 
   /** Group permissions by prefix for display (e.g. Analytics, Team, Session) */

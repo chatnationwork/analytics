@@ -32,13 +32,18 @@ export class RbacService implements OnModuleInit {
         Permission.USERS_MANAGE,
         Permission.TEAMS_MANAGE,
         Permission.TEAMS_VIEW_ALL,
+        Permission.SESSION_BULK_TRANSFER,
         Permission.AUDIT_VIEW,
         Permission.CONTACTS_VIEW,
         Permission.CONTACTS_CREATE,
         Permission.CONTACTS_UPDATE,
         Permission.CONTACTS_DEACTIVATE,
       ],
-      auditor: [Permission.ANALYTICS_VIEW, Permission.AUDIT_VIEW, Permission.CONTACTS_VIEW],
+      auditor: [
+        Permission.ANALYTICS_VIEW,
+        Permission.AUDIT_VIEW,
+        Permission.CONTACTS_VIEW,
+      ],
       member: [Permission.CONTACTS_VIEW, Permission.CONTACTS_UPDATE],
 
       // --- Team Roles ---
@@ -49,6 +54,7 @@ export class RbacService implements OnModuleInit {
         Permission.SESSION_VIEW,
         Permission.SESSION_MANAGE,
         Permission.AGENT_ASSIGN,
+        Permission.SESSION_BULK_TRANSFER,
       ],
       [TeamRole.AGENT]: [Permission.SESSION_VIEW, Permission.SESSION_MANAGE],
     };
