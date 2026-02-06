@@ -59,6 +59,7 @@ import { ContactNoteEntity } from "./entities/contact-note.entity";
 import { AgentSessionEntity } from "./entities/agent-session.entity";
 import { AuditLogEntity } from "./entities/audit-log.entity";
 import { TwoFaVerificationEntity } from "./entities/two-fa-verification.entity";
+import { PasswordResetTokenEntity } from "./entities/password-reset-token.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -100,6 +101,7 @@ const entities = [
   AgentSessionEntity,
   AuditLogEntity,
   TwoFaVerificationEntity,
+  PasswordResetTokenEntity,
 ];
 
 /**

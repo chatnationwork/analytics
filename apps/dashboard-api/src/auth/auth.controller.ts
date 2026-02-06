@@ -30,6 +30,8 @@ import {
   Verify2FaDto,
   Update2FaDto,
   Resend2FaDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
 } from "./dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { CurrentUser } from "./current-user.decorator";
@@ -50,6 +52,27 @@ export class AuthController {
   @Post("signup")
   async signup(@Body() dto: SignupDto): Promise<LoginResponseDto> {
     return this.authService.signup(dto);
+  }
+
+  /**
+   * Request a password reset. Sends an email with a reset link if the email exists.
+   * Always returns { ok: true } to avoid email enumeration.
+   */
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ ok: true }> {
+    return this.authService.requestPasswordReset(dto.email);
+  }
+
+  /**
+   * Reset password using the token from the email link. Returns login response on success.
+   */
+  @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<LoginResponseDto> {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   /**

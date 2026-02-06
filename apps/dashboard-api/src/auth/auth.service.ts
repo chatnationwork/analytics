@@ -16,9 +16,10 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes, createHash } from "crypto";
 import {
   UserRepository,
   TenantRepository,
@@ -27,7 +28,9 @@ import {
   getDefaultPasswordComplexity,
 } from "@lib/database";
 import { TwoFaVerificationEntity } from "@lib/database/entities/two-fa-verification.entity";
+import { PasswordResetTokenEntity } from "@lib/database/entities/password-reset-token.entity";
 import { RbacService } from "../agent-system/rbac.service";
+import { EmailService } from "../email/email.service";
 import { PresenceService } from "../agent-system/presence.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -70,6 +73,8 @@ export class AuthService {
 
   private readonly TWO_FA_CODE_TTL_MINUTES = 10;
 
+  private readonly PASSWORD_RESET_TOKEN_TTL_HOURS = 24;
+
   constructor(
     private readonly userRepository: UserRepository,
     private readonly tenantRepository: TenantRepository,
@@ -77,10 +82,14 @@ export class AuthService {
     private readonly teamMemberRepo: Repository<TeamMemberEntity>,
     @InjectRepository(TwoFaVerificationEntity)
     private readonly twoFaRepo: Repository<TwoFaVerificationEntity>,
+    @InjectRepository(PasswordResetTokenEntity)
+    private readonly passwordResetTokenRepo: Repository<PasswordResetTokenEntity>,
+    private readonly configService: ConfigService,
     private readonly rbacService: RbacService,
     private readonly jwtService: JwtService,
     private readonly presenceService: PresenceService,
     private readonly whatsappService: WhatsappService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -421,6 +430,91 @@ export class AuthService {
 
   private normalizePhone(phone: string): string {
     return phone.replace(/\D/g, "").trim();
+  }
+
+  private hashResetToken(token: string): string {
+    return createHash("sha256").update(token, "utf8").digest("hex");
+  }
+
+  /**
+   * Request a password reset. Sends an email with a link if the user exists.
+   * Always returns success to avoid email enumeration.
+   */
+  async requestPasswordReset(email: string): Promise<{ ok: true }> {
+    const user = await this.userRepository.findByEmail(
+      email.trim().toLowerCase(),
+    );
+    if (!user) {
+      this.logger.log(`Password reset requested for unknown email: ${email}`);
+      return { ok: true };
+    }
+
+    await this.passwordResetTokenRepo.delete({ userId: user.id });
+
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = this.hashResetToken(token);
+    const expiresAt = new Date();
+    expiresAt.setHours(
+      expiresAt.getHours() + this.PASSWORD_RESET_TOKEN_TTL_HOURS,
+    );
+
+    await this.passwordResetTokenRepo.save({
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    });
+
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+    const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+    await this.emailService.sendPasswordResetEmail(user.email, resetUrl);
+    this.logger.log(`Password reset email sent to ${user.email}`);
+    return { ok: true };
+  }
+
+  /**
+   * Reset password using the token from the email link.
+   */
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<LoginResponseDto> {
+    const tokenHash = this.hashResetToken(token.trim());
+    const row = await this.passwordResetTokenRepo.findOne({
+      where: { tokenHash },
+      relations: ["user"],
+    });
+
+    if (!row || !row.user) {
+      throw new BadRequestException("Invalid or expired reset link");
+    }
+    if (new Date() > row.expiresAt) {
+      await this.passwordResetTokenRepo.delete({ id: row.id });
+      throw new BadRequestException("Reset link has expired");
+    }
+
+    const user = row.user;
+    const tenants = await this.tenantRepository.findByUserId(user.id);
+    const tenant = tenants[0];
+    const config = tenant?.settings?.passwordComplexity ?? null;
+    const result = validatePassword(newPassword, config);
+    if (!result.valid) {
+      throw new BadRequestException(
+        result.message ?? "New password does not meet requirements",
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+    await this.userRepository.update(user.id, {
+      passwordHash,
+      passwordChangedAt: new Date(),
+    });
+    await this.passwordResetTokenRepo.delete({ userId: user.id });
+
+    const updated = await this.userRepository.findById(user.id);
+    if (!updated) throw new UnauthorizedException("User not found");
+    return this.generateLoginResponse(updated);
   }
 
   /**

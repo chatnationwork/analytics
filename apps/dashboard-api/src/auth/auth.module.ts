@@ -19,18 +19,24 @@ import { JwtStrategy } from "./jwt.strategy";
 import { TwoFactorEnforcementInterceptor } from "./two-factor-enforcement.interceptor";
 import { DatabaseModule } from "@lib/database";
 import { TwoFaVerificationEntity } from "@lib/database/entities/two-fa-verification.entity";
+import { PasswordResetTokenEntity } from "@lib/database/entities/password-reset-token.entity";
 import { RbacModule } from "../agent-system/rbac.module";
 import { AuditModule } from "../audit/audit.module";
 import { AgentSystemModule } from "../agent-system/agent-system.module";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
+import { EmailModule } from "../email/email.module";
 
 @Module({
   imports: [
     AuditModule,
     AgentSystemModule,
     WhatsappModule,
+    EmailModule,
     DatabaseModule.forFeature(),
-    TypeOrmModule.forFeature([TwoFaVerificationEntity]),
+    TypeOrmModule.forFeature([
+      TwoFaVerificationEntity,
+      PasswordResetTokenEntity,
+    ]),
 
     PassportModule.register({ defaultStrategy: "jwt" }),
 
