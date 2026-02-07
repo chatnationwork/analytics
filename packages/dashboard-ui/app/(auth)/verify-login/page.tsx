@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { verifySessionTakeoverAction } from "../login/actions";
@@ -16,8 +16,10 @@ function VerifyLoginContent() {
     "pending",
   );
   const [error, setError] = useState<string | null>(null);
+  const verificationStarted = useRef(false);
 
   useEffect(() => {
+    if (verificationStarted.current) return;
     const token = searchParams.get("token");
     if (!token) {
       setError("Invalid link. Please sign in again.");
@@ -25,11 +27,10 @@ function VerifyLoginContent() {
       return;
     }
 
-    let cancelled = false;
+    verificationStarted.current = true;
 
     (async () => {
       const result = await verifySessionTakeoverAction({ token });
-      if (cancelled) return;
       if (!result.success || !result.token || !result.user) {
         setError(
           result.error ?? "Invalid or expired link. Please sign in again.",
@@ -42,10 +43,6 @@ function VerifyLoginContent() {
       setStatus("success");
       router.replace("/agent-inbox");
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [searchParams, login, router]);
 
   if (status === "pending") {
