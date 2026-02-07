@@ -124,14 +124,19 @@ export const authConfig = registerAs("auth", () => ({
 /**
  * Media upload configuration (for chat attachments)
  * Accessed via: configService.get('media.xxx')
+ *
+ * publicBaseUrl must be the public app URL that resolves to your domain (e.g. https://analytics.chatnationbot.com),
+ * so that media links work when opened by WhatsApp or the browser. Prefer NEXT_PUBLIC_API_URL or FRONTEND_URL
+ * so the same URL used by the frontend is used for media (request goes through your proxy to the API).
  */
 export const mediaConfig = registerAs("media", () => ({
   /** Directory to store uploaded files (relative to cwd or absolute) */
   uploadsDir: process.env.MEDIA_UPLOADS_DIR || "uploads/media",
-  /** Base URL for public media (must be reachable by WhatsApp). e.g. https://api.example.com */
+  /** Public base URL for media (same domain as the app, so /api/dashboard/media/... is reachable). */
   publicBaseUrl:
     process.env.MEDIA_PUBLIC_BASE_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
+    process.env.FRONTEND_URL ||
     `http://localhost:${process.env.DASHBOARD_API_PORT || 3001}`,
   /** Max file size in bytes (default 10MB) */
   maxFileSizeBytes: parseInt(process.env.MEDIA_MAX_FILE_SIZE || "10485760", 10),
