@@ -1,14 +1,28 @@
 /**
  * ScheduleRule: if team has schedule and is closed, send OOO or queue and stop.
+ * OOO message is sent at most once per session per 24h to avoid spamming the user.
  */
 
 import { MessageDirection } from "@lib/database";
+import type { Repository } from "typeorm";
+import type { InboxSessionEntity } from "@lib/database";
 import type {
   AssignmentRequest,
   AssignmentContext,
   RuleResult,
   AssignmentEngineDeps,
 } from "../types";
+
+const OOO_THROTTLE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function shouldSendOoo(session: InboxSessionEntity): boolean {
+  const ctx = session.context as Record<string, unknown> | null | undefined;
+  const sentAt = ctx?.oooLastSentAt;
+  if (typeof sentAt !== "string") return true;
+  const t = Date.parse(sentAt);
+  if (Number.isNaN(t)) return true;
+  return Date.now() - t > OOO_THROTTLE_MS;
+}
 
 export async function scheduleRule(
   request: AssignmentRequest,
@@ -35,6 +49,9 @@ export async function scheduleRule(
   }
 
   if (action === "ooo") {
+    if (!shouldSendOoo(session)) {
+      return { outcome: "stop" };
+    }
     const ws = deps.whatsappService as {
       sendMessage: (
         tenantId: string,
@@ -68,6 +85,12 @@ export async function scheduleRule(
         content: oooMsg,
         senderId: undefined,
       });
+      const repo = deps.sessionRepo as Repository<InboxSessionEntity>;
+      const mergedContext: Record<string, any> = {
+        ...((session.context as Record<string, any>) || {}),
+        oooLastSentAt: new Date().toISOString(),
+      };
+      await repo.update(session.id, { context: mergedContext });
     } catch (e) {
       return {
         outcome: "error",

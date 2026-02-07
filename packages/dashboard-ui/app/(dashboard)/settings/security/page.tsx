@@ -43,6 +43,7 @@ function SettingsSecurityContent() {
   const { login, user: currentUser, refreshUser } = useAuth();
   const canConfigurePasswordComplexity = can("settings.password_complexity");
   const canConfigureTwoFactor = can("settings.two_factor");
+  const canManageSettings = can("settings.manage");
   const isMandatorySetup =
     currentUser?.twoFactorSetupRequired === true ||
     searchParams.get("setup2fa") === "1";
@@ -64,7 +65,10 @@ function SettingsSecurityContent() {
   const { data: tenant } = useQuery({
     queryKey: ["tenant-current"],
     queryFn: () => api.getCurrentTenant(),
-    enabled: canConfigurePasswordComplexity || canConfigureTwoFactor,
+    enabled:
+      canConfigurePasswordComplexity ||
+      canConfigureTwoFactor ||
+      canManageSettings,
   });
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);

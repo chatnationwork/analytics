@@ -250,6 +250,7 @@ describe("AssignmentEngine", () => {
           sendMessage: jest.fn().mockResolvedValue(undefined),
         },
         inboxService: { addMessage: jest.fn().mockResolvedValue(undefined) },
+        sessionRepo: { update: jest.fn().mockResolvedValue(undefined) },
       } as unknown as AssignmentEngineDeps;
       const engine = new AssignmentEngine(deps);
       engine.setRules([scheduleRule]);

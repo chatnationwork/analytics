@@ -32,6 +32,7 @@ export class RbacService implements OnModuleInit {
         Permission.USERS_MANAGE,
         Permission.TEAMS_MANAGE,
         Permission.TEAMS_VIEW_ALL,
+        Permission.SESSION_TRANSFER,
         Permission.SESSION_BULK_TRANSFER,
         Permission.AUDIT_VIEW,
         Permission.CONTACTS_VIEW,
@@ -53,10 +54,15 @@ export class RbacService implements OnModuleInit {
         Permission.TEAMS_VIEW_TEAM,
         Permission.SESSION_VIEW,
         Permission.SESSION_MANAGE,
+        Permission.SESSION_TRANSFER,
         Permission.AGENT_ASSIGN,
         Permission.SESSION_BULK_TRANSFER,
       ],
-      [TeamRole.AGENT]: [Permission.SESSION_VIEW, Permission.SESSION_MANAGE],
+      [TeamRole.AGENT]: [
+        Permission.SESSION_VIEW,
+        Permission.SESSION_MANAGE,
+        Permission.SESSION_TRANSFER,
+      ],
     };
 
     for (const [roleName, permissions] of Object.entries(defaults)) {

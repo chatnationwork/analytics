@@ -1,22 +1,43 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Message } from "@/lib/api/agent";
+import { useMemo, useEffect, useRef } from "react";
+import {
+  Message,
+  type InboxSession,
+  type SessionTransfer,
+} from "@/lib/api/agent";
 import { cn } from "@/lib/utils";
 import {
   Bot,
   User,
+  Headset,
   Image as ImageIcon,
   Video,
   Mic,
   FileText,
   MapPin,
   ExternalLink,
+  ArrowRightLeft,
+  UserPlus,
 } from "lucide-react";
+
+/** One item in the chat timeline: a message or a system event (transfer / new conversation). */
+export type ChatTimelineItem =
+  | { kind: "message"; message: Message }
+  | {
+      kind: "transfer";
+      at: string;
+      from?: string;
+      to?: string;
+      reason?: string;
+    }
+  | { kind: "new_conversation"; at: string; sessionId: string };
 
 interface ChatWindowProps {
   messages: Message[];
   currentUserId: string;
+  /** Session with context.transfers; used to show "Chat transferred" in history. */
+  session?: InboxSession | null;
 }
 
 function getMessageBody(msg: Message): string {
@@ -205,15 +226,90 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
   );
 }
 
-export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
+function buildTimeline(
+  messages: Message[],
+  session: InboxSession | null | undefined,
+): ChatTimelineItem[] {
+  const items: ChatTimelineItem[] = [];
+
+  for (const msg of messages) {
+    items.push({ kind: "message", message: msg });
+  }
+
+  const transfers = (
+    session?.context as { transfers?: SessionTransfer[] } | undefined
+  )?.transfers;
+  if (Array.isArray(transfers)) {
+    for (const t of transfers) {
+      const at =
+        typeof t.timestamp === "string"
+          ? t.timestamp
+          : new Date().toISOString();
+      items.push({
+        kind: "transfer",
+        at,
+        from: t.from,
+        to: t.to,
+        reason: t.reason,
+      });
+    }
+  }
+
+  if (messages.length > 0 && messages.some((m) => m.sessionId != null)) {
+    const bySession = new Map<string, Message[]>();
+    for (const m of messages) {
+      const sid = m.sessionId ?? "";
+      if (!bySession.has(sid)) bySession.set(sid, []);
+      bySession.get(sid)!.push(m);
+    }
+    const sessionIdsByFirstMessage = [...bySession.entries()]
+      .map(([sid, msgs]) => ({
+        sessionId: sid,
+        firstAt: msgs.reduce(
+          (min, m) => (m.createdAt < min ? m.createdAt : min),
+          msgs[0].createdAt,
+        ),
+      }))
+      .sort((a, b) => (a.firstAt < b.firstAt ? -1 : 1));
+    for (let i = 1; i < sessionIdsByFirstMessage.length; i++) {
+      const { sessionId, firstAt } = sessionIdsByFirstMessage[i];
+      items.push({ kind: "new_conversation", at: firstAt, sessionId });
+    }
+  }
+
+  items.sort((a, b) => {
+    const timeA = a.kind === "message" ? a.message.createdAt : a.at;
+    const timeB = b.kind === "message" ? b.message.createdAt : b.at;
+    return timeA < timeB ? -1 : timeA > timeB ? 1 : 0;
+  });
+
+  return items;
+}
+
+function formatTimelineTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function ChatWindow({
+  messages,
+  currentUserId,
+  session,
+}: ChatWindowProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const timeline = useMemo(
+    () => buildTimeline(messages, session),
+    [messages, session],
+  );
 
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  if (messages.length === 0) {
+  if (timeline.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm min-h-0">
         No messages yet.
@@ -226,9 +322,50 @@ export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
       ref={scrollContainerRef}
       className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-4 space-y-4"
     >
-      {messages.map((msg) => {
+      {timeline.map((item, index) => {
+        if (item.kind === "transfer") {
+          return (
+            <div
+              key={`transfer-${item.at}-${index}`}
+              className="flex items-center justify-center gap-2 py-2"
+            >
+              <ArrowRightLeft className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground">
+                Chat transferred
+                {item.reason && item.reason !== "takeover"
+                  ? ` (${item.reason})`
+                  : ""}
+              </span>
+              <span className="text-[10px] text-muted-foreground/80">
+                {formatTimelineTime(item.at)}
+              </span>
+            </div>
+          );
+        }
+        if (item.kind === "new_conversation") {
+          return (
+            <div
+              key={`new-${item.sessionId}-${item.at}-${index}`}
+              className="flex items-center justify-center gap-2 py-2"
+            >
+              <UserPlus className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground">
+                Contact returned for a new interaction
+              </span>
+              <span className="text-[10px] text-muted-foreground/80">
+                {formatTimelineTime(item.at)}
+              </span>
+            </div>
+          );
+        }
+        const msg = item.message;
         const isOutbound = msg.direction === "outbound";
-
+        /** Outbound with senderId = sent by agent from this platform; otherwise bot/automated. */
+        const isAgentMessage =
+          isOutbound &&
+          msg.senderId != null &&
+          String(msg.senderId).trim() !== "";
+        const OutboundIcon = isAgentMessage ? Headset : Bot;
         return (
           <div
             key={msg.id}
@@ -247,7 +384,11 @@ export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
                 <MessageBubbleContent msg={msg} />
               </div>
               {isOutbound && (
-                <Bot className="h-4 w-4 mt-0.5 shrink-0 opacity-70" />
+                <OutboundIcon
+                  className="h-4 w-4 mt-0.5 shrink-0 opacity-70"
+                  title={isAgentMessage ? "Agent" : "Bot"}
+                  aria-label={isAgentMessage ? "Agent" : "Bot"}
+                />
               )}
             </div>
             <div
@@ -258,10 +399,7 @@ export function ChatWindow({ messages, currentUserId }: ChatWindowProps) {
                   : "text-muted-foreground",
               )}
             >
-              {new Date(msg.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatTimelineTime(msg.createdAt)}
             </div>
           </div>
         );

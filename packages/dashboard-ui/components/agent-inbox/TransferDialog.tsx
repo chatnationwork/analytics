@@ -12,6 +12,8 @@ interface TransferDialogProps {
   contactName?: string;
   /** When set, show "Transfer N chats" (bulk transfer mode). */
   sessionCount?: number;
+  /** When true, user must provide a transfer reason (organization setting). */
+  reasonRequired?: boolean;
 }
 
 export function TransferDialog({
@@ -20,6 +22,7 @@ export function TransferDialog({
   onTransfer,
   contactName,
   sessionCount,
+  reasonRequired = false,
 }: TransferDialogProps) {
   const [agents, setAgents] = useState<AvailableAgent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
@@ -57,6 +60,7 @@ export function TransferDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAgentId) return;
+    if (reasonRequired && !reason.trim()) return;
 
     setIsSubmitting(true);
     try {
@@ -187,13 +191,14 @@ export function TransferDialog({
           {/* Transfer Reason */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
-              Reason (Optional)
+              Reason {reasonRequired ? <span className="text-red-500">*</span> : "(Optional)"}
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Why are you transferring this chat?"
               rows={2}
+              required={reasonRequired}
               className="w-full px-3 py-2 bg-background border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
           </div>
@@ -208,7 +213,14 @@ export function TransferDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!selectedAgentId || isSubmitting}>
+            <Button
+              type="submit"
+              disabled={
+                !selectedAgentId ||
+                isSubmitting ||
+                (reasonRequired && !reason.trim())
+              }
+            >
               {isSubmitting
                 ? "Transferring..."
                 : sessionCount != null && sessionCount > 1

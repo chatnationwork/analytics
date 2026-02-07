@@ -54,6 +54,8 @@ export interface TenantSettings {
   passwordExpiryDays?: number | null;
   /** When true, all users in the org must have 2FA enabled (phone set). Only configurable by users with settings.two_factor. */
   twoFactorRequired?: boolean;
+  /** When true, agents must provide a reason when transferring a chat. Admin-configurable. */
+  transferReasonRequired?: boolean;
 }
 
 /** Configuration for session management */

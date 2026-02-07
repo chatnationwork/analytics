@@ -19,6 +19,7 @@ import {
 import { ChatList } from "@/components/agent-inbox/ChatList";
 import { ChatWindow } from "@/components/agent-inbox/ChatWindow";
 import { MessageInput } from "@/components/agent-inbox/MessageInput";
+import { SessionExpiryTimer } from "@/components/agent-inbox/SessionExpiryTimer";
 import { ResolveDialog } from "@/components/agent-inbox/ResolveDialog";
 import { TransferDialog } from "@/components/agent-inbox/TransferDialog";
 import { ContactProfilePanel } from "@/components/agent-inbox/ContactProfilePanel";
@@ -33,6 +34,7 @@ import {
   type TenantInboxCounts,
 } from "@/lib/api/agent";
 import { authClient } from "@/lib/auth-client";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 const FILTER_TABS_AGENT: {
@@ -86,10 +88,14 @@ export default function AgentInboxPage() {
     () => new Set(),
   );
   const [messages, setMessages] = useState<Message[]>([]);
+  /** Full session from getSession (includes context.transfers for chat history). */
+  const [currentSessionDetail, setCurrentSessionDetail] =
+    useState<InboxSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [canViewAllChats, setCanViewAllChats] = useState(false);
   const [canBulkTransfer, setCanBulkTransfer] = useState(false);
+  const [canTransfer, setCanTransfer] = useState(false);
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
@@ -108,6 +114,14 @@ export default function AgentInboxPage() {
     queryClient.invalidateQueries({ queryKey: ["agent-inbox-counts"] });
   }, [queryClient]);
 
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant"],
+    queryFn: () => api.getCurrentTenant(),
+  });
+  const transferReasonRequired =
+    (tenant?.settings as { transferReasonRequired?: boolean } | undefined)
+      ?.transferReasonRequired === true;
+
   // Fetch current user and permissions on mount
   useEffect(() => {
     authClient
@@ -120,6 +134,12 @@ export default function AgentInboxPage() {
         setCanBulkTransfer(
           u.permissions?.global?.includes("session.bulk_transfer") ?? false,
         );
+        const hasTransfer =
+          (u.permissions?.global ?? []).includes("session.transfer") ||
+          Object.values(u.permissions?.team ?? {}).some((arr) =>
+            arr.includes("session.transfer"),
+          );
+        setCanTransfer(hasTransfer);
       })
       .catch(console.error);
   }, []);
@@ -187,6 +207,7 @@ export default function AgentInboxPage() {
         const serverMessages = Array.isArray(data?.messages)
           ? data.messages
           : [];
+        if (data?.session != null) setCurrentSessionDetail(data.session);
         setMessages((prev) => {
           const optimistic = prev.filter((m) =>
             String(m.id).startsWith("temp-"),
@@ -204,15 +225,11 @@ export default function AgentInboxPage() {
 
   const handleSelectSession = async (session: InboxSession) => {
     setSelectedSessionId(session.id);
+    setCurrentSessionDetail(null);
     try {
       const data = await agentApi.getSession(session.id);
       setMessages(Array.isArray(data?.messages) ? data.messages : []);
-
-      // Mark as read locally or refresh session data if needed
-      if (session.status === "unassigned") {
-        // Auto-accept? Or just show "Accept" button?
-        // For now just show.
-      }
+      if (data?.session != null) setCurrentSessionDetail(data.session);
     } catch (error) {
       console.error("Failed to fetch session details:", error);
     }
@@ -252,6 +269,7 @@ export default function AgentInboxPage() {
       content: typeof content === "string" ? content : "",
       metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       createdAt: new Date().toISOString(),
+      senderId: currentUserId,
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
@@ -549,7 +567,7 @@ export default function AgentInboxPage() {
                   className="gap-1.5"
                 >
                   <User className="h-4 w-4" />
-                  <span className="hidden sm:inline">Contact</span>
+                  <span className="hidden sm:inline">Taxpayer Profile</span>
                 </Button>
                 {selectedSession &&
                   isSessionExpired(selectedSession) &&
@@ -583,7 +601,7 @@ export default function AgentInboxPage() {
                       Accept Chat
                     </Button>
                   )}
-                {selectedSession?.status === "assigned" && (
+                {selectedSession?.status === "assigned" && canTransfer && (
                   <>
                     <Button
                       size="sm"
@@ -623,7 +641,16 @@ export default function AgentInboxPage() {
               </div>
             </CardHeader>
 
-            <ChatWindow messages={messages} currentUserId={currentUserId} />
+            <SessionExpiryTimer
+              messages={messages}
+              show={selectedSession?.status !== "resolved"}
+            />
+
+            <ChatWindow
+              messages={messages}
+              currentUserId={currentUserId}
+              session={currentSessionDetail}
+            />
 
             <MessageInput
               onSendMessage={handleSendMessage}
@@ -674,6 +701,7 @@ export default function AgentInboxPage() {
         sessionCount={
           bulkTransferMode ? bulkSelectedSessionIds.size : undefined
         }
+        reasonRequired={transferReasonRequired}
       />
     </div>
   );

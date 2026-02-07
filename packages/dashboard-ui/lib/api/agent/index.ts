@@ -69,6 +69,17 @@ export interface Message {
   /** Media ID, filename, or location coords for non-text messages */
   metadata?: Record<string, unknown>;
   createdAt: string;
+  /** Set when sent by an agent from this platform (dashboard); absent for bot/automated outbound. */
+  senderId?: string | null;
+}
+
+/** Transfer record stored in session.context.transfers (from backend). */
+export interface SessionTransfer {
+  from?: string;
+  to?: string;
+  reason?: string;
+  timestamp?: string;
+  isTakeover?: boolean;
 }
 
 /** Payload for sending a message (text, image, video, audio, document, location). */

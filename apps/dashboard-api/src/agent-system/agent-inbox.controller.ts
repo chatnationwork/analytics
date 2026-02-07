@@ -21,6 +21,7 @@ import {
   Req,
   UseGuards,
   ForbiddenException,
+  BadRequestException,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { InboxService, InboxFilter } from "./inbox.service";
@@ -629,15 +630,47 @@ export class AgentInboxController {
   }
 
   /**
-   * Transfer a session to another agent
+   * Transfer a session to another agent. Requires session.transfer permission.
+   * If tenant setting transferReasonRequired is true, reason is mandatory.
    */
   @Post(":sessionId/transfer")
   async transferSession(
-    @Request() req: { user: { id: string; tenantId: string } },
+    @Request()
+    req: {
+      user: {
+        id: string;
+        tenantId: string;
+        permissions?: { global?: string[]; team?: Record<string, string[]> };
+      };
+    },
     @Param("sessionId") sessionId: string,
     @Req() expressReq: RequestLike,
     @Body() dto: TransferSessionDto,
   ) {
+    const hasTransfer =
+      (req.user.permissions?.global ?? []).includes(
+        Permission.SESSION_TRANSFER as string,
+      ) ||
+      Object.values(req.user.permissions?.team ?? {}).some((arr) =>
+        arr.includes(Permission.SESSION_TRANSFER as string),
+      );
+    if (!hasTransfer) {
+      throw new ForbiddenException(
+        "You do not have permission to transfer this chat",
+      );
+    }
+    const tenant = await this.tenantRepository.findById(req.user.tenantId);
+    const transferReasonRequired =
+      (tenant?.settings as { transferReasonRequired?: boolean } | undefined)
+        ?.transferReasonRequired === true;
+    if (
+      transferReasonRequired &&
+      (!dto.reason || String(dto.reason).trim() === "")
+    ) {
+      throw new BadRequestException(
+        "A transfer reason is required by your organization",
+      );
+    }
     const session = await this.inboxService.transferSession(
       sessionId,
       req.user.id,
@@ -662,12 +695,31 @@ export class AgentInboxController {
   }
 
   /**
-   * Get available agents for transferring a session
+   * Get available agents for transferring a session. Requires session.transfer permission.
    */
   @Get("transfer/agents")
   async getAvailableAgents(
-    @Request() req: { user: { id: string; tenantId: string } },
+    @Request()
+    req: {
+      user: {
+        id: string;
+        tenantId: string;
+        permissions?: { global?: string[]; team?: Record<string, string[]> };
+      };
+    },
   ) {
+    const hasTransfer =
+      (req.user.permissions?.global ?? []).includes(
+        Permission.SESSION_TRANSFER as string,
+      ) ||
+      Object.values(req.user.permissions?.team ?? {}).some((arr) =>
+        arr.includes(Permission.SESSION_TRANSFER as string),
+      );
+    if (!hasTransfer) {
+      throw new ForbiddenException(
+        "You do not have permission to transfer chats",
+      );
+    }
     return this.inboxService.getAvailableAgentsForTransfer(
       req.user.tenantId,
       req.user.id,

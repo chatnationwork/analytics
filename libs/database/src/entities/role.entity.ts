@@ -24,6 +24,8 @@ export enum Permission {
   TEAM_ANALYTICS = "team.analytics",
   SESSION_VIEW = "session.view",
   SESSION_MANAGE = "session.manage",
+  /** Transfer a single chat to another agent (assigned agent only). Given to everyone for now. */
+  SESSION_TRANSFER = "session.transfer",
   AGENT_ASSIGN = "agent.assign",
   /** Bulk transfer multiple chats to an agent (team managers and above). */
   SESSION_BULK_TRANSFER = "session.bulk_transfer",
