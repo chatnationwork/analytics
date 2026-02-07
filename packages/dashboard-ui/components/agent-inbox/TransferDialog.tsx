@@ -96,8 +96,10 @@ export function TransferDialog({
             </h2>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground"
+            aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
@@ -191,7 +193,12 @@ export function TransferDialog({
           {/* Transfer Reason */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
-              Reason {reasonRequired ? <span className="text-red-500">*</span> : "(Optional)"}
+              Reason{" "}
+              {reasonRequired ? (
+                <span className="text-red-500">*</span>
+              ) : (
+                "(Optional)"
+              )}
             </label>
             <textarea
               value={reason}

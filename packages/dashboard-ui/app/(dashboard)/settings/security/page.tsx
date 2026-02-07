@@ -450,6 +450,58 @@ function SettingsSecurityContent() {
         )}
       </div>
 
+      {/* Transfer reason mandatory (admins) */}
+      {canManageSettings && (
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <h2 className="text-base font-medium text-foreground">
+                Chat transfer
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                When enabled, agents must provide a reason when transferring a
+                chat to another agent.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="transfer-reason-required" className="text-sm">
+              Transfer reason mandatory
+            </Label>
+            <Switch
+              id="transfer-reason-required"
+              checked={Boolean(
+                (
+                  tenant?.settings as
+                    | { transferReasonRequired?: boolean }
+                    | undefined
+                )?.transferReasonRequired,
+              )}
+              onCheckedChange={async (checked) => {
+                try {
+                  await api.updateTenantSettings({
+                    transferReasonRequired: checked,
+                  });
+                  queryClient.invalidateQueries({
+                    queryKey: ["tenant-current"],
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["tenant"] });
+                } catch (err) {
+                  setMessage({
+                    type: "error",
+                    text:
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to update setting",
+                  });
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Require 2FA for organization (users with settings.two_factor, e.g. super admins) */}
       {canConfigureTwoFactor && (
         <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
