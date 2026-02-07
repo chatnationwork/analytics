@@ -46,6 +46,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException("User not found");
     }
 
+    const tenants = await this.tenantRepository.findByUserId(user.id);
+    const activeTenant = tenants[0];
+    const singleLoginEnforced =
+      activeTenant?.settings?.session?.singleLoginEnforced === true;
+
+    // When single login is enforced, tokens without sessionId (legacy) are invalid
+    // so that we have a stored session for every active user and can require
+    // verification when they log in from another device.
+    if (singleLoginEnforced && !payload.sessionId) {
+      throw new UnauthorizedException("Session invalid. Please sign in again.");
+    }
+
     const isSessionValid = await this.authService.isSessionValid(
       payload.sub,
       payload.sessionId,
@@ -55,10 +67,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         "Session has been replaced by another login",
       );
     }
-
-    // Check for session revocation
-    const tenants = await this.tenantRepository.findByUserId(user.id);
-    const activeTenant = tenants[0];
 
     if (
       activeTenant &&
