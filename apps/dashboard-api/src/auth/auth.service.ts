@@ -697,12 +697,37 @@ export class AuthService {
     }
 
     if (dto.token) {
-      const tokenHash = this.hashResetToken(dto.token.trim());
-      const row = await this.sessionTakeoverRepo.findOne({
+      const rawToken = dto.token.trim();
+      const tokenHash = this.hashResetToken(rawToken);
+      this.logger.log(
+        `Session takeover (email): token length=${rawToken.length}, attempting lookup`,
+      );
+
+      let row = await this.sessionTakeoverRepo.findOne({
         where: { emailTokenHash: tokenHash },
         relations: ["user"],
       });
+
+      if ((!row || row.method !== "email") && dto.requestId) {
+        this.logger.log(
+          `Session takeover (email): no row by hash, trying requestId=${dto.requestId}`,
+        );
+        row = await this.sessionTakeoverRepo.findOne({
+          where: { id: dto.requestId },
+          relations: ["user"],
+        });
+        if (row && row.method === "email" && row.emailTokenHash !== tokenHash) {
+          this.logger.warn(
+            `Session takeover (email): requestId row found but token hash mismatch`,
+          );
+          row = null;
+        }
+      }
+
       if (!row || row.method !== "email") {
+        this.logger.warn(
+          `Session takeover (email): no valid row found (by hash or requestId)`,
+        );
         throw new UnauthorizedException(
           "Invalid or expired link. Please log in again.",
         );

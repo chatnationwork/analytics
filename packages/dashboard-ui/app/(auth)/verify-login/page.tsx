@@ -21,6 +21,7 @@ function VerifyLoginContent() {
   useEffect(() => {
     if (verificationStarted.current) return;
     const token = searchParams.get("token");
+    const requestId = searchParams.get("requestId") ?? undefined;
     if (!token) {
       setError("Invalid link. Please sign in again.");
       setStatus("error");
@@ -30,7 +31,7 @@ function VerifyLoginContent() {
     verificationStarted.current = true;
 
     (async () => {
-      const result = await verifySessionTakeoverAction({ token });
+      const result = await verifySessionTakeoverAction({ token, requestId });
       if (!result.success || !result.token || !result.user) {
         setError(
           result.error ?? "Invalid or expired link. Please sign in again.",
