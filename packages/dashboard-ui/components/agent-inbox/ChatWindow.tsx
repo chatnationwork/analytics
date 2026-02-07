@@ -384,11 +384,12 @@ export function ChatWindow({
                 <MessageBubbleContent msg={msg} />
               </div>
               {isOutbound && (
-                <OutboundIcon
-                  className="h-4 w-4 mt-0.5 shrink-0 opacity-70"
-                  title={isAgentMessage ? "Agent" : "Bot"}
-                  aria-label={isAgentMessage ? "Agent" : "Bot"}
-                />
+                <span title={isAgentMessage ? "Agent" : "Bot"}>
+                  <OutboundIcon
+                    className="h-4 w-4 mt-0.5 shrink-0 opacity-70"
+                    aria-label={isAgentMessage ? "Agent" : "Bot"}
+                  />
+                </span>
               )}
             </div>
             <div
