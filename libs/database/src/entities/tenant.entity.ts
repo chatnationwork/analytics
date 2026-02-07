@@ -71,6 +71,9 @@ export interface SessionSettings {
    * Any token issued before this time will be considered invalid.
    */
   sessionsRevokedAt?: string; // ISO Date string
+
+  /** When true, only one active session per user; new login requires identity verification. */
+  singleLoginEnforced?: boolean;
 }
 
 /** Password complexity rules for new users (invite claim, etc.). Stored in tenant.settings.passwordComplexity. */

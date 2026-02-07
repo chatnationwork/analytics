@@ -36,6 +36,19 @@ export async function loginAction(email: string, password: string) {
     }
 
     if (
+      responseData.requiresSessionVerification &&
+      responseData.sessionVerificationRequestId
+    ) {
+      return {
+        success: false,
+        requiresSessionVerification: true,
+        sessionVerificationMethod:
+          responseData.sessionVerificationMethod ?? "email",
+        sessionVerificationRequestId: responseData.sessionVerificationRequestId,
+      };
+    }
+
+    if (
       responseData.requiresPasswordChange &&
       responseData.changePasswordToken
     ) {
@@ -114,6 +127,63 @@ export async function verify2FaAction(twoFactorToken: string, code: string) {
     };
   } catch (error) {
     console.error("Verify 2FA action error:", error);
+    return { success: false, error: "Network error or server unavailable" };
+  }
+}
+
+export async function verifySessionTakeoverAction(params: {
+  requestId?: string;
+  code?: string;
+  token?: string;
+}) {
+  if (!API_URL) {
+    return { success: false, error: "Server configuration error" };
+  }
+  try {
+    const body: { requestId?: string; code?: string; token?: string } = {};
+    if (params.requestId) body.requestId = params.requestId;
+    if (params.code) body.code = params.code;
+    if (params.token) body.token = params.token;
+
+    const res = await fetch(
+      `${API_URL}/api/dashboard/auth/verify-session-takeover`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+
+    const data = await res.json();
+    const responseData = data.data ?? data;
+
+    if (!res.ok) {
+      return {
+        success: false,
+        error: data.message ?? "Invalid or expired verification",
+      };
+    }
+
+    if (!responseData.accessToken || !responseData.user) {
+      return { success: false, error: "Invalid response" };
+    }
+
+    const cookieStore = await cookies();
+    cookieStore.set("accessToken", responseData.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: responseData.expiresIn ?? 60 * 60 * 24 * 7,
+      sameSite: "lax",
+    });
+
+    return {
+      success: true,
+      token: responseData.accessToken,
+      user: responseData.user,
+    };
+  } catch (error) {
+    console.error("Verify session takeover error:", error);
     return { success: false, error: "Network error or server unavailable" };
   }
 }

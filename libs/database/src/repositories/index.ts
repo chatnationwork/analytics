@@ -34,3 +34,4 @@ export * from "./api-key.repository";
 export * from "./contact.repository";
 export * from "./agent-session.repository";
 export * from "./audit-log.repository";
+export * from "./user-session.repository";

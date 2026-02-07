@@ -60,6 +60,8 @@ import { AgentSessionEntity } from "./entities/agent-session.entity";
 import { AuditLogEntity } from "./entities/audit-log.entity";
 import { TwoFaVerificationEntity } from "./entities/two-fa-verification.entity";
 import { PasswordResetTokenEntity } from "./entities/password-reset-token.entity";
+import { UserSessionEntity } from "./entities/user-session.entity";
+import { SessionTakeoverRequestEntity } from "./entities/session-takeover-request.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -70,6 +72,7 @@ import { ApiKeyRepository } from "./repositories/api-key.repository";
 import { ContactRepository } from "./repositories/contact.repository";
 import { AgentSessionRepository } from "./repositories/agent-session.repository";
 import { AuditLogRepository } from "./repositories/audit-log.repository";
+import { UserSessionRepository } from "./repositories/user-session.repository";
 
 /**
  * All entities that map to database tables.
@@ -102,6 +105,8 @@ const entities = [
   AuditLogEntity,
   TwoFaVerificationEntity,
   PasswordResetTokenEntity,
+  UserSessionEntity,
+  SessionTakeoverRequestEntity,
 ];
 
 /**
@@ -119,6 +124,7 @@ const repositories = [
   ContactRepository,
   AgentSessionRepository,
   AuditLogRepository,
+  UserSessionRepository,
 ];
 
 /**

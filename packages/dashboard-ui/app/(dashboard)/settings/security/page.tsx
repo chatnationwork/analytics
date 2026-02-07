@@ -450,56 +450,118 @@ function SettingsSecurityContent() {
         )}
       </div>
 
-      {/* Transfer reason mandatory (admins) */}
+      {/* Single login & transfer (admins) */}
       {canManageSettings && (
-        <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <h2 className="text-base font-medium text-foreground">
-                Chat transfer
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                When enabled, agents must provide a reason when transferring a
-                chat to another agent.
-              </p>
+        <>
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <h2 className="text-base font-medium text-foreground">
+                  Single login per user
+                </h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  When enabled, only one active session per user is allowed. If
+                  a user signs in from another device or browser, they must
+                  verify their identity (2FA code or email link) before signing
+                  in there; the previous session will be signed out.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="single-login-enforced" className="text-sm">
+                Enforce single login
+              </Label>
+              <Switch
+                id="single-login-enforced"
+                checked={Boolean(
+                  (
+                    tenant?.settings as
+                      | { session?: { singleLoginEnforced?: boolean } }
+                      | undefined
+                  )?.session?.singleLoginEnforced,
+                )}
+                onCheckedChange={async (checked) => {
+                  try {
+                    const currentSession =
+                      (
+                        tenant?.settings as
+                          | { session?: Record<string, unknown> }
+                          | undefined
+                      )?.session ?? {};
+                    await api.updateTenantSettings({
+                      session: {
+                        ...currentSession,
+                        singleLoginEnforced: checked,
+                      },
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: ["tenant-current"],
+                    });
+                    queryClient.invalidateQueries({ queryKey: ["tenant"] });
+                  } catch (err) {
+                    setMessage({
+                      type: "error",
+                      text:
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to update setting",
+                    });
+                  }
+                }}
+              />
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="transfer-reason-required" className="text-sm">
-              Transfer reason mandatory
-            </Label>
-            <Switch
-              id="transfer-reason-required"
-              checked={Boolean(
-                (
-                  tenant?.settings as
-                    | { transferReasonRequired?: boolean }
-                    | undefined
-                )?.transferReasonRequired,
-              )}
-              onCheckedChange={async (checked) => {
-                try {
-                  await api.updateTenantSettings({
-                    transferReasonRequired: checked,
-                  });
-                  queryClient.invalidateQueries({
-                    queryKey: ["tenant-current"],
-                  });
-                  queryClient.invalidateQueries({ queryKey: ["tenant"] });
-                } catch (err) {
-                  setMessage({
-                    type: "error",
-                    text:
-                      err instanceof Error
-                        ? err.message
-                        : "Failed to update setting",
-                  });
-                }
-              }}
-            />
+
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-6">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <h2 className="text-base font-medium text-foreground">
+                  Chat transfer
+                </h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  When enabled, agents must provide a reason when transferring a
+                  chat to another agent.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="transfer-reason-required" className="text-sm">
+                Transfer reason mandatory
+              </Label>
+              <Switch
+                id="transfer-reason-required"
+                checked={Boolean(
+                  (
+                    tenant?.settings as
+                      | { transferReasonRequired?: boolean }
+                      | undefined
+                  )?.transferReasonRequired,
+                )}
+                onCheckedChange={async (checked) => {
+                  try {
+                    await api.updateTenantSettings({
+                      transferReasonRequired: checked,
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: ["tenant-current"],
+                    });
+                    queryClient.invalidateQueries({ queryKey: ["tenant"] });
+                  } catch (err) {
+                    setMessage({
+                      type: "error",
+                      text:
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to update setting",
+                    });
+                  }
+                }}
+              />
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Require 2FA for organization (users with settings.two_factor, e.g. super admins) */}

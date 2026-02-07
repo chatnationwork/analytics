@@ -32,6 +32,7 @@ import {
   Resend2FaDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  VerifySessionTakeoverDto,
 } from "./dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { CurrentUser } from "./current-user.decorator";
@@ -161,6 +162,37 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resend2Fa(@Body() dto: Resend2FaDto): Promise<{ success: boolean }> {
     return this.authService.resendTwoFactorCode(dto);
+  }
+
+  /**
+   * Verify session takeover (2FA code or email token) and complete login. Replaces previous session.
+   */
+  @Post("verify-session-takeover")
+  @HttpCode(HttpStatus.OK)
+  async verifySessionTakeover(
+    @Body() dto: VerifySessionTakeoverDto,
+    @Req()
+    req: {
+      headers?: Record<string, string | string[] | undefined>;
+      socket?: { remoteAddress?: string };
+      ip?: string;
+    },
+  ): Promise<LoginResponseDto> {
+    const requestContext = getRequestContext(req);
+    const response = await this.authService.verifySessionTakeover(dto);
+    if (response.user) {
+      await this.auditService.log({
+        tenantId: response.user.tenantId,
+        actorId: response.user.id,
+        actorType: "user",
+        action: AuditActions.AUTH_LOGIN,
+        resourceType: "user",
+        resourceId: response.user.id,
+        details: { email: response.user.email, viaSessionTakeover: true },
+        requestContext,
+      });
+    }
+    return response;
   }
 
   /**

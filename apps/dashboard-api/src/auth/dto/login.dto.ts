@@ -6,7 +6,14 @@
  * Data Transfer Object for user login.
  */
 
-import { IsEmail, IsString, MinLength } from "class-validator";
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsOptional,
+  IsUUID,
+  MaxLength,
+} from "class-validator";
 
 export class ChangePasswordDto {
   @IsString()
@@ -67,4 +74,29 @@ export class LoginResponseDto {
 
   /** Short-lived token (Bearer) for POST /auth/change-password when requiresPasswordChange is true */
   changePasswordToken?: string;
+
+  /** When true, user has another active session; must verify identity (2FA or email) via verify-session-takeover */
+  requiresSessionVerification?: boolean;
+
+  /** How to verify: '2fa' (submit code) or 'email' (click link we sent) */
+  sessionVerificationMethod?: "2fa" | "email";
+
+  /** Opaque id for POST /auth/verify-session-takeover (with code for 2fa) */
+  sessionVerificationRequestId?: string;
+}
+
+/** Body for POST /auth/verify-session-takeover: 2FA path (requestId + code) or email path (token from link). */
+export class VerifySessionTakeoverDto {
+  @IsOptional()
+  @IsUUID()
+  requestId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  token?: string;
 }

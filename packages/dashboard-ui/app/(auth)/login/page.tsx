@@ -7,7 +7,12 @@ import * as z from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { toast } from "sonner";
-import { loginAction, verify2FaAction, resend2FaAction } from "./actions";
+import {
+  loginAction,
+  verify2FaAction,
+  resend2FaAction,
+  verifySessionTakeoverAction,
+} from "./actions";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 const loginSchema = z.object({
@@ -46,6 +51,10 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
+  const [sessionVerification, setSessionVerification] = useState<{
+    method: "2fa" | "email";
+    requestId: string;
+  } | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resending, setResending] = useState(false);
 
@@ -87,6 +96,23 @@ function LoginForm() {
         return;
       }
 
+      if (
+        result.requiresSessionVerification &&
+        result.sessionVerificationRequestId
+      ) {
+        setSessionVerification({
+          method:
+            (result.sessionVerificationMethod as "2fa" | "email") ?? "email",
+          requestId: result.sessionVerificationRequestId,
+        });
+        if (result.sessionVerificationMethod === "email") {
+          toast.info("Check your email for a link to sign in here.");
+        } else {
+          toast.info("Enter the code sent to your WhatsApp to sign in here.");
+        }
+        return;
+      }
+
       if (result.requiresPasswordChange && result.changePasswordToken) {
         if (typeof window !== "undefined") {
           sessionStorage.setItem(
@@ -116,6 +142,33 @@ function LoginForm() {
   };
 
   const onVerifySubmit = async (data: Verify2FaFormData) => {
+    if (
+      sessionVerification?.method === "2fa" &&
+      sessionVerification?.requestId
+    ) {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await verifySessionTakeoverAction({
+          requestId: sessionVerification.requestId,
+          code: data.code,
+        });
+        if (!result.success || !result.token || !result.user) {
+          throw new Error(result.error ?? "Invalid code");
+        }
+        login(result.token, result.user);
+        toast.success("Welcome back! Your other session was signed out.");
+        router.push("/agent-inbox");
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Invalid code";
+        setError(message);
+        toast.error(message);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     if (!twoFactorToken) return;
     setIsLoading(true);
     setError(null);
@@ -137,6 +190,104 @@ function LoginForm() {
       setIsLoading(false);
     }
   };
+
+  if (sessionVerification?.method === "2fa") {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Verify your identity
+        </h2>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          You're signed in elsewhere. Enter the 6-digit code sent to your
+          WhatsApp to sign in here. Your other session will be signed out.
+        </p>
+
+        <form
+          onSubmit={verifyForm.handleSubmit(onVerifySubmit)}
+          className="mt-8 space-y-6"
+        >
+          {error && (
+            <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label
+              htmlFor="code"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Code
+            </label>
+            <div className="mt-1">
+              <input
+                id="code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="000000"
+                {...verifyForm.register("code")}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3 text-center text-lg tracking-widest"
+              />
+              {verifyForm.formState.errors.code && (
+                <p className="mt-1 text-sm text-red-600">
+                  {verifyForm.formState.errors.code.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+          >
+            {isLoading ? "Verifying..." : "Verify"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSessionVerification(null);
+              setError(null);
+            }}
+            className="w-full text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+          >
+            Back to sign in
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  if (sessionVerification?.method === "email") {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Check your email
+        </h2>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          You're signed in elsewhere. We sent a link to your email. Click it to
+          sign in here—your other session will be signed out.
+        </p>
+        <p className="mt-4 text-sm text-gray-500 dark:text-gray-500">
+          The link expires in 15 minutes. Didn't get it? Check spam or try
+          signing in again.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setSessionVerification(null);
+            setError(null);
+          }}
+          className="mt-6 w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+        >
+          Back to sign in
+        </button>
+      </div>
+    );
+  }
 
   if (twoFactorToken) {
     return (

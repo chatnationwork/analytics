@@ -20,6 +20,7 @@ import { TwoFactorEnforcementInterceptor } from "./two-factor-enforcement.interc
 import { DatabaseModule } from "@lib/database";
 import { TwoFaVerificationEntity } from "@lib/database/entities/two-fa-verification.entity";
 import { PasswordResetTokenEntity } from "@lib/database/entities/password-reset-token.entity";
+import { SessionTakeoverRequestEntity } from "@lib/database/entities/session-takeover-request.entity";
 import { RbacModule } from "../agent-system/rbac.module";
 import { AuditModule } from "../audit/audit.module";
 import { AgentSystemModule } from "../agent-system/agent-system.module";
@@ -36,6 +37,7 @@ import { EmailModule } from "../email/email.module";
     TypeOrmModule.forFeature([
       TwoFaVerificationEntity,
       PasswordResetTokenEntity,
+      SessionTakeoverRequestEntity,
     ]),
 
     PassportModule.register({ defaultStrategy: "jwt" }),

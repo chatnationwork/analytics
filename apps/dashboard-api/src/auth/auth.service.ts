@@ -24,12 +24,17 @@ import { validate as uuidValidate } from "uuid";
 import {
   UserRepository,
   TenantRepository,
+  UserSessionRepository,
   TeamMemberEntity,
   validatePassword,
   getDefaultPasswordComplexity,
 } from "@lib/database";
 import { TwoFaVerificationEntity } from "@lib/database/entities/two-fa-verification.entity";
 import { PasswordResetTokenEntity } from "@lib/database/entities/password-reset-token.entity";
+import {
+  SessionTakeoverRequestEntity,
+  SessionTakeoverMethod,
+} from "@lib/database/entities/session-takeover-request.entity";
 import { RbacService } from "../agent-system/rbac.service";
 import { EmailService } from "../email/email.service";
 import { PresenceService } from "../agent-system/presence.service";
@@ -43,12 +48,15 @@ import {
   Verify2FaDto,
   Update2FaDto,
   Resend2FaDto,
+  VerifySessionTakeoverDto,
 } from "./dto";
 
 /** JWT payload structure */
 export interface JwtPayload {
   sub: string; // User ID
   email: string;
+  /** Session id for single-login enforcement; validated on each request when present. */
+  sessionId?: string;
   iat?: number; // Issued at
   exp?: number; // Expiry
 }
@@ -76,15 +84,20 @@ export class AuthService {
 
   private readonly PASSWORD_RESET_TOKEN_TTL_HOURS = 24;
 
+  private readonly SESSION_TAKEOVER_EMAIL_TTL_MINUTES = 15;
+
   constructor(
     private readonly userRepository: UserRepository,
     private readonly tenantRepository: TenantRepository,
+    private readonly userSessionRepository: UserSessionRepository,
     @InjectRepository(TeamMemberEntity)
     private readonly teamMemberRepo: Repository<TeamMemberEntity>,
     @InjectRepository(TwoFaVerificationEntity)
     private readonly twoFaRepo: Repository<TwoFaVerificationEntity>,
     @InjectRepository(PasswordResetTokenEntity)
     private readonly passwordResetTokenRepo: Repository<PasswordResetTokenEntity>,
+    @InjectRepository(SessionTakeoverRequestEntity)
+    private readonly sessionTakeoverRepo: Repository<SessionTakeoverRequestEntity>,
     private readonly configService: ConfigService,
     private readonly rbacService: RbacService,
     private readonly jwtService: JwtService,
@@ -172,17 +185,63 @@ export class AuthService {
       throw new UnauthorizedException("Invalid email or password");
     }
 
+    const tenants = await this.tenantRepository.findByUserId(user.id);
+    const activeTenant = tenants[0];
+    const singleLoginEnforced =
+      activeTenant?.settings?.session?.singleLoginEnforced === true;
+    const existingSessionId = singleLoginEnforced
+      ? await this.userSessionRepository.getCurrentSessionId(user.id)
+      : null;
+
     if (user.twoFactorEnabled) {
       if (!user.phone || user.phone.trim() === "") {
         throw new BadRequestException(
           "2FA is enabled but no phone number is set. Contact support.",
         );
       }
-      const tenants = await this.tenantRepository.findByUserId(user.id);
       const tenantId = tenants[0]?.id;
       if (!tenantId) {
         throw new BadRequestException("User has no organization.");
       }
+
+      if (existingSessionId) {
+        const code = this.generateSixDigitCode();
+        const expiresAt = new Date();
+        expiresAt.setMinutes(
+          expiresAt.getMinutes() + this.TWO_FA_CODE_TTL_MINUTES,
+        );
+        const request = await this.sessionTakeoverRepo.save({
+          userId: user.id,
+          method: "2fa" as SessionTakeoverMethod,
+          code,
+          emailTokenHash: null,
+          expiresAt,
+        });
+
+        const sendResult = await this.whatsappService.sendTwoFactorCode(
+          tenantId,
+          user.phone,
+          code,
+        );
+        if (!sendResult.success) {
+          this.logger.warn(
+            `Failed to send session takeover code to ${user.email}: ${sendResult.error}`,
+          );
+          throw new BadRequestException(
+            sendResult.error ??
+              "Could not send code to WhatsApp. Check CRM setup.",
+          );
+        }
+        this.logger.log(
+          `Session verification (2FA) required for ${user.email}; code sent`,
+        );
+        return {
+          requiresSessionVerification: true,
+          sessionVerificationMethod: "2fa",
+          sessionVerificationRequestId: request.id,
+        };
+      }
+
       const code = this.generateSixDigitCode();
       const token = randomUUID();
       const expiresAt = new Date();
@@ -219,8 +278,36 @@ export class AuthService {
       };
     }
 
-    const tenants = await this.tenantRepository.findByUserId(user.id);
-    const activeTenant = tenants[0];
+    if (existingSessionId) {
+      const token = randomBytes(32).toString("hex");
+      const emailTokenHash = this.hashResetToken(token);
+      const expiresAt = new Date();
+      expiresAt.setMinutes(
+        expiresAt.getMinutes() + this.SESSION_TAKEOVER_EMAIL_TTL_MINUTES,
+      );
+      const request = await this.sessionTakeoverRepo.save({
+        userId: user.id,
+        method: "email" as SessionTakeoverMethod,
+        code: null,
+        emailTokenHash,
+        expiresAt,
+      });
+
+      const frontendUrl =
+        this.configService.get<string>("FRONTEND_URL") ||
+        "http://localhost:3000";
+      const verifyUrl = `${frontendUrl}/verify-login?token=${encodeURIComponent(token)}&requestId=${encodeURIComponent(request.id)}`;
+
+      await this.emailService.sendSessionTakeoverEmail(user.email, verifyUrl);
+      this.logger.log(
+        `Session verification (email) required for ${user.email}; email sent`,
+      );
+      return {
+        requiresSessionVerification: true,
+        sessionVerificationMethod: "email",
+        sessionVerificationRequestId: request.id,
+      };
+    }
 
     // If tenant has password expiry, force change when stale
     const expiryDays =
@@ -555,15 +642,96 @@ export class AuthService {
   }
 
   /**
-   * Logout: set agent presence to offline.
-   * Call this when the user explicitly logs out so they stop receiving assignments.
+   * Logout: clear single-login session and set agent presence to offline.
    */
   async logout(tenantId: string, userId: string): Promise<void> {
+    await this.userSessionRepository.clearSession(userId);
     await this.presenceService
       .goOffline(tenantId, userId)
       .catch((err) =>
         this.logger.warn(`Failed to set presence offline: ${err?.message}`),
       );
+  }
+
+  /**
+   * Verify session takeover (2FA code or email token) and issue new JWT, replacing previous session.
+   */
+  async verifySessionTakeover(
+    dto: VerifySessionTakeoverDto,
+  ): Promise<LoginResponseDto> {
+    if (dto.requestId && dto.code) {
+      const row = await this.sessionTakeoverRepo.findOne({
+        where: { id: dto.requestId },
+        relations: ["user"],
+      });
+      if (!row || row.method !== "2fa") {
+        throw new UnauthorizedException(
+          "Invalid or expired verification. Please log in again.",
+        );
+      }
+      if (new Date() > row.expiresAt) {
+        await this.sessionTakeoverRepo.delete({ id: row.id });
+        throw new UnauthorizedException(
+          "Verification expired. Please log in again.",
+        );
+      }
+      if (row.code !== dto.code) {
+        throw new UnauthorizedException("Invalid code.");
+      }
+      const user = row.user;
+      if (!user) {
+        throw new UnauthorizedException("User not found.");
+      }
+      await this.sessionTakeoverRepo.delete({ id: row.id });
+      await this.userRepository.updateLastLogin(user.id);
+      const tenants = await this.tenantRepository.findByUserId(user.id);
+      if (tenants.length > 0) {
+        await this.presenceService
+          .goOnline(tenants[0].id, user.id)
+          .catch((err) =>
+            this.logger.warn(`Failed to set presence online: ${err?.message}`),
+          );
+      }
+      this.logger.log(`Session takeover verified (2FA): ${user.email}`);
+      return await this.generateLoginResponse(user);
+    }
+
+    if (dto.token) {
+      const tokenHash = this.hashResetToken(dto.token.trim());
+      const row = await this.sessionTakeoverRepo.findOne({
+        where: { emailTokenHash: tokenHash },
+        relations: ["user"],
+      });
+      if (!row || row.method !== "email") {
+        throw new UnauthorizedException(
+          "Invalid or expired link. Please log in again.",
+        );
+      }
+      if (new Date() > row.expiresAt) {
+        await this.sessionTakeoverRepo.delete({ id: row.id });
+        throw new UnauthorizedException("Link expired. Please log in again.");
+      }
+      const user = row.user;
+      if (!user) {
+        throw new UnauthorizedException("User not found.");
+      }
+      await this.sessionTakeoverRepo.delete({ id: row.id });
+      await this.userRepository.updateLastLogin(user.id);
+      const tenants = await this.tenantRepository.findByUserId(user.id);
+      if (tenants.length > 0) {
+        await this.presenceService
+          .goOnline(tenants[0].id, user.id)
+          .catch((err) =>
+            this.logger.warn(`Failed to set presence online: ${err?.message}`),
+          );
+      }
+      this.logger.log(`Session takeover verified (email): ${user.email}`);
+      return await this.generateLoginResponse(user);
+    }
+
+    throw new BadRequestException(
+      "Provide requestId and code (2FA) or token (email link).",
+    );
   }
 
   /**
@@ -581,6 +749,20 @@ export class AuthService {
       (activeTenant.settings as { twoFactorRequired?: boolean } | undefined)
         ?.twoFactorRequired === true;
     return twoFactorRequired && !user.twoFactorEnabled;
+  }
+
+  /**
+   * Return true if the given sessionId is still the current session for the user (single-login check).
+   * If payload has no sessionId (legacy token), returns true to allow backward compatibility.
+   */
+  async isSessionValid(
+    userId: string,
+    sessionId: string | undefined,
+  ): Promise<boolean> {
+    if (!sessionId) return true;
+    const current =
+      await this.userSessionRepository.getCurrentSessionId(userId);
+    return current === sessionId;
   }
 
   /**
@@ -644,9 +826,13 @@ export class AuthService {
         activeTenant.settings.session.maxDurationMinutes || 10080;
     }
 
+    const sessionId = randomUUID();
+    await this.userSessionRepository.setCurrentSessionId(user.id, sessionId);
+
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      sessionId,
     };
 
     // Sign with dynamic expiration

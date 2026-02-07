@@ -29,6 +29,8 @@ import {
   TwoFaVerificationEntity,
   PasswordResetTokenEntity,
 } from "./entities";
+import { UserSessionEntity } from "./entities/user-session.entity";
+import { SessionTakeoverRequestEntity } from "./entities/session-takeover-request.entity";
 
 // Load environment variables
 const env = dotenv.config({ path: ".env" });
@@ -68,6 +70,8 @@ export const AppDataSource = new DataSource({
     AuditLogEntity,
     TwoFaVerificationEntity,
     PasswordResetTokenEntity,
+    UserSessionEntity,
+    SessionTakeoverRequestEntity,
   ],
   migrations: ["libs/database/src/migrations/*.ts"],
   synchronize: false,

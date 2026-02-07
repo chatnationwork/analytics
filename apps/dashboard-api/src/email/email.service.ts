@@ -120,4 +120,49 @@ export class EmailService {
       throw error;
     }
   }
+
+  async sendSessionTakeoverEmail(to: string, verifyUrl: string): Promise<void> {
+    const subject = "Verify your login";
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Verify your login</h2>
+        <p>Hello,</p>
+        <p>You're trying to log in from a new device or browser. Click the button below to verify it's you and log in there. Your other session will be signed out.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${verifyUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify and log in</a>
+        </div>
+        <p style="color: #666; font-size: 14px;">Or copy and paste this link into your browser:</p>
+        <p style="color: #666; font-size: 14px; word-break: break-all;">${verifyUrl}</p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eaeaea;" />
+        <p style="color: #999; font-size: 12px;">This link expires in 15 minutes. If you didn't try to log in, you can ignore this email.</p>
+      </div>
+    `;
+
+    if (!this.resend) {
+      this.logger.log(`[MOCK EMAIL] To: ${to}, Subject: ${subject}`);
+      this.logger.log(`[MOCK EMAIL] Link: ${verifyUrl}`);
+      return;
+    }
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: this.fromEmail,
+        to,
+        subject,
+        html,
+      });
+
+      if (error) {
+        this.logger.error(
+          `Failed to send session takeover email to ${to}: ${error.message}`,
+        );
+        throw new Error(error.message);
+      }
+
+      this.logger.log(`Session takeover email sent to ${to}, ID: ${data?.id}`);
+    } catch (error) {
+      this.logger.error(`Error sending session takeover email: ${error}`);
+      throw error;
+    }
+  }
 }

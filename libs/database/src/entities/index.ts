@@ -49,3 +49,5 @@ export * from "./agent-session.entity";
 export * from "./audit-log.entity";
 export * from "./two-fa-verification.entity";
 export * from "./password-reset-token.entity";
+export * from "./user-session.entity";
+export * from "./session-takeover-request.entity";
