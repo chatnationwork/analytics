@@ -23,6 +23,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { InboxService, InboxFilter } from "./inbox.service";
 import { AssignmentService } from "./assignment.service";
@@ -123,6 +124,7 @@ export class AgentInboxController {
     private readonly whatsappService: WhatsappService,
     private readonly auditService: AuditService,
     private readonly tenantRepository: TenantRepository,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -410,9 +412,25 @@ export class AgentInboxController {
     });
   }
 
+  /** Resolve media URL so WhatsApp can fetch it (must be absolute and public). */
+  private resolveMediaUrl(mediaUrl: string): string {
+    const trimmed = (mediaUrl ?? "").trim();
+    if (!trimmed) return trimmed;
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://"))
+      return trimmed;
+    const base = (
+      this.configService.get<string>("media.publicBaseUrl") ?? ""
+    ).replace(/\/$/, "");
+    if (!base) return trimmed;
+    return base + (trimmed.startsWith("/") ? trimmed : `/${trimmed}`);
+  }
+
   private buildWhatsAppPayload(dto: SendMessageDto): WhatsAppSendPayload {
     const type = dto.type || "text";
     const content = (dto.content ?? "").trim();
+    const mediaUrl = dto.media_url
+      ? this.resolveMediaUrl(dto.media_url)
+      : undefined;
 
     if (type === "text") {
       return {
@@ -420,26 +438,26 @@ export class AgentInboxController {
         text: { body: content || "(empty)", preview_url: false },
       };
     }
-    if (type === "image" && dto.media_url) {
+    if (type === "image" && mediaUrl) {
       return {
         type: "image",
-        image: { link: dto.media_url, caption: content || undefined },
+        image: { link: mediaUrl, caption: content || undefined },
       };
     }
-    if (type === "video" && dto.media_url) {
+    if (type === "video" && mediaUrl) {
       return {
         type: "video",
-        video: { link: dto.media_url, caption: content || undefined },
+        video: { link: mediaUrl, caption: content || undefined },
       };
     }
-    if (type === "audio" && dto.media_url) {
-      return { type: "audio", audio: { link: dto.media_url } };
+    if (type === "audio" && mediaUrl) {
+      return { type: "audio", audio: { link: mediaUrl } };
     }
-    if (type === "document" && dto.media_url) {
+    if (type === "document" && mediaUrl) {
       return {
         type: "document",
         document: {
-          link: dto.media_url,
+          link: mediaUrl,
           filename: dto.filename,
           caption: content || undefined,
         },

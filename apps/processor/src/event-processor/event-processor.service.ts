@@ -338,12 +338,18 @@ export class EventProcessorService {
         (caption && String(caption).trim()) || `[${props.type.toUpperCase()}]`;
     }
 
-    // For inbox UI previews: ensure metadata.media_url is set (support media_url, link, or image.link)
+    // For inbox UI previews: ensure metadata.media_url is set from the right source per type
     const imageObj = props.image as { link?: string } | undefined;
+    const videoObj = props.video as { link?: string } | undefined;
+    const audioObj = props.audio as { link?: string } | undefined;
+    const documentObj = props.document as { link?: string } | undefined;
     const mediaUrl =
       (props.media_url as string) ||
       (props.link as string) ||
       (imageObj && typeof imageObj === "object" && imageObj.link) ||
+      (videoObj && typeof videoObj === "object" && videoObj.link) ||
+      (audioObj && typeof audioObj === "object" && audioObj.link) ||
+      (documentObj && typeof documentObj === "object" && documentObj.link) ||
       undefined;
     const metadata =
       mediaUrl && !props.media_url ? { ...props, media_url: mediaUrl } : props;
