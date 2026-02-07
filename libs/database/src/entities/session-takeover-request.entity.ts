@@ -39,11 +39,11 @@ export class SessionTakeoverRequestEntity {
   method: SessionTakeoverMethod;
 
   /** 6-digit code for method 2fa */
-  @Column("varchar", { length: 10 }, { nullable: true })
+  @Column({ type: "varchar", length: 10, nullable: true })
   code: string | null;
 
   /** SHA-256 hash of token sent in email link for method email */
-  @Column("varchar", { length: 64 }, { nullable: true })
+  @Column({ type: "varchar", length: 64, nullable: true })
   emailTokenHash: string | null;
 
   @Column({ type: "timestamptz" })
