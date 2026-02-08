@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Message } from "@/lib/api/agent";
+import { Message, type InboxSession } from "@/lib/api/agent";
 import { Clock } from "lucide-react";
 
 const EXPIRY_HOURS = 24;
@@ -10,21 +10,30 @@ const TICK_MS = 60 * 1000; // update every minute
 
 interface SessionExpiryTimerProps {
   messages: Message[];
+  /** Session from server (getSession); when present, lastMessageAt is used so timer matches backend and resets when user texts again. */
+  session?: InboxSession | null;
   /** When true, caller hides this (e.g. resolved session). */
   show: boolean;
 }
 
 /**
  * Time remaining before the 24-hour session expires.
- * Timer is based only on the last inbound (taxpayer) message; agent messages do not reset it.
+ * Uses session.lastMessageAt when available (stays in sync with backend; resets when contact sends a new message).
+ * Otherwise falls back to last inbound message createdAt.
+ * Display is clamped to at most 24h to avoid clock skew showing "24h+".
  */
 export function SessionExpiryTimer({
   messages,
+  session,
   show,
 }: SessionExpiryTimerProps) {
   const [now, setNow] = useState(() => new Date());
 
   const expiryAt = useMemo(() => {
+    if (session?.lastMessageAt) {
+      const lastAt = new Date(session.lastMessageAt).getTime();
+      return new Date(lastAt + EXPIRY_MS);
+    }
     const inbound = messages.filter((m) => m.direction === "inbound");
     if (inbound.length === 0) return null;
     const lastAt = inbound.reduce(
@@ -32,7 +41,7 @@ export function SessionExpiryTimer({
       inbound[0].createdAt,
     );
     return new Date(new Date(lastAt).getTime() + EXPIRY_MS);
-  }, [messages]);
+  }, [messages, session?.lastMessageAt]);
 
   useEffect(() => {
     if (!show || !expiryAt) return;
@@ -54,8 +63,8 @@ export function SessionExpiryTimer({
     );
   }
 
-  const remainingMs = expiryAt.getTime() - now.getTime();
-  if (remainingMs <= 0) {
+  const rawRemainingMs = expiryAt.getTime() - now.getTime();
+  if (rawRemainingMs <= 0) {
     return (
       <div
         className="flex items-center justify-center gap-2 py-2 px-3 text-xs text-orange-600 dark:text-orange-400 border-b bg-orange-500/10"
@@ -67,6 +76,8 @@ export function SessionExpiryTimer({
     );
   }
 
+  // Clamp so we never show more than 24h (avoids clock skew / future timestamps)
+  const remainingMs = Math.min(rawRemainingMs, EXPIRY_MS);
   const totalMinutes = Math.floor(remainingMs / (60 * 1000));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;

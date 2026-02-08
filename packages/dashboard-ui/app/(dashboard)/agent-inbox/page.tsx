@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -199,15 +199,22 @@ export default function AgentInboxPage() {
 
   // Poll messages for the open chat so new inbound replies appear without manual refresh
   const MESSAGE_POLL_MS = 4000;
+  const prevServerMessageCountRef = useRef(0);
   useEffect(() => {
     if (!selectedSessionId) return;
+    prevServerMessageCountRef.current = 0;
     const poll = async () => {
       try {
         const data = await agentApi.getSession(selectedSessionId);
         const serverMessages = Array.isArray(data?.messages)
           ? data.messages
           : [];
+        const prevCount = prevServerMessageCountRef.current;
+        const hadNewMessages =
+          prevCount > 0 && serverMessages.length > prevCount;
+        prevServerMessageCountRef.current = serverMessages.length;
         if (data?.session != null) setCurrentSessionDetail(data.session);
+        if (hadNewMessages) fetchInbox();
         setMessages((prev) => {
           const optimistic = prev.filter((m) =>
             String(m.id).startsWith("temp-"),
@@ -221,7 +228,7 @@ export default function AgentInboxPage() {
     };
     const interval = setInterval(poll, MESSAGE_POLL_MS);
     return () => clearInterval(interval);
-  }, [selectedSessionId]);
+  }, [selectedSessionId, fetchInbox]);
 
   const handleSelectSession = async (session: InboxSession) => {
     setSelectedSessionId(session.id);
@@ -420,14 +427,16 @@ export default function AgentInboxPage() {
   };
 
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
+  /** Use polled session detail when available so expired state and timer update as soon as new message is received. */
+  const sessionForChat = currentSessionDetail ?? selectedSession;
   const hasAcceptedSelected =
-    !!selectedSession &&
-    (selectedSession.acceptedAt != null ||
-      acceptedSessions.has(selectedSession.id));
+    !!sessionForChat &&
+    (sessionForChat.acceptedAt != null ||
+      (selectedSessionId && acceptedSessions.has(selectedSessionId)));
 
   const canSendMessage =
-    !!selectedSession &&
-    selectedSession.status === "assigned" &&
+    !!sessionForChat &&
+    sessionForChat.status === "assigned" &&
     hasAcceptedSelected;
 
   return (
@@ -569,9 +578,9 @@ export default function AgentInboxPage() {
                   <User className="h-4 w-4" />
                   <span className="hidden sm:inline">Taxpayer Profile</span>
                 </Button>
-                {selectedSession &&
-                  isSessionExpired(selectedSession) &&
-                  selectedSession.status !== "resolved" && (
+                {sessionForChat &&
+                  isSessionExpired(sessionForChat) &&
+                  sessionForChat.status !== "resolved" && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -643,7 +652,8 @@ export default function AgentInboxPage() {
 
             <SessionExpiryTimer
               messages={messages}
-              show={selectedSession?.status !== "resolved"}
+              session={sessionForChat}
+              show={sessionForChat?.status !== "resolved"}
             />
 
             <ChatWindow
@@ -655,7 +665,7 @@ export default function AgentInboxPage() {
             <MessageInput
               onSendMessage={handleSendMessage}
               disabled={
-                selectedSession?.status === "resolved" || !canSendMessage
+                sessionForChat?.status === "resolved" || !canSendMessage
               }
             />
           </>

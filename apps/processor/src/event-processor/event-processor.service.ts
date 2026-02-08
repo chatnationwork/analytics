@@ -285,8 +285,9 @@ export class EventProcessorService {
       return;
     }
 
+    // Use current time so expired sessions become active when user texts again
     await this.inboxSessionRepo.update(session.id, {
-      lastMessageAt: event.timestamp,
+      lastMessageAt: new Date(),
     });
 
     const isInbound = isInboundMessage(event.eventName);

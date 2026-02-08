@@ -9,10 +9,9 @@ import {
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { HandoverAuthGuard } from "../auth/handover-auth.guard";
 import { InboxService } from "./inbox.service";
-
 import { AssignmentService } from "./assignment.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
-import { MessageDirection } from "@lib/database";
+import { MessageDirection, SessionStatus } from "@lib/database";
 
 interface HandoverDto {
   contactId: string;
@@ -53,12 +52,6 @@ export class IntegrationController {
       ...(dto.account ? { account: dto.account } : {}),
     };
 
-    // Only send "Connecting you to an agent..." when the user does not already have an active session
-    const hadActiveSession = await this.inboxService.hasActiveAgentSession(
-      dto.contactId,
-      tenantId,
-    );
-
     const session = await this.inboxService.getOrCreateSession(
       tenantId,
       dto.contactId,
@@ -67,6 +60,12 @@ export class IntegrationController {
       context,
     );
 
+    // Decide whether to send the message based on this session's state before assignment.
+    // Send when we are assigning a session that was not already assigned (first connect
+    // or new conversation). Avoids missing the message when hadActiveSession was wrong
+    // (e.g. contactId normalization or race) and ensures name from dto is applied.
+    const wasAlreadyAssigned = session.status === SessionStatus.ASSIGNED;
+
     // Run assignment first so WhatsApp/confirmation message failures never block or prevent assignment
     const result = await this.assignmentService.requestAssignment(
       session.id,
@@ -74,9 +73,8 @@ export class IntegrationController {
       context,
     );
 
-    // Send confirmation message only when requested and user did not already have an active session
     const shouldSendMessage =
-      dto.sendHandoverMessage !== false && !hadActiveSession;
+      dto.sendHandoverMessage !== false && !wasAlreadyAssigned;
     if (shouldSendMessage) {
       const messageContent =
         dto.handoverMessage || "Connecting you to an agent...";
