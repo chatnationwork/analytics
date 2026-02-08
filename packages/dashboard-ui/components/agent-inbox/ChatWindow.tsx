@@ -60,23 +60,27 @@ function getMediaUrl(meta: Record<string, unknown>): string | null {
   return null;
 }
 
+const IMAGE_EXT_REGEX =
+  /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?|$)/i;
+
+function isLikelyImageUrl(url: string): boolean {
+  return IMAGE_EXT_REGEX.test(url.toLowerCase());
+}
+
 function MessageBubbleContent({ msg }: { msg: Message }) {
   const isOutbound = msg.direction === "outbound";
   const meta = msg.metadata ?? {};
   const content = getMessageBody(msg);
   const mediaUrl = getMediaUrl(meta);
 
-  // Text
-  if (msg.type === "text" || !msg.type) {
-    return (
-      <div className="whitespace-pre-wrap break-words">
-        {content || "(empty)"}
-      </div>
-    );
-  }
+  // Text with media_url: only show as image when type is image or URL looks like an image (avoids <img> on .pdf/.docx etc.)
+  const showAsImage =
+    msg.type === "image" ||
+    ((msg.type === "text" || !msg.type) &&
+      mediaUrl !== null &&
+      isLikelyImageUrl(mediaUrl));
 
-  // Image — show thumbnail when we have a URL
-  if (msg.type === "image") {
+  if (showAsImage) {
     return (
       <div className="flex flex-col gap-1.5 min-w-0">
         {mediaUrl ? (
@@ -147,9 +151,15 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
     );
   }
 
-  // Document — filename + download link when we have a URL
-  if (msg.type === "document") {
-    const fn = (meta.filename as string) || content || "Document";
+  // Document — filename + download link (also for text + media_url when URL is not an image)
+  const showAsDocument =
+    msg.type === "document" ||
+    ((msg.type === "text" || !msg.type) &&
+      mediaUrl !== null &&
+      !isLikelyImageUrl(mediaUrl));
+  if (showAsDocument) {
+    const fn =
+      (meta.filename as string) || content || "Document";
     return (
       <div className="flex flex-col gap-1.5 min-w-0">
         <div className="flex items-center gap-2 rounded-md bg-black/10 dark:bg-white/10 p-2">

@@ -355,6 +355,42 @@ export class EventProcessorService {
     const metadata =
       mediaUrl && !props.media_url ? { ...props, media_url: mediaUrl } : props;
 
+    // Upstream may send type "text" with media_url. Infer media type from URL so inbox renders correctly.
+    if (
+      messageType === MessageType.TEXT &&
+      (mediaUrl || (props.media_url as string))
+    ) {
+      const url = (mediaUrl || (props.media_url as string)) || "";
+      const lower = url.toLowerCase();
+
+      if (
+        /\.(mp4|webm|mov|ogg)(\?|$)/i.test(lower) ||
+        lower.includes("/video/")
+      ) {
+        messageType = MessageType.VIDEO;
+      } else if (
+        /\.(mp3|wav|ogg|m4a)(\?|$)/i.test(lower) ||
+        lower.includes("/audio/")
+      ) {
+        messageType = MessageType.AUDIO;
+      } else if (
+        /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|rar)(\?|$)/i.test(
+          lower,
+        ) ||
+        lower.includes("/document/")
+      ) {
+        messageType = MessageType.DOCUMENT;
+      } else if (
+        /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?|$)/i.test(lower) ||
+        lower.includes("/image/")
+      ) {
+        messageType = MessageType.IMAGE;
+      } else {
+        // Unknown extension or no extension: show as document (download link) instead of broken image
+        messageType = MessageType.DOCUMENT;
+      }
+    }
+
     const message = this.messageRepo.create({
       contactId: session.contactId,
       sessionId: session.id,
