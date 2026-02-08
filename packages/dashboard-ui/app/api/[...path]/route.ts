@@ -101,29 +101,29 @@ async function proxyRequest(
       body: body || undefined,
     });
 
-    const contentType =
+    const responseContentType =
       response.headers.get("Content-Type") || "application/json";
 
     // Binary types must not be read as text (would corrupt images/pdf/etc)
     const isBinary =
-      contentType.startsWith("image/") ||
-      contentType.startsWith("video/") ||
-      contentType.startsWith("audio/") ||
-      contentType === "application/pdf" ||
-      contentType === "application/octet-stream";
+      responseContentType.startsWith("image/") ||
+      responseContentType.startsWith("video/") ||
+      responseContentType.startsWith("audio/") ||
+      responseContentType === "application/pdf" ||
+      responseContentType === "application/octet-stream";
 
     if (isBinary) {
       const buffer = await response.arrayBuffer();
       return new NextResponse(buffer, {
         status: response.status,
-        headers: { "Content-Type": contentType },
+        headers: { "Content-Type": responseContentType },
       });
     }
 
     const responseText = await response.text();
     return new NextResponse(responseText, {
       status: response.status,
-      headers: { "Content-Type": contentType },
+      headers: { "Content-Type": responseContentType },
     });
   } catch (error) {
     console.error("Proxy Error:", error);
