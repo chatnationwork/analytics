@@ -23,6 +23,24 @@ const EXT_BY_MIME: Record<string, string> = {
     ".docx",
 };
 
+/** MIME type by extension (for serving with correct Content-Type). */
+const MIME_BY_EXT: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
+  ".webm": "audio/webm",
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
 @Injectable()
 export class MediaService {
   private readonly uploadsDir: string;
@@ -83,6 +101,14 @@ export class MediaService {
 
   createReadStream(filename: string): NodeJS.ReadableStream {
     return createReadStream(this.getFilePath(filename));
+  }
+
+  /** MIME type for a stored filename (for Content-Type when serving). */
+  getMimeType(filename: string): string {
+    const ext = filename.includes(".")
+      ? "." + filename.split(".").pop()!.toLowerCase()
+      : "";
+    return MIME_BY_EXT[ext] ?? "application/octet-stream";
   }
 
   private getExtension(mimetype?: string, originalFilename?: string): string {

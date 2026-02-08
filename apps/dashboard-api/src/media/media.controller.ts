@@ -72,6 +72,8 @@ export class MediaController {
     if (!this.mediaService.exists(filename)) {
       throw new NotFoundException("File not found");
     }
+    const contentType = this.mediaService.getMimeType(filename);
+    reply.header("Content-Type", contentType);
     const stream = this.mediaService.createReadStream(filename);
     reply.send(stream);
   }

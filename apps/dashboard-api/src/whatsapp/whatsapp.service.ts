@@ -26,6 +26,9 @@ export type WhatsAppSendPayload =
       };
     };
 
+/** Path the CRM expects for WhatsApp Cloud API messages (must include /api/meta/). */
+const WHATSAPP_MESSAGES_PATH = "/api/meta/v21.0";
+
 export interface WhatsappOverviewDto {
   totalContacts: number;
   totalCampaigns: number;
@@ -231,7 +234,7 @@ export class WhatsappService {
     const { phoneNumberId } = integration.config;
     const token = integration.apiKey;
     const baseUrl = (integration.apiUrl || "").replace(/\/$/, "");
-    const url = `${baseUrl}/api/meta/v21.0/${phoneNumberId}/messages`;
+    const url = `${baseUrl}${WHATSAPP_MESSAGES_PATH}/${phoneNumberId}/messages`;
 
     const finalNumber = to.replace(/[^\d]/g, "");
 
@@ -328,7 +331,7 @@ export class WhatsappService {
     const { phoneNumberId } = integration.config;
     const token = integration.apiKey;
     const baseUrl = (integration.apiUrl || "").replace(/\/$/, "");
-    const url = `${baseUrl}/api/meta/v21.0/${phoneNumberId}/messages`;
+    const url = `${baseUrl}${WHATSAPP_MESSAGES_PATH}/${phoneNumberId}/messages`;
     const finalNumber = to.replace(/[^\d]/g, "");
 
     const payload = {
@@ -414,7 +417,7 @@ export class WhatsappService {
     const { phoneNumberId } = integration.config;
     const token = integration.apiKey;
     const baseUrl = (integration.apiUrl || "").replace(/\/$/, "");
-    const url = `${baseUrl}/api/meta/v21.0/${phoneNumberId}/messages`;
+    const url = `${baseUrl}${WHATSAPP_MESSAGES_PATH}/${phoneNumberId}/messages`;
     const finalNumber = to.replace(/[^\d]/g, "");
     const variableText = (contactName || "there").trim() || "there";
 
@@ -488,7 +491,7 @@ export class WhatsappService {
     const { phoneNumberId } = integration.config;
     const token = integration.apiKey;
     const baseUrl = (integration.apiUrl || "").replace(/\/$/, "");
-    const url = `${baseUrl}/api/meta/v21.0/${phoneNumberId}/messages`;
+    const url = `${baseUrl}${WHATSAPP_MESSAGES_PATH}/${phoneNumberId}/messages`;
     const finalNumber = to.replace(/[^\d]/g, "");
 
     const payload = {
