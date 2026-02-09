@@ -57,10 +57,10 @@ export function BulkTransferDialog({
     enabled: open,
   });
 
-  const { data: teams = [] } = useQuery({
-    queryKey: ["teams-bulk-transfer", open],
-    queryFn: () => agentApi.getTeams(),
-    enabled: open,
+  const { data: teams = [], isFetching: teamsLoading } = useQuery({
+    queryKey: ["teams-available-for-queue"],
+    queryFn: () => agentApi.getTeamsAvailableForQueue(),
+    enabled: open && destinationType === "team",
   });
 
   const { data: tenant } = useQuery({
@@ -84,7 +84,7 @@ export function BulkTransferDialog({
   );
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
-  const selectedTeam = teams.find((t) => t.id === selectedTeamId);
+  const selectedTeam = teams.find((t) => t.teamId === selectedTeamId);
 
   const toggleSession = (sessionId: string) => {
     setSelectedSessionIds((prev) => {
@@ -308,18 +308,23 @@ export function BulkTransferDialog({
             ) : (
               <>
                 <div className="border border-border rounded-md overflow-y-auto max-h-36">
-                  {teams.length === 0 ? (
+                  {teamsLoading ? (
                     <div className="p-3 text-center text-sm text-muted-foreground">
-                      No teams available
+                      Loading teams…
+                    </div>
+                  ) : teams.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      No teams available (need at least one member and an active
+                      shift)
                     </div>
                   ) : (
                     teams.map((team) => (
                       <button
-                        key={team.id}
+                        key={team.teamId}
                         type="button"
-                        onClick={() => setSelectedTeamId(team.id)}
+                        onClick={() => setSelectedTeamId(team.teamId)}
                         className={`w-full flex items-center gap-3 p-3 text-left text-sm hover:bg-muted/50 transition-colors ${
-                          selectedTeamId === team.id
+                          selectedTeamId === team.teamId
                             ? "bg-primary/10 border-l-2 border-primary"
                             : ""
                         }`}
