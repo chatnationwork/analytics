@@ -280,12 +280,13 @@ export class EventProcessorService {
       return;
     }
 
-    // Use current time so expired sessions become active when user texts again
-    await this.inboxSessionRepo.update(session.id, {
-      lastMessageAt: new Date(),
-    });
-
+    const now = new Date();
     const isInbound = isInboundMessage(event.eventName);
+    // Use current time so expired sessions become active when user texts again; track last inbound for unread
+    await this.inboxSessionRepo.update(session.id, {
+      lastMessageAt: now,
+      ...(isInbound ? { lastInboundMessageAt: now } : {}),
+    });
     const direction = isInbound
       ? MessageDirection.INBOUND
       : MessageDirection.OUTBOUND;

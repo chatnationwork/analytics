@@ -159,12 +159,26 @@ export class InboxService {
 
     const savedMessage = await this.messageRepo.save(message);
 
-    // Update session's lastMessageAt
-    await this.sessionRepo.update(session.id, {
-      lastMessageAt: new Date(),
-    });
+    const now = new Date();
+    const updatePayload: Partial<InboxSessionEntity> = {
+      lastMessageAt: now,
+    };
+    if (dto.direction === MessageDirection.INBOUND) {
+      updatePayload.lastInboundMessageAt = now;
+    }
+    await this.sessionRepo.update(session.id, updatePayload);
 
     return savedMessage;
+  }
+
+  /**
+   * Mark a session as read by the assigned agent (e.g. when they open the chat or send a message).
+   * Used for unread indicator: hasUnread = lastInboundMessageAt > lastReadAt.
+   */
+  async markSessionAsRead(sessionId: string): Promise<void> {
+    await this.sessionRepo.update(sessionId, {
+      lastReadAt: new Date(),
+    });
   }
 
   /**

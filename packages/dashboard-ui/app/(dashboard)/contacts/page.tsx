@@ -94,7 +94,7 @@ function ContactProfileDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Contact profile</DialogTitle>
+          <DialogTitle>Taxpayer Profile</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 text-sm">
           <div>

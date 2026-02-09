@@ -58,6 +58,10 @@ export interface InboxSession {
   /** Set when the assigned agent has explicitly accepted the chat (required before sending). */
   acceptedAt?: string | null;
   context?: Record<string, unknown>;
+  /** When the agent last viewed/sent in this chat. Used for unread indicator. */
+  lastReadAt?: string | null;
+  /** When the customer last sent a message. Unread when lastInboundMessageAt > lastReadAt. */
+  lastInboundMessageAt?: string | null;
 }
 
 export interface Message {

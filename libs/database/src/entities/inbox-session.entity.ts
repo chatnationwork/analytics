@@ -81,6 +81,20 @@ export class InboxSessionEntity {
   @Column({ type: "timestamptz", nullable: true })
   lastMessageAt: Date;
 
+  /**
+   * When the assigned agent last viewed this chat or sent a message.
+   * Used with lastInboundMessageAt to show unread indicator (replies by user).
+   */
+  @Column({ type: "timestamptz", nullable: true })
+  lastReadAt: Date | null;
+
+  /**
+   * When the customer last sent an inbound message. Updated on each inbound message.
+   * Unread when lastInboundMessageAt > lastReadAt (or lastReadAt is null).
+   */
+  @Column({ type: "timestamptz", nullable: true })
+  lastInboundMessageAt: Date | null;
+
   @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 

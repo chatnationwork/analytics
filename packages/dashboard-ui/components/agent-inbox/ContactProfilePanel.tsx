@@ -374,7 +374,7 @@ export function ContactProfilePanel({
             <div className="flex items-center justify-between gap-2 mb-2">
               <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
-                Wrap-up reports
+                Engagement Times
               </span>
               <Link
                 href={`/audit-logs?resourceType=contact&resourceId=${encodeURIComponent(contactId)}`}
@@ -386,7 +386,7 @@ export function ContactProfilePanel({
             </div>
             {resolutions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No wrap-up reports yet.
+                No engagement times yet.
               </p>
             ) : (
               <ul className="space-y-2">

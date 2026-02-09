@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  Circle,
 } from "lucide-react";
 
 interface ChatListProps {
@@ -71,10 +72,23 @@ export function ChatList({
     return null;
   };
 
+  const hasUnread = (session: InboxSession): boolean => {
+    if (session.status === "resolved") return false;
+    const lastInbound = session.lastInboundMessageAt
+      ? new Date(session.lastInboundMessageAt).getTime()
+      : 0;
+    if (lastInbound === 0) return false;
+    const lastRead = session.lastReadAt
+      ? new Date(session.lastReadAt).getTime()
+      : 0;
+    return lastInbound > lastRead;
+  };
+
   return (
     <div className="flex flex-col space-y-1 p-2">
       {sessions.map((session) => {
         const expired = isExpired?.(session);
+        const unread = hasUnread(session);
         const canSelectBulk =
           canBulkTransfer &&
           session.status !== "resolved" &&
@@ -89,6 +103,7 @@ export function ChatList({
               "flex items-center gap-2 rounded-lg text-sm transition-all",
               selectedSessionId === session.id ? "bg-accent" : "transparent",
               expired && "border-l-2 border-orange-500",
+              unread && "border-l-2 border-primary",
             )}
           >
             {canSelectBulk && (
@@ -139,7 +154,13 @@ export function ChatList({
 
               <div className="flex-1 overflow-hidden">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold truncate text-sm">
+                  <span className="font-semibold truncate text-sm flex items-center gap-1.5">
+                    {unread && (
+                      <Circle
+                        className="h-2 w-2 shrink-0 fill-primary text-primary"
+                        aria-label="Unread"
+                      />
+                    )}
                     {session.contactName?.trim() ||
                       session.contactId ||
                       "Unknown User"}

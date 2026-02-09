@@ -89,8 +89,13 @@ export class MessageStorageService {
         return;
       }
 
-      // Update lastMessageAt
-      await this.sessionRepo.update(session.id, { lastMessageAt: new Date() });
+      const now = new Date();
+      await this.sessionRepo.update(session.id, {
+        lastMessageAt: now,
+        ...(event.event_name === "message.received"
+          ? { lastInboundMessageAt: now }
+          : {}),
+      });
 
       // Upsert contact when we receive a message (creates or updates contacts table)
       const normalizedContactId = normalizeContactIdDigits(rawContactId);

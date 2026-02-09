@@ -310,6 +310,7 @@ export class AgentInboxController {
       session.tenantId,
       session.contactId,
     );
+    void this.inboxService.markSessionAsRead(sessionId);
 
     // Return plain object; ResponseInterceptor wraps it in { status, data, timestamp }
     return {
@@ -400,7 +401,7 @@ export class AgentInboxController {
     );
 
     const { type, content, metadata } = this.messageDisplayFromDto(dto);
-    return this.inboxService.addMessage({
+    const message = await this.inboxService.addMessage({
       sessionId,
       tenantId: req.user.tenantId,
       contactId: session.contactId,
@@ -410,6 +411,8 @@ export class AgentInboxController {
       metadata: { ...dto.metadata, ...metadata },
       senderId: req.user.id,
     });
+    void this.inboxService.markSessionAsRead(sessionId);
+    return message;
   }
 
   /** Resolve media URL so WhatsApp can fetch it (must be absolute and public). */
