@@ -24,15 +24,19 @@ export interface ContactsListResponse {
 export const contactsApi = {
   getContacts: async (page = 1, limit = 20): Promise<ContactsListResponse> => {
     const url = `/whatsapp/contacts?page=${page}&limit=${limit}`;
-    const res = await fetchWithAuthFull<ContactsListResponse>(url);
-    if (!res || typeof res !== "object" || !Array.isArray(res.data)) {
+    // Backend returns { data: Contact[], total, page, limit }; interceptor wraps as { status, data, timestamp }.
+    const res = await fetchWithAuthFull<{ data: ContactsListResponse }>(url);
+
+    if (!res?.data || !Array.isArray(res.data.data)) {
       throw new Error("Invalid contacts response");
     }
+
+    const payload = res.data;
     return {
-      data: res.data,
-      total: typeof res.total === "number" ? res.total : res.data.length,
-      page: res.page ?? page,
-      limit: res.limit ?? limit,
+      data: payload.data,
+      total: typeof payload.total === "number" ? payload.total : payload.data.length,
+      page: payload.page ?? page,
+      limit: payload.limit ?? limit,
     };
   },
 };

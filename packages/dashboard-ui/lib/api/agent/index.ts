@@ -517,13 +517,13 @@ export const agentApi = {
     if (page != null) params.set("page", String(page));
     if (limit != null) params.set("limit", String(limit));
     const q = params.toString() ? `?${params}` : "";
-    const res = await fetchWithAuthFull<{
-      data: { data: ContactHistoryEntry[]; total: number };
+    const res = await fetchWithAuth<{
+      data: ContactHistoryEntry[];
+      total: number;
     }>(`/agent/contacts/${contactId}/history${q}`);
-    const payload = res?.data;
     return {
-      data: Array.isArray(payload?.data) ? payload.data : [],
-      total: typeof payload?.total === "number" ? payload.total : 0,
+      data: Array.isArray(res?.data) ? res.data : [],
+      total: typeof res?.total === "number" ? res.total : 0,
     };
   },
 
@@ -537,13 +537,13 @@ export const agentApi = {
     if (page != null) params.set("page", String(page));
     if (limit != null) params.set("limit", String(limit));
     const q = params.toString() ? `?${params}` : "";
-    const res = await fetchWithAuthFull<{
-      data: { data: ContactResolution[]; total: number };
+    const res = await fetchWithAuth<{
+      data: ContactResolution[];
+      total: number;
     }>(`/agent/contacts/${contactId}/resolutions${q}`);
-    const payload = res?.data;
     return {
-      data: Array.isArray(payload?.data) ? payload.data : [],
-      total: typeof payload?.total === "number" ? payload.total : 0,
+      data: Array.isArray(res?.data) ? res.data : [],
+      total: typeof res?.total === "number" ? res.total : 0,
     };
   },
 };

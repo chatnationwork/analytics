@@ -2,15 +2,15 @@
 
 ## Executive Summary
 
-**Status:** ❌ **Not Implemented** – Design document exists, but Phase 1 issues remain unresolved.
+**Status:** ✅ **Phase 1 implemented** – The issues below were addressed. The inbox and contact profile are working. For the **current system** (inventory, layers, and consolidation plan, including future WebSockets), see **[Agent Inbox System Architecture](./agent_inbox_system_architecture.md)**.
 
-**Key Issues Found:**
-1. Backend still returns `{ data: x }` causing double-wrap with ResponseInterceptor
-2. No message polling for open chat (inbound messages never appear)
-3. Contact profile/notes/history broken due to response shape mismatch
-4. Inbox polls every 10s but no refresh after accept/assign
+**Issues that were fixed:**
+1. Backend response shape – contact profile endpoints now return raw values (single wrap via ResponseInterceptor).
+2. Message polling for open chat – 4s poll when a session is selected so inbound messages appear without manual refresh.
+3. Contact profile/notes/history – frontend consumes single-wrapped data; notes and history display correctly.
+4. Inbox list – 10s poll; fetch after accept/assign/transfer/resolve so list and counts stay in sync.
 
-**Recommendation:** Implement Phase 1 as designed. No major design flaws found.
+**This document** remains as the pre-implementation review; the architecture doc is the living reference for the consolidated system.
 
 ---
 
@@ -290,18 +290,9 @@ When implementing SSE/WebSocket:
 
 **Design Status:** ✅ **Approved** – No blocking issues found
 
-**Implementation Status:** ❌ **Not Started** – All Phase 1 tasks pending
+**Implementation Status:** ✅ **Phase 1 done** – Response shape, message polling, accept/refresh, and contact profile fixes are in place. Additional improvements (media type inference, media persistence) are documented in the architecture doc.
 
-**Effort Estimate:**
-- Backend response fixes: **1-2 hours**
-- Frontend profile panel fixes: **2-3 hours**
-- Message polling implementation: **2-3 hours**
-- Testing and QA: **3-4 hours**
-
-**Total:** ~8-12 hours for Phase 1
-
-**Next Steps:**
-1. Implement Priority 1 (response shape) backend + frontend together
-2. Implement Priority 2 (message polling)
-3. Verify Priority 3 (accept refresh)
-4. Manual QA using testing checklist
+**Next Steps (consolidation):**
+1. Use [Agent Inbox System Architecture](./agent_inbox_system_architecture.md) as the single reference for layers, inventory, and future work.
+2. Optional: extract hooks from inbox page (`useInboxPolling`, `useMessagePolling`), add unit/E2E tests.
+3. When needed: add WebSocket/SSE as an additive real-time layer (see architecture doc §3.4).

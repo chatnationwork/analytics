@@ -67,18 +67,14 @@ export function ContactProfilePanel({
         contactId,
         contactName ?? undefined,
       );
-      const contact: ContactProfile | null =
-        data && typeof data === "object" && "contactId" in data
-          ? (data as ContactProfile)
-          : ((data as { data?: ContactProfile })?.data ?? null);
-      setProfile(contact);
-      setEditName(contact?.name ?? "");
-      setEditPin(contact?.pin ?? "");
+      setProfile(data);
+      setEditName(data?.name ?? "");
+      setEditPin(data?.pin ?? "");
       setEditYearOfBirth(
-        contact?.yearOfBirth != null ? String(contact.yearOfBirth) : "",
+        data?.yearOfBirth != null ? String(data.yearOfBirth) : "",
       );
-      setEditEmail(contact?.email ?? "");
-      setEditMetadata(contact?.metadata ?? {});
+      setEditEmail(data?.email ?? "");
+      setEditMetadata(data?.metadata ?? {});
     } catch (e) {
       console.error("Failed to fetch contact profile:", e);
       toast.error("Failed to load contact profile");
@@ -89,13 +85,7 @@ export function ContactProfilePanel({
   const fetchNotes = useCallback(async () => {
     try {
       const data = await agentApi.getContactNotes(contactId, NOTES_LIMIT);
-      setNotes(
-        Array.isArray(data)
-          ? data
-          : data && typeof data === "object" && "data" in data
-            ? (data as { data: ContactNote[] }).data
-            : [],
-      );
+      setNotes(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Failed to fetch notes:", e);
       setNotes([]);
@@ -170,10 +160,7 @@ export function ContactProfilePanel({
     setAddingNote(true);
     try {
       const raw = await agentApi.addContactNote(contactId, content);
-      const note: ContactNote =
-        raw && typeof raw === "object" && "id" in raw
-          ? (raw as ContactNote)
-          : ((raw as { data?: ContactNote })?.data ?? raw);
+      const note = raw as ContactNote;
       setNotes((prev) => [note, ...prev]);
       setNewNoteContent("");
       toast.success("Note added");

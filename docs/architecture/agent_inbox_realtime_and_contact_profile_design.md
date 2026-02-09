@@ -1,8 +1,10 @@
 # Agent Inbox: Real-Time Updates & Contact Profile – Requirements, Design & Implementation Plan
 
+> **Status:** Phase 1 implemented. For current system inventory, data flow, and consolidation architecture (including future WebSockets), see **[Agent Inbox System Architecture](./agent_inbox_system_architecture.md)**.
+
 ## 1. Overview
 
-The agent inbox and contact profile in the dashboard are currently **poll-based and partly broken**. This document captures requirements, a unified design, and a phased implementation plan so that:
+The agent inbox and contact profile in the dashboard were **poll-based and had response-shape and refresh issues**. This document captured requirements, a unified design, and a phased implementation plan so that:
 
 1. **Inbox** – Assigned chats appear as soon as they’re assigned; new messages (especially inbound replies) appear in the open chat without manual refresh.
 2. **Contact profile panel** – Notes and history work correctly (no “Unknown” / “Invalid date”); data loading is consistent and reliable.
@@ -301,3 +303,11 @@ This fixes R4, R5, R6.
 | Notes “Unknown” / “Invalid date”      | authorName null; date format edge case | Backend fallback “Agent”; frontend safe formatter and author fallback.                   |
 
 Phase 1 gives a **reliable and efficient** inbox and contact profile without new infrastructure; Phase 2 can add push for lower latency and fewer requests.
+
+---
+
+## 9. Post–Phase 1 (current state)
+
+- **Phase 1** has been implemented: contact profile response shapes fixed, message polling (4s) for open chat, inbox list poll (10s), accept/transfer/resolve refresh inbox.
+- **Additional changes** since this design: media type inference when upstream sends `type: "text"` with `media_url`; UI shows image/document by URL when stored as text; media uploads persisted via Docker volume.
+- **Consolidation:** See [Agent Inbox System Architecture](./agent_inbox_system_architecture.md) for full file/class/function inventory, data flow, and proposed structure (including future WebSockets).

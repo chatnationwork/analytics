@@ -124,6 +124,10 @@ services:
       - FRONTEND_URL=${FRONTEND_URL}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
+    volumes:
+      # Persist uploaded media (agent inbox images/docs) across container rebuilds
+      - media_uploads:/app/uploads/media
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -148,3 +152,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  media_uploads:
