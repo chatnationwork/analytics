@@ -32,6 +32,9 @@ Thumbs.db
 coverage/
 .nyc_output/
 
+# Backups (scripts write here)
+backups/
+
 # Misc
 *.tgz
 .turbo

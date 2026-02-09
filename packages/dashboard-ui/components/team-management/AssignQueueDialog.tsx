@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +50,10 @@ export function AssignQueueDialog({
     enabled: open && mode === "teams",
   });
 
-  const onlineAgents = agentList.filter((a) => a.status === "online");
+  const onlineAgents = useMemo(
+    () => agentList.filter((a) => a.status === "online"),
+    [agentList],
+  );
 
   useEffect(() => {
     if (!open) return;
