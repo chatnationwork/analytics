@@ -31,13 +31,21 @@ export class EmailService {
     inviteUrl: string,
     inviterName?: string,
     workspaceName?: string,
+    overrides?: { subject?: string; body?: string },
   ) {
-    const subject = `You've been invited to join ${workspaceName || "a workspace"} on ChatNation`;
+    const ws = workspaceName || "a workspace";
+    const inv = inviterName || "A team member";
+    const subject =
+      overrides?.subject?.trim()?.replace(/\{\{workspaceName\}\}/g, ws).replace(/\{\{inviterName\}\}/g, inv) ??
+      `You've been invited to join ${ws} on ChatNation`;
+    const bodyParagraph =
+      overrides?.body?.trim()?.replace(/\{\{workspaceName\}\}/g, ws).replace(/\{\{inviterName\}\}/g, inv) ??
+      `${inv} has invited you to join their workspace on ChatNation.`;
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Join ${workspaceName || "Your Team"}</h2>
+        <h2>Join ${ws}</h2>
         <p>Hello,</p>
-        <p>${inviterName || "A team member"} has invited you to join their workspace on ChatNation.</p>
+        <p>${bodyParagraph}</p>
         <p>Click the button below to accept the invitation and set up your account:</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${inviteUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Accept Invitation</a>
@@ -121,13 +129,21 @@ export class EmailService {
     }
   }
 
-  async sendSessionTakeoverEmail(to: string, verifyUrl: string): Promise<void> {
-    const subject = "Verify your login";
+  async sendSessionTakeoverEmail(
+    to: string,
+    verifyUrl: string,
+    overrides?: { subject?: string; body?: string },
+  ): Promise<void> {
+    const subject =
+      overrides?.subject?.trim() ?? "Verify your login";
+    const bodyParagraph =
+      overrides?.body?.trim() ??
+      "You're trying to log in from a new device or browser. Click the button below to verify it's you and log in there. Your other session will be signed out.";
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Verify your login</h2>
+        <h2>${subject}</h2>
         <p>Hello,</p>
-        <p>You're trying to log in from a new device or browser. Click the button below to verify it's you and log in there. Your other session will be signed out.</p>
+        <p>${bodyParagraph}</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${verifyUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify and log in</a>
         </div>

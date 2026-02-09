@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { CrmIntegrationsService } from "../crm-integrations/crm-integrations.service";
+import { SystemMessagesService } from "../system-messages/system-messages.service";
 import { CampaignListResponse, ContactListResponse } from "@lib/crm-api";
 
 /** WhatsApp Cloud API message payload (sent to CRM endpoint). Media uses public URL (link). */
@@ -58,7 +59,10 @@ export interface WhatsappOverviewDto {
 
 @Injectable()
 export class WhatsappService {
-  constructor(private readonly crmService: CrmIntegrationsService) {}
+  constructor(
+    private readonly crmService: CrmIntegrationsService,
+    private readonly systemMessages: SystemMessagesService,
+  ) {}
 
   /**
    * Get high-level WhatsApp analytics overview
@@ -334,6 +338,13 @@ export class WhatsappService {
     const url = `${baseUrl}${WHATSAPP_MESSAGES_PATH}/${phoneNumberId}/messages`;
     const finalNumber = to.replace(/[^\d]/g, "");
 
+    const [csatHeader, csatBody, csatFooter, csatButtonText] = await Promise.all([
+      this.systemMessages.get(tenantId, "csatHeader"),
+      this.systemMessages.get(tenantId, "csatBody"),
+      this.systemMessages.get(tenantId, "csatFooter"),
+      this.systemMessages.get(tenantId, "csatButtonText"),
+    ]);
+
     const payload = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -341,22 +352,12 @@ export class WhatsappService {
       type: "interactive",
       interactive: {
         type: "cta_url",
-        header: {
-          type: "text",
-          text: "How did we do?",
-        },
-        body: {
-          text: "Your chat has been resolved. We'd love your feedback.",
-        },
-        footer: {
-          text: "Tap the button below to rate your experience.",
-        },
+        header: { type: "text", text: csatHeader },
+        body: { text: csatBody },
+        footer: { text: csatFooter },
         action: {
           name: "cta_url",
-          parameters: {
-            display_text: "Rate your experience",
-            url: csatUrl,
-          },
+          parameters: { display_text: csatButtonText, url: csatUrl },
         },
       },
     };

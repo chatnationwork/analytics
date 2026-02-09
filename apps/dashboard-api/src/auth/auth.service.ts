@@ -37,6 +37,7 @@ import {
 } from "@lib/database/entities/session-takeover-request.entity";
 import { RbacService } from "../agent-system/rbac.service";
 import { EmailService } from "../email/email.service";
+import { SystemMessagesService } from "../system-messages/system-messages.service";
 import { PresenceService } from "../agent-system/presence.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -104,6 +105,7 @@ export class AuthService {
     private readonly presenceService: PresenceService,
     private readonly whatsappService: WhatsappService,
     private readonly emailService: EmailService,
+    private readonly systemMessages: SystemMessagesService,
   ) {}
 
   /**
@@ -298,7 +300,14 @@ export class AuthService {
         "http://localhost:3000";
       const verifyUrl = `${frontendUrl}/verify-login?token=${encodeURIComponent(token)}&requestId=${encodeURIComponent(request.id)}`;
 
-      await this.emailService.sendSessionTakeoverEmail(user.email, verifyUrl);
+      const [loginVerifySubject, loginVerifyBody] = await Promise.all([
+        this.systemMessages.get(activeTenant.id, "loginVerifySubject"),
+        this.systemMessages.get(activeTenant.id, "loginVerifyBody"),
+      ]);
+      await this.emailService.sendSessionTakeoverEmail(user.email, verifyUrl, {
+        subject: loginVerifySubject,
+        body: loginVerifyBody,
+      });
       this.logger.log(
         `Session verification (email) required for ${user.email}; email sent`,
       );

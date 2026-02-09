@@ -11,6 +11,7 @@ import { HandoverAuthGuard } from "../auth/handover-auth.guard";
 import { InboxService } from "./inbox.service";
 import { AssignmentService } from "./assignment.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
+import { SystemMessagesService } from "../system-messages/system-messages.service";
 import { MessageDirection, SessionStatus } from "@lib/database";
 
 interface HandoverDto {
@@ -33,6 +34,7 @@ export class IntegrationController {
     private readonly inboxService: InboxService,
     private readonly assignmentService: AssignmentService,
     private readonly whatsappService: WhatsappService,
+    private readonly systemMessages: SystemMessagesService,
   ) {}
 
   /**
@@ -77,7 +79,8 @@ export class IntegrationController {
       dto.sendHandoverMessage !== false && !wasAlreadyAssigned;
     if (shouldSendMessage) {
       const messageContent =
-        dto.handoverMessage || "Connecting you to an agent...";
+        dto.handoverMessage ??
+        (await this.systemMessages.get(tenantId, "handoverMessage"));
       const sessionId = session.id;
       const contactId = session.contactId;
       Promise.all([

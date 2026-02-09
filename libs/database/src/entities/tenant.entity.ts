@@ -56,6 +56,32 @@ export interface TenantSettings {
   twoFactorRequired?: boolean;
   /** When true, agents must provide a reason when transferring a chat. Admin-configurable. */
   transferReasonRequired?: boolean;
+  /** Configurable copy for system-sent messages (handover, invite, login verify, CSAT, etc.). */
+  systemMessages?: SystemMessagesConfig;
+}
+
+/** Configurable system message copy. All fields optional; missing values fall back to built-in defaults. */
+export interface SystemMessagesConfig {
+  /** WhatsApp text when user is connected to an agent (handover). */
+  handoverMessage?: string;
+  /** Default out-of-office message when team schedule is closed (used if team has no custom message). */
+  outOfOfficeMessage?: string;
+  /** Invite email subject line. */
+  inviteEmailSubject?: string;
+  /** Invite email body (main paragraph). InviteUrl and inviter/workspace are inserted by the app. */
+  inviteEmailBody?: string;
+  /** Login verification email subject (new device/browser). */
+  loginVerifySubject?: string;
+  /** Login verification email body paragraph. VerifyUrl is inserted by the app. */
+  loginVerifyBody?: string;
+  /** CSAT WhatsApp CTA header. */
+  csatHeader?: string;
+  /** CSAT WhatsApp CTA body. */
+  csatBody?: string;
+  /** CSAT WhatsApp CTA footer. */
+  csatFooter?: string;
+  /** CSAT WhatsApp CTA button label. */
+  csatButtonText?: string;
 }
 
 /** Configuration for session management */

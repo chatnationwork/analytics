@@ -16,7 +16,9 @@ import {
 } from "@lib/database/entities/tenant-membership.entity";
 import { UserEntity } from "@lib/database/entities/user.entity";
 import { validatePassword } from "@lib/database";
+import { TenantRepository } from "@lib/database";
 import { EmailService } from "../email/email.service";
+import { SystemMessagesService } from "../system-messages/system-messages.service";
 import { ConfigService } from "@nestjs/config";
 import * as crypto from "crypto";
 
@@ -29,7 +31,9 @@ export class InvitationsService {
     private readonly membershipRepo: Repository<TenantMembershipEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    private readonly tenantRepository: TenantRepository,
     private readonly emailService: EmailService,
+    private readonly systemMessages: SystemMessagesService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -95,16 +99,24 @@ export class InvitationsService {
       where: { id: createdByUserId },
     });
 
-    // Construct invite URL (ensure frontend URL is configured)
     const frontendUrl =
       this.configService.get("FRONTEND_URL") || "http://localhost:3000";
     const inviteUrl = `${frontendUrl}/invite/accept?token=${token}`;
 
+    const tenant = await this.tenantRepository.findById(tenantId);
+    const workspaceName = tenant?.name ?? "ChatNation Workspace";
+    const inviterName = inviter?.name || "A colleague";
+    const [inviteSubject, inviteBody] = await Promise.all([
+      this.systemMessages.get(tenantId, "inviteEmailSubject"),
+      this.systemMessages.get(tenantId, "inviteEmailBody"),
+    ]);
+
     await this.emailService.sendInvitationEmail(
       email,
       inviteUrl,
-      inviter?.name || "A colleague",
-      "ChatNation Workspace", // You might want to fetch tenant name if needed
+      inviterName,
+      workspaceName,
+      { subject: inviteSubject, body: inviteBody },
     );
 
     return savedInvitation;

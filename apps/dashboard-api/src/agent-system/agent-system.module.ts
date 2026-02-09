@@ -51,6 +51,7 @@ import { ContactProfileService } from "./contact-profile.service";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { ApiKeysModule } from "../api-keys/api-keys.module";
 import { AuditModule } from "../audit/audit.module";
+import { SystemMessagesModule } from "../system-messages/system-messages.module";
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { AuditModule } from "../audit/audit.module";
     ApiKeysModule,
     WhatsappModule,
     AuditModule,
+    SystemMessagesModule,
     DatabaseModule.forFeature(), // Provides EventRepository for analytics events
     TypeOrmModule.forFeature([
       InboxSessionEntity,

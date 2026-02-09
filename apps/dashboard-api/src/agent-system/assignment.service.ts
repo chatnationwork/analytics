@@ -23,6 +23,7 @@ import {
   MessageDirection,
 } from "@lib/database";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
+import { SystemMessagesService } from "../system-messages/system-messages.service";
 import { InboxService } from "./inbox.service";
 import {
   AssignmentEngine,
@@ -76,6 +77,7 @@ export class AssignmentService {
     private readonly inboxService: InboxService,
     @Inject(ROUND_ROBIN_CONTEXT_PROVIDER)
     private readonly rrContext: RoundRobinContextProvider,
+    private readonly systemMessages: SystemMessagesService,
   ) {
     this.engine = new AssignmentEngine({
       sessionRepo: this.sessionRepo,
@@ -1117,7 +1119,12 @@ export class AssignmentService {
       return { isOpen: true }; // Default to open if no schedule
     }
 
-    const { timezone, days, outOfOfficeMessage } = team.schedule;
+    const { timezone, days, outOfOfficeMessage: teamOoo } = team.schedule;
+    const defaultOoo = await this.systemMessages.get(
+      team.tenantId,
+      "outOfOfficeMessage",
+    );
+    const outOfOfficeMessage = teamOoo ?? defaultOoo ?? "We are currently closed.";
 
     if (!timezone || typeof timezone !== "string" || timezone.trim() === "") {
       this.logger.warn(
@@ -1125,7 +1132,7 @@ export class AssignmentService {
       );
       return {
         isOpen: false,
-        message: outOfOfficeMessage || "We are currently closed.",
+        message: outOfOfficeMessage,
       };
     }
 
@@ -1157,7 +1164,7 @@ export class AssignmentService {
       );
       return {
         isOpen: false,
-        message: outOfOfficeMessage || "We are currently closed.",
+        message: outOfOfficeMessage,
       };
     }
 

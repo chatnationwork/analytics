@@ -26,6 +26,7 @@ import { AuditModule } from "../audit/audit.module";
 import { AgentSystemModule } from "../agent-system/agent-system.module";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { EmailModule } from "../email/email.module";
+import { SystemMessagesModule } from "../system-messages/system-messages.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { EmailModule } from "../email/email.module";
     AgentSystemModule,
     WhatsappModule,
     EmailModule,
+    SystemMessagesModule,
     DatabaseModule.forFeature(),
     TypeOrmModule.forFeature([
       TwoFaVerificationEntity,

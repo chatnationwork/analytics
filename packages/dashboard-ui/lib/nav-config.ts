@@ -25,6 +25,7 @@ export const NAV_ENTRIES: { href: string; defaultLabel: string }[] = [
   { href: "/settings/session", defaultLabel: "Session Management" },
   { href: "/settings/roles", defaultLabel: "Roles & Permissions" },
   { href: "/settings/navigation", defaultLabel: "Navigation labels" },
+  { href: "/settings/system-messages", defaultLabel: "System messages" },
   { href: "/settings/security", defaultLabel: "Security" },
   { href: "/docs", defaultLabel: "Docs" },
 ];
