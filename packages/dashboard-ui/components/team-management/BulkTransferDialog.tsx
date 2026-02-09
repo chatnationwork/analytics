@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowRightLeft, Search, User } from "lucide-react";
+import { ArrowRightLeft, Search, User, Users } from "lucide-react";
 import { toast } from "sonner";
 import { agentApi } from "@/lib/api/agent";
 import { api } from "@/lib/api";
@@ -31,7 +31,11 @@ export function BulkTransferDialog({
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [destinationType, setDestinationType] = useState<"agent" | "team">(
+    "agent",
+  );
   const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState("");
   const [reason, setReason] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,6 +54,12 @@ export function BulkTransferDialog({
   const { data: agents = [] } = useQuery({
     queryKey: ["available-agents-bulk-transfer", open],
     queryFn: () => agentApi.getAvailableAgents(),
+    enabled: open,
+  });
+
+  const { data: teams = [] } = useQuery({
+    queryKey: ["teams-bulk-transfer", open],
+    queryFn: () => agentApi.getTeams(),
     enabled: open,
   });
 
@@ -74,6 +84,7 @@ export function BulkTransferDialog({
   );
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId);
 
   const toggleSession = (sessionId: string) => {
     setSelectedSessionIds((prev) => {
@@ -94,7 +105,9 @@ export function BulkTransferDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAgentId || selectedSessionIds.size === 0) return;
+    const toAgent = destinationType === "agent" && selectedAgentId;
+    const toTeam = destinationType === "team" && selectedTeamId;
+    if ((!toAgent && !toTeam) || selectedSessionIds.size === 0) return;
     if (reasonRequired && !reason.trim()) return;
 
     setIsSubmitting(true);
@@ -102,12 +115,16 @@ export function BulkTransferDialog({
       const ids = Array.from(selectedSessionIds);
       const { transferred, errors } = await agentApi.bulkTransferSessions(
         ids,
-        selectedAgentId,
-        reason || undefined,
+        {
+          ...(toAgent && { targetAgentId: selectedAgentId }),
+          ...(toTeam && { targetTeamId: selectedTeamId }),
+          reason: reason || undefined,
+        },
       );
       onOpenChange(false);
       setSelectedSessionIds(new Set());
       setSelectedAgentId("");
+      setSelectedTeamId("");
       setReason("");
       setSearchQuery("");
       onSuccess?.();
@@ -128,7 +145,9 @@ export function BulkTransferDialog({
 
   const canSubmit =
     selectedSessionIds.size > 0 &&
-    !!selectedAgentId &&
+    (destinationType === "agent"
+      ? !!selectedAgentId
+      : !!selectedTeamId) &&
     (!reasonRequired || reason.trim().length > 0);
 
   return (
@@ -140,8 +159,8 @@ export function BulkTransferDialog({
             Bulk transfer
           </DialogTitle>
           <DialogDescription>
-            Select assigned chats and transfer them to an agent. Requires
-            session.bulk_transfer permission.
+            Select assigned chats and transfer them to an agent or to a team
+            queue. Requires session.bulk_transfer permission.
           </DialogDescription>
         </DialogHeader>
 
@@ -196,56 +215,140 @@ export function BulkTransferDialog({
             </div>
           </div>
 
-          {/* Agent picker */}
+          {/* Destination: agent or team */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              Transfer to agent <span className="text-destructive">*</span>
+              Transfer to <span className="text-destructive">*</span>
             </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search agents..."
-                className="w-full pl-9 pr-3 py-2 bg-background border border-input rounded-md text-sm"
-              />
+            <div className="flex rounded-lg border border-border p-1 bg-muted/30">
+              <button
+                type="button"
+                onClick={() => {
+                  setDestinationType("agent");
+                  setSelectedTeamId("");
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
+                  destinationType === "agent"
+                    ? "bg-background shadow text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <User className="h-4 w-4" />
+                Agent
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDestinationType("team");
+                  setSelectedAgentId("");
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
+                  destinationType === "team"
+                    ? "bg-background shadow text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Users className="h-4 w-4" />
+                Team
+              </button>
             </div>
-            <div className="border border-border rounded-md overflow-y-auto max-h-36">
-              {filteredAgents.length === 0 ? (
-                <div className="p-3 text-center text-sm text-muted-foreground">
-                  {searchQuery ? "No agents found" : "No available agents"}
+
+            {destinationType === "agent" ? (
+              <>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search agents..."
+                    className="w-full pl-9 pr-3 py-2 bg-background border border-input rounded-md text-sm"
+                  />
                 </div>
-              ) : (
-                filteredAgents.map((agent) => (
-                  <button
-                    key={agent.id}
-                    type="button"
-                    onClick={() => setSelectedAgentId(agent.id)}
-                    className={`w-full flex items-center gap-3 p-3 text-left text-sm hover:bg-muted/50 transition-colors ${
-                      selectedAgentId === agent.id
-                        ? "bg-primary/10 border-l-2 border-primary"
-                        : ""
-                    }`}
-                  >
-                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{agent.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {agent.email}
-                      </div>
+                <div className="border border-border rounded-md overflow-y-auto max-h-36">
+                  {filteredAgents.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      {searchQuery ? "No agents found" : "No available agents"}
                     </div>
-                  </button>
-                ))
-              )}
-            </div>
-            {selectedAgent && (
-              <div className="p-2 bg-muted/50 rounded-md text-sm flex items-center gap-2">
-                <User className="h-4 w-4 text-primary shrink-0" />
-                <span>
-                  Transferring to: {selectedAgent.name} ({selectedAgent.email})
-                </span>
-              </div>
+                  ) : (
+                    filteredAgents.map((agent) => (
+                      <button
+                        key={agent.id}
+                        type="button"
+                        onClick={() => setSelectedAgentId(agent.id)}
+                        className={`w-full flex items-center gap-3 p-3 text-left text-sm hover:bg-muted/50 transition-colors ${
+                          selectedAgentId === agent.id
+                            ? "bg-primary/10 border-l-2 border-primary"
+                            : ""
+                        }`}
+                      >
+                        <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">
+                            {agent.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {agent.email}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+                {selectedAgent && (
+                  <div className="p-2 bg-muted/50 rounded-md text-sm flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary shrink-0" />
+                    <span>
+                      Transferring to: {selectedAgent.name} (
+                      {selectedAgent.email})
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="border border-border rounded-md overflow-y-auto max-h-36">
+                  {teams.length === 0 ? (
+                    <div className="p-3 text-center text-sm text-muted-foreground">
+                      No teams available
+                    </div>
+                  ) : (
+                    teams.map((team) => (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() => setSelectedTeamId(team.id)}
+                        className={`w-full flex items-center gap-3 p-3 text-left text-sm hover:bg-muted/50 transition-colors ${
+                          selectedTeamId === team.id
+                            ? "bg-primary/10 border-l-2 border-primary"
+                            : ""
+                        }`}
+                      >
+                        <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">
+                            {team.name}
+                          </div>
+                          {team.memberCount != null && (
+                            <div className="text-xs text-muted-foreground">
+                              {team.memberCount} member
+                              {team.memberCount !== 1 ? "s" : ""}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+                {selectedTeam && (
+                  <div className="p-2 bg-muted/50 rounded-md text-sm flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary shrink-0" />
+                    <span>
+                      Transferring to team: {selectedTeam.name}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

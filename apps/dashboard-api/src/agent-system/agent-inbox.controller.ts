@@ -88,10 +88,13 @@ interface TransferSessionDto {
   reason?: string;
 }
 
-/** DTO for bulk transfer (requires session.bulk_transfer permission). */
+/** DTO for bulk transfer (requires session.bulk_transfer permission). Exactly one of targetAgentId or targetTeamId must be set. */
 interface BulkTransferDto {
   sessionIds: string[];
-  targetAgentId: string;
+  /** Transfer to this agent (chat assigned to agent). */
+  targetAgentId?: string;
+  /** Transfer to this team (chat goes to team queue, unassigned). */
+  targetTeamId?: string;
   reason?: string;
 }
 
@@ -622,11 +625,20 @@ export class AgentInboxController {
       return { transferred: 0, errors: [] };
     }
 
+    const hasAgent = typeof dto.targetAgentId === "string" && dto.targetAgentId.length > 0;
+    const hasTeam = typeof dto.targetTeamId === "string" && dto.targetTeamId.length > 0;
+    if (hasAgent === hasTeam) {
+      throw new BadRequestException(
+        "Provide exactly one of targetAgentId or targetTeamId",
+      );
+    }
+
     const result = await this.inboxService.bulkTransferSessions(
       req.user.tenantId,
       sessionIds,
       req.user.id,
-      dto.targetAgentId,
+      hasAgent ? dto.targetAgentId! : undefined,
+      hasTeam ? dto.targetTeamId! : undefined,
       dto.reason,
     );
 
@@ -640,7 +652,8 @@ export class AgentInboxController {
         resourceId: sessionId,
         details: {
           bulkTransfer: true,
-          toAgentId: dto.targetAgentId,
+          ...(hasAgent && { toAgentId: dto.targetAgentId }),
+          ...(hasTeam && { toTeamId: dto.targetTeamId }),
           reason: dto.reason,
         },
         requestContext: getRequestContext(expressReq),

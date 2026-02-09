@@ -1018,15 +1018,17 @@ export class InboxService {
   }
 
   /**
-   * Bulk transfer multiple sessions to one agent.
+   * Bulk transfer multiple sessions to one agent or to a team queue.
    * Caller must have session.bulk_transfer permission; no requirement to be the assigned agent.
    * Resolved sessions are skipped; only sessions in the same tenant are transferred.
+   * Exactly one of toAgentId or toTeamId must be set.
    */
   async bulkTransferSessions(
     tenantId: string,
     sessionIds: string[],
     initiatorId: string,
-    toAgentId: string,
+    toAgentId: string | undefined,
+    toTeamId: string | undefined,
     reason?: string,
   ): Promise<{
     transferred: number;
@@ -1034,6 +1036,19 @@ export class InboxService {
   }> {
     const errors: Array<{ sessionId: string; message: string }> = [];
     let transferred = 0;
+    const toTeam = !!toTeamId;
+
+    if (toTeam && toTeamId) {
+      const team = await this.teamRepo.findOne({
+        where: { id: toTeamId, tenantId },
+      });
+      if (!team) {
+        return {
+          transferred: 0,
+          errors: [{ sessionId: "", message: "Target team not found" }],
+        };
+      }
+    }
 
     for (const sessionId of sessionIds) {
       try {
@@ -1051,7 +1066,15 @@ export class InboxService {
         }
 
         const previousAgentId = session.assignedAgentId;
-        session.assignedAgentId = toAgentId;
+        const previousTeamId = session.assignedTeamId;
+
+        if (toTeam && toTeamId) {
+          session.assignedTeamId = toTeamId;
+          session.assignedAgentId = null;
+        } else if (toAgentId) {
+          session.assignedAgentId = toAgentId;
+          // Keep assignedTeamId as-is; agent belongs to a team
+        }
         session.acceptedAt = null;
 
         const context = (session.context as Record<string, unknown>) || {};
@@ -1059,7 +1082,9 @@ export class InboxService {
           (context.transfers as Array<Record<string, unknown>>) || [];
         transfers.push({
           from: previousAgentId,
-          to: toAgentId,
+          to: toTeam ? null : toAgentId,
+          toTeamId: toTeam ? toTeamId : undefined,
+          fromTeamId: previousTeamId,
           reason: reason ?? "bulk_transfer",
           timestamp: new Date().toISOString(),
         });
@@ -1071,8 +1096,9 @@ export class InboxService {
           await this.fireTransferEvent(
             session,
             previousAgentId ?? initiatorId,
-            toAgentId,
+            toTeam ? undefined : toAgentId,
             reason ?? "bulk_transfer",
+            toTeam ? toTeamId : undefined,
           );
         } catch (err) {
           this.logger.warn(
@@ -1088,8 +1114,9 @@ export class InboxService {
     }
 
     if (transferred > 0) {
+      const target = toTeam ? `team ${toTeamId}` : `agent ${toAgentId}`;
       this.logger.log(
-        `Bulk transfer: ${transferred} session(s) to ${toAgentId} by ${initiatorId}`,
+        `Bulk transfer: ${transferred} session(s) to ${target} by ${initiatorId}`,
       );
     }
 
@@ -1099,12 +1126,14 @@ export class InboxService {
   /**
    * Fire an analytics event when a session is transferred.
    * When reason is "takeover", properties include isTakeover: true for analytics.
+   * When transferring to team, toAgentId is undefined and toTeamId is set.
    */
   private async fireTransferEvent(
     session: InboxSessionEntity,
     fromAgentId: string,
-    toAgentId: string,
+    toAgentId: string | undefined,
     reason?: string,
+    toTeamId?: string,
   ): Promise<void> {
     const eventId = randomUUID();
     const isTakeover = reason === "takeover";
@@ -1125,7 +1154,8 @@ export class InboxService {
       properties: {
         inboxSessionId: session.id,
         fromAgentId,
-        toAgentId,
+        ...(toAgentId != null && { toAgentId }),
+        ...(toTeamId != null && { toTeamId }),
         reason,
         isTakeover,
         contactId: session.contactId,
