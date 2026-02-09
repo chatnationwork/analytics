@@ -356,7 +356,7 @@ export class EventProcessorService {
       messageType === MessageType.TEXT &&
       (mediaUrl || (props.media_url as string))
     ) {
-      const url = (mediaUrl || (props.media_url as string)) || "";
+      const url = mediaUrl || (props.media_url as string) || "";
       const lower = url.toLowerCase();
 
       if (
@@ -407,13 +407,21 @@ export class EventProcessorService {
   /**
    * When we receive csat_submitted events, update the resolution row for that session
    * so CSAT analytics and agent reports can use csatScore/csatFeedback.
-   * Expects properties.rating (number) and optionally properties.feedback (string).
+   * Expects properties.rating (number), optionally properties.feedback (string), and
+   * properties.inboxSessionId (string) – the inbox_sessions.id of the resolved chat.
+   * If inboxSessionId is missing, falls back to event.sessionId (analytics session) for lookup.
    */
   private async processCsatEvents(events: CreateEventDto[]): Promise<void> {
     for (const event of events) {
-      if (event.eventName !== "csat_submitted" || !event.sessionId) continue;
+      if (event.eventName !== "csat_submitted") continue;
 
       const props = event.properties ?? {};
+      const inboxSessionId =
+        typeof props.inboxSessionId === "string" && props.inboxSessionId.trim()
+          ? props.inboxSessionId.trim()
+          : event.sessionId;
+      if (!inboxSessionId) continue;
+
       const rating =
         typeof props.rating === "number"
           ? props.rating
@@ -427,7 +435,7 @@ export class EventProcessorService {
 
       try {
         const resolution = await this.resolutionRepo.findOne({
-          where: { sessionId: event.sessionId },
+          where: { sessionId: inboxSessionId },
         });
         if (!resolution) continue;
 
@@ -435,11 +443,11 @@ export class EventProcessorService {
         if (feedback !== undefined) resolution.csatFeedback = feedback;
         await this.resolutionRepo.save(resolution);
         this.logger.debug(
-          `Updated CSAT for session ${event.sessionId}: score=${rating}, feedback=${feedback != null ? "yes" : "no"}`,
+          `Updated CSAT for session ${inboxSessionId}: score=${rating}, feedback=${feedback != null ? "yes" : "no"}`,
         );
       } catch (err) {
         this.logger.warn(
-          `Failed to update resolution CSAT for session ${event.sessionId}: ${(err as Error).message}`,
+          `Failed to update resolution CSAT for session ${inboxSessionId}: ${(err as Error).message}`,
         );
       }
     }

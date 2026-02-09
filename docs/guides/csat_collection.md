@@ -30,7 +30,8 @@ Send a batch to the collector (e.g. `POST /v1/capture`) with the same structure 
       "properties": {
         "rating": 5,
         "feedback": "Great experience, very fast!",
-        "journey": "NIL Filing"
+        "journey": "NIL Filing",
+        "inboxSessionId": "uuid-of-the-resolved-inbox-session"
       }
     }
   ],
@@ -40,15 +41,16 @@ Send a batch to the collector (e.g. `POST /v1/capture`) with the same structure 
 ```
 
 - **user_id**: Contact identifier; we expect a **phone number** (e.g. `254745050238`). It is normalized to digits-only before storage so analytics can group by contact consistently.
-- **session_id**: Session UUID. If this matches an inbox session that has a resolution, the resolution row is updated with `csatScore` and `csatFeedback`.
+- **session_id**: Analytics/session UUID (e.g. from the SDK). Used for event grouping. For **resolution linking**, prefer **properties.inboxSessionId** (see below).
 - **properties.rating**: Numeric score (e.g. 1–5). Required for resolution CSAT update.
 - **properties.feedback**: Optional text feedback.
+- **properties.inboxSessionId**: **Inbox session UUID** (the `id` of the resolved chat in `inbox_sessions`). When present, the processor uses it to find the resolution row and set `csatScore` / `csatFeedback`. If your SDK sends a browser session id as `session_id`, include the resolved chat’s session id here so the resolution row is updated. Example: after resolving a chat, redirect the user to the CSAT form with `?sessionId=<inbox_session_id>` and pass that into the track call.
 - **properties.journey**: Optional journey/step identifier (e.g. `"NIL Filing"`, `"eTIMS"`, `"MRI"`). When set, it is used for **CSAT per journey** in the dashboard. If omitted, we derive journey from the linked inbox session’s context (e.g. handoff `journeyStep`) when available. Sending `journey` explicitly makes it easier to get accurate per-journey CSAT without relying on session context.
 
 ## Processing
 
 1. **Collector**: Accepts the batch like any other event. For `event_name === "csat_submitted"`, `user_id` is normalized to digits only (e.g. `"254 745 050 238"` → `"254745050238"`).
-2. **Processor**: Events are written to the `events` table. For each `csat_submitted` event, if a row in `resolutions` exists with the same `sessionId`, that row’s `csatScore` and `csatFeedback` are updated from `properties.rating` and `properties.feedback`. This links CSAT to the resolved chat for agent/CSAT analytics.
+2. **Processor**: Events are written to the `events` table. For each `csat_submitted` event, the processor looks up a resolution by **properties.inboxSessionId** (if set) or **session_id**. If a row in `resolutions` exists for that id, that row’s `csatScore` and `csatFeedback` are updated from `properties.rating` and `properties.feedback`. This links CSAT to the resolved chat for agent/CSAT analytics.
 
 ## Querying CSAT
 
