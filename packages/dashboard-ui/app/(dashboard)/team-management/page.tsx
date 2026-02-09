@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, Inbox, ArrowRightLeft } from "lucide-react";
+import { Plus, Users, Inbox, ArrowRightLeft, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { agentApi, Team } from "@/lib/api/agent";
 import { CreateTeamDialog } from "@/components/team-management/CreateTeamDialog";
 import { AssignQueueDialog } from "@/components/team-management/AssignQueueDialog";
 import { BulkTransferDialog } from "@/components/team-management/BulkTransferDialog";
+import { MassReengagementDialog } from "@/components/team-management/MassReengagementDialog";
 import {
   TeamList,
   type TeamQueueStats,
@@ -27,6 +28,7 @@ export default function TeamManagementPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isAssignQueueOpen, setIsAssignQueueOpen] = useState(false);
   const [isBulkTransferOpen, setIsBulkTransferOpen] = useState(false);
+  const [isMassReengageOpen, setIsMassReengageOpen] = useState(false);
 
   const fetchTeams = async () => {
     try {
@@ -88,6 +90,13 @@ export default function TeamManagementPage() {
     ]);
   };
 
+  const handleMassReengageSuccess = () => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["agent-teams-queue-stats"] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-inbox-counts"] }),
+    ]);
+  };
+
   return (
     <RouteGuard
       permissions={["teams.manage", "teams.view_all", "teams.view_team"]}
@@ -137,8 +146,8 @@ export default function TeamManagementPage() {
               Scheduling & Queue
             </h3>
             <p className="text-sm text-muted-foreground -mt-4">
-              Assign unassigned chats in the queue, or bulk transfer assigned
-              chats to another agent.
+              Assign unassigned chats in the queue, bulk transfer assigned
+              chats, or send re-engagement templates to expired chats.
             </p>
             <div className="flex items-center gap-2 flex-wrap">
               <Button
@@ -150,14 +159,24 @@ export default function TeamManagementPage() {
                 Assign queue
               </Button>
               {canBulkTransfer && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsBulkTransferOpen(true)}
-                >
-                  <ArrowRightLeft className="h-4 w-4 mr-1.5" />
-                  Bulk transfer
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsBulkTransferOpen(true)}
+                  >
+                    <ArrowRightLeft className="h-4 w-4 mr-1.5" />
+                    Bulk transfer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsMassReengageOpen(true)}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-1.5" />
+                    Mass re-engagement
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -174,11 +193,18 @@ export default function TeamManagementPage() {
           onSuccess={handleAssignQueueSuccess}
         />
         {canBulkTransfer && (
-          <BulkTransferDialog
-            open={isBulkTransferOpen}
-            onOpenChange={setIsBulkTransferOpen}
-            onSuccess={handleBulkTransferSuccess}
-          />
+          <>
+            <BulkTransferDialog
+              open={isBulkTransferOpen}
+              onOpenChange={setIsBulkTransferOpen}
+              onSuccess={handleBulkTransferSuccess}
+            />
+            <MassReengagementDialog
+              open={isMassReengageOpen}
+              onOpenChange={setIsMassReengageOpen}
+              onSuccess={handleMassReengageSuccess}
+            />
+          </>
         )}
       </div>
     </RouteGuard>

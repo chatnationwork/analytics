@@ -113,6 +113,11 @@ interface AssignQueueDto {
   teamIds?: string[];
 }
 
+/** DTO for mass reengagement: send reengagement template to chats inactive for at least this many days. */
+interface BulkReengageDto {
+  olderThanDays: number;
+}
+
 /**
  * Controller for agent inbox operations.
  * All endpoints require authentication via JWT.
@@ -661,6 +666,75 @@ export class AgentInboxController {
     }
 
     return result;
+  }
+
+  /**
+   * Count of assigned chats that have been inactive for at least olderThanDays (for mass reengagement UI).
+   * Must be declared before :sessionId/reengage so "reengage/expired-count" is not matched as sessionId.
+   */
+  @Get("reengage/expired-count")
+  async getExpiredCountForReengage(
+    @Request()
+    req: {
+      user: { tenantId: string; permissions?: { global?: string[] } };
+    },
+    @Query("olderThanDays") olderThanDaysStr?: string,
+  ) {
+    if (
+      !req.user.permissions?.global?.includes(
+        Permission.SESSION_BULK_TRANSFER as string,
+      )
+    ) {
+      throw new ForbiddenException(
+        "You do not have permission to run mass reengagement",
+      );
+    }
+    const olderThanDays = Math.max(
+      1,
+      Math.min(365, parseInt(String(olderThanDaysStr ?? "1"), 10) || 1),
+    );
+    const sessions =
+      await this.inboxService.getExpiredSessionsForReengagement(
+        req.user.tenantId,
+        olderThanDays,
+      );
+    return { count: sessions.length };
+  }
+
+  /**
+   * Send reengagement template to all assigned chats inactive for at least olderThanDays days.
+   * Must be declared before :sessionId/reengage so "reengage/bulk" is not matched as sessionId.
+   */
+  @Post("reengage/bulk")
+  async bulkReengage(
+    @Request()
+    req: {
+      user: {
+        id: string;
+        tenantId: string;
+        permissions?: { global?: string[] };
+      };
+    },
+    @Body() dto: BulkReengageDto,
+  ) {
+    if (
+      !req.user.permissions?.global?.includes(
+        Permission.SESSION_BULK_TRANSFER as string,
+      )
+    ) {
+      throw new ForbiddenException(
+        "You do not have permission to run mass reengagement",
+      );
+    }
+    const olderThanDays = Math.max(
+      1,
+      Math.min(365, Number(dto.olderThanDays) || 1),
+    );
+    return this.inboxService.bulkReengageSessions(
+      req.user.tenantId,
+      req.user.id,
+      olderThanDays,
+    );
   }
 
   /**

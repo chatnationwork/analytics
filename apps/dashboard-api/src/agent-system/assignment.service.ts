@@ -494,7 +494,7 @@ export class AssignmentService {
     const contextKey = session.assignedTeamId || session.tenantId;
     const { config } = await this.getStrategyWithType(
       session.tenantId,
-      session.assignedTeamId,
+      session.assignedTeamId ?? undefined,
     );
 
     const agentIds = await this.getAvailableAgents(
@@ -605,7 +605,7 @@ export class AssignmentService {
   ): Promise<InboxSessionEntity | null> {
     const { config } = await this.getStrategyWithType(
       session.tenantId,
-      session.assignedTeamId,
+      session.assignedTeamId ?? undefined,
     );
     const timeWindow = config?.timeWindow || "all_time";
 

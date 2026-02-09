@@ -47,7 +47,7 @@ export class InboxSessionEntity {
   channel: string;
 
   @Column("uuid", { nullable: true })
-  assignedAgentId: string;
+  assignedAgentId: string | null;
 
   /** When this session was assigned to the current agent (for agent session metrics) */
   @Column({ type: "timestamptz", nullable: true })
@@ -66,7 +66,7 @@ export class InboxSessionEntity {
   assignedAgent: UserEntity;
 
   @Column("uuid", { nullable: true })
-  assignedTeamId: string;
+  assignedTeamId: string | null;
 
   @ManyToOne(() => TeamEntity)
   @JoinColumn({ name: "assignedTeamId" })

@@ -1167,6 +1167,88 @@ export class InboxService {
   }
 
   /**
+   * Get assigned, non-resolved sessions that have been inactive for at least olderThanDays.
+   * Used for mass reengagement: "chats expired for at least N days".
+   */
+  async getExpiredSessionsForReengagement(
+    tenantId: string,
+    olderThanDays: number,
+  ): Promise<InboxSessionEntity[]> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - Math.max(1, olderThanDays));
+    cutoff.setHours(0, 0, 0, 0);
+
+    return this.sessionRepo
+      .createQueryBuilder("session")
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.status = :status", {
+        status: SessionStatus.ASSIGNED,
+      })
+      .andWhere(
+        "(session.lastMessageAt IS NULL OR session.lastMessageAt <= :cutoff)",
+        { cutoff },
+      )
+      .orderBy("session.lastMessageAt", "ASC")
+      .getMany();
+  }
+
+  /**
+   * Send reengagement template to multiple expired sessions (mass reengagement).
+   * Sessions are those assigned and inactive for at least olderThanDays.
+   * Caller must have session.bulk_transfer permission.
+   */
+  async bulkReengageSessions(
+    tenantId: string,
+    initiatorId: string,
+    olderThanDays: number,
+  ): Promise<{
+    sent: number;
+    errors: Array<{ sessionId: string; message: string }>;
+  }> {
+    const sessions =
+      await this.getExpiredSessionsForReengagement(tenantId, olderThanDays);
+    const errors: Array<{ sessionId: string; message: string }> = [];
+    let sent = 0;
+
+    for (const session of sessions) {
+      try {
+        const account = (session.context as Record<string, unknown>)?.account as
+          | string
+          | undefined;
+        const contactName =
+          (session.contactName ?? "")?.trim() || session.contactId || "there";
+
+        const result = await this.whatsappService.sendReengagementTemplate(
+          tenantId,
+          session.contactId,
+          contactName,
+          { account },
+        );
+
+        if (!result.success) {
+          errors.push({
+            sessionId: session.id,
+            message: result.error ?? "Failed to send reengagement",
+          });
+          continue;
+        }
+        sent++;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        errors.push({ sessionId: session.id, message });
+      }
+    }
+
+    if (sent > 0) {
+      this.logger.log(
+        `Bulk reengagement: ${sent} template(s) sent for sessions inactive ≥${olderThanDays} day(s) by ${initiatorId}`,
+      );
+    }
+
+    return { sent, errors };
+  }
+
+  /**
    * Get available agents for transfer (same tenant, excluding the current agent).
    */
   async getAvailableAgentsForTransfer(

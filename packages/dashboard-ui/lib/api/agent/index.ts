@@ -304,6 +304,36 @@ export const agentApi = {
   },
 
   /**
+   * Count of assigned chats inactive for at least olderThanDays (for mass reengagement).
+   * Requires session.bulk_transfer permission.
+   */
+  getExpiredCountForReengage: async (
+    olderThanDays: number,
+  ): Promise<{ count: number }> => {
+    const n = Math.max(1, Math.min(365, Math.floor(olderThanDays)));
+    return fetchWithAuth(
+      `/agent/inbox/reengage/expired-count?olderThanDays=${encodeURIComponent(n)}`,
+    );
+  },
+
+  /**
+   * Send reengagement template to all assigned chats inactive for at least olderThanDays days.
+   * Requires session.bulk_transfer permission.
+   */
+  bulkReengage: async (
+    olderThanDays: number,
+  ): Promise<{
+    sent: number;
+    errors: Array<{ sessionId: string; message: string }>;
+  }> => {
+    const n = Math.max(1, Math.min(365, Math.floor(olderThanDays)));
+    return fetchWithAuth("/agent/inbox/reengage/bulk", {
+      method: "POST",
+      body: JSON.stringify({ olderThanDays: n }),
+    });
+  },
+
+  /**
    * Transfer a session to another agent
    */
   transferSession: async (
