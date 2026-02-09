@@ -667,13 +667,33 @@ export class AgentInboxAnalyticsService {
       limit,
     );
 
-    const totalResolved = data.reduce(
+    const agentIds = [
+      ...new Set(
+        data.map((d: { agentId: string }) => d.agentId).filter(Boolean),
+      ),
+    ];
+    const users =
+      agentIds.length > 0
+        ? await this.userRepo.find({ where: { id: In(agentIds) } })
+        : [];
+    const nameByAgentId = new Map(
+      users.map((u) => [u.id, u.name ?? null]),
+    );
+
+    const dataWithNames = data.map(
+      (d: { agentId: string; resolvedCount: number; transfersIn: number; transfersOut: number; categories?: string[] }) => ({
+        ...d,
+        agentName: nameByAgentId.get(d.agentId) ?? null,
+      }),
+    );
+
+    const totalResolved = dataWithNames.reduce(
       (sum: number, d: { resolvedCount: number }) => sum + d.resolvedCount,
       0,
     );
 
     return {
-      data,
+      data: dataWithNames,
       summary: {
         totalResolved,
         totalAgents: data.length,
@@ -832,13 +852,26 @@ export class AgentInboxAnalyticsService {
       endDate,
     );
 
+    const agentIds = [
+      ...new Set(
+        data.map((d: { agentId: string }) => d.agentId).filter(Boolean),
+      ),
+    ];
+    const users =
+      agentIds.length > 0
+        ? await this.userRepo.find({ where: { id: In(agentIds) } })
+        : [];
+    const nameByAgentId = new Map(
+      users.map((u) => [u.id, u.name ?? null]),
+    );
+
     const totalChatsHandled = data.reduce(
       (sum: number, d: { totalChatsHandled: number }) =>
         sum + d.totalChatsHandled,
       0,
     );
 
-    // Calculate resolution rate for each agent
+    // Calculate resolution rate and attach agent name for each agent
     const enrichedData = data.map(
       (d: {
         agentId: string;
@@ -849,6 +882,7 @@ export class AgentInboxAnalyticsService {
         totalChatsHandled: number;
       }) => ({
         ...d,
+        agentName: nameByAgentId.get(d.agentId) ?? null,
         resolutionRate:
           d.handoffsReceived > 0
             ? Math.round((d.resolvedCount / d.handoffsReceived) * 1000) / 10

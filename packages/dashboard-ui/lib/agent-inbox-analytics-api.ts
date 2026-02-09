@@ -166,6 +166,7 @@ export interface ExpiredChatsResponse {
 
 export interface AgentLeaderboardItem {
   agentId: string;
+  agentName?: string | null;
   resolvedCount: number;
   categories: string[];
   transfersOut: number;
@@ -336,6 +337,7 @@ export interface AgentActivityResponse {
 
 export interface AgentDetailedItem {
   agentId: string;
+  agentName?: string | null;
   resolvedCount: number;
   handoffsReceived: number;
   transfersOut: number;

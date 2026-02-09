@@ -376,7 +376,7 @@ function AgentLeaderboard({ data }: { data: AgentLeaderboardItem[] }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-medium text-foreground truncate">
-              {agent.agentId.slice(0, 8)}...
+              {agent.agentName?.trim() || agent.agentId.slice(0, 8) + "…"}
             </div>
             <div className="text-xs text-muted-foreground">
               {agent.resolvedCount} resolved • {agent.transfersIn} received •{" "}
@@ -591,8 +591,8 @@ function AgentDetailsTable({ data }: { data: AgentDetailedItem[] }) {
                   <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
                     <Users className="w-3.5 h-3.5 text-muted-foreground" />
                   </div>
-                  <span className="text-sm font-medium text-foreground truncate max-w-[100px]">
-                    {agent.agentId.slice(0, 8)}...
+                  <span className="text-sm font-medium text-foreground truncate max-w-[140px]" title={agent.agentId}>
+                    {agent.agentName?.trim() || agent.agentId.slice(0, 8) + "…"}
                   </span>
                 </div>
               </td>
