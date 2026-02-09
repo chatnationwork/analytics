@@ -98,4 +98,27 @@ export class InboxSessionHelper {
 
     return this.sessionRepo.save(newSession);
   }
+
+  /**
+   * Gets an existing inbox session for a contact without creating one.
+   * Used by message sync paths to only add messages when the contact has already
+   * been handed over (session created via handover endpoint).
+   * Returns null if no ASSIGNED/UNASSIGNED session exists.
+   */
+  async getExistingSession(
+    tenantId: string,
+    contactId: string,
+  ): Promise<InboxSessionEntity | null> {
+    const normalizedContactId = normalizeContactIdDigits(contactId);
+    if (!normalizedContactId) return null;
+
+    return this.sessionRepo.findOne({
+      where: {
+        tenantId,
+        contactId: normalizedContactId,
+        status: In([SessionStatus.ASSIGNED, SessionStatus.UNASSIGNED]),
+      },
+      order: { lastMessageAt: "DESC" },
+    });
+  }
 }

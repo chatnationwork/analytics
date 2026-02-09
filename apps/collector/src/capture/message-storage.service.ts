@@ -66,21 +66,26 @@ export class MessageStorageService {
         `Storing message event: ${event.event_name} for ${rawContactId}`,
       );
 
-      // 1. Get or Create Session via shared helper (handles normalization + dedup)
-      let session: InboxSessionEntity;
-      try {
-        session = await this.sessionHelper.getOrCreateSession(
-          tenantId,
-          rawContactId,
-          {
-            contactName,
-            channel: (event.context as any)?.channel || "whatsapp",
-          },
+      // 1. Only add to inbox when contact already has a session (created by handover).
+      // Do not create sessions from message events; that bypasses the connect-to-agent flow.
+      const session = await this.sessionHelper.getExistingSession(
+        tenantId,
+        rawContactId,
+      );
+      if (!session) {
+        this.logger.debug(
+          `No inbox session for ${rawContactId}; skipping message storage (handover not triggered).`,
         );
-      } catch (err) {
-        this.logger.warn(
-          `Skipping message storage: ${(err as Error).message}`,
-        );
+        // Still upsert contact for analytics when we receive a message
+        const normalizedContactId = normalizeContactIdDigits(rawContactId);
+        if (event.event_name === "message.received" && normalizedContactId) {
+          await this.contactRepo.upsertFromMessageReceived(
+            tenantId,
+            normalizedContactId,
+            new Date(),
+            contactName || undefined,
+          );
+        }
         return;
       }
 

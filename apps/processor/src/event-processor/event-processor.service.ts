@@ -267,20 +267,15 @@ export class EventProcessorService {
       return;
     }
 
-    let session: InboxSessionEntity;
-    try {
-      session = await this.sessionHelper.getOrCreateSession(
-        event.tenantId,
-        contactId,
-        {
-          contactName: props.name as string,
-          channel: "whatsapp",
-          context: { source: "webhook_sync" },
-        },
-      );
-    } catch (err) {
-      this.logger.warn(
-        `Skipping inbox sync for event ${event.eventId}: ${(err as Error).message}`,
+    // Only add messages when contact already has an inbox session (created by handover).
+    // Do not create sessions from message events; that bypasses the connect-to-agent flow.
+    const session = await this.sessionHelper.getExistingSession(
+      event.tenantId,
+      contactId,
+    );
+    if (!session) {
+      this.logger.debug(
+        `No inbox session for ${contactId}; skipping inbox sync (handover not triggered).`,
       );
       return;
     }

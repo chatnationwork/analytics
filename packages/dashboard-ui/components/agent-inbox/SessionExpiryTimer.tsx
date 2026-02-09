@@ -82,7 +82,7 @@ export function SessionExpiryTimer({
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   const label =
-    hours > 0 ? `Expires in ${hours}h ${minutes}m` : `Expires in ${minutes}m`;
+    hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 
   return (
     <div
