@@ -64,6 +64,7 @@ import {
   getAgentActivity,
   getAgentDetailedStats,
   getAgentWorkload,
+  getAgentPerformanceMetrics,
   type Granularity,
   type ResolutionTrendDataPoint,
   type ResolutionCategoryItem,
@@ -761,6 +762,18 @@ export default function AgentAnalyticsPage() {
     queryFn: () => getAgentWorkload(granularity, periods, dateStart, dateEnd),
   });
 
+  const { data: performanceMetrics } = useQuery({
+    queryKey: [
+      "agent-analytics-performance-metrics",
+      granularity,
+      periods,
+      dateStart,
+      dateEnd,
+    ],
+    queryFn: () =>
+      getAgentPerformanceMetrics(granularity, periods, dateStart, dateEnd),
+  });
+
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6 p-6">
@@ -999,6 +1012,59 @@ export default function AgentAnalyticsPage() {
             <h2 className="text-lg font-semibold text-foreground">
               Agent Performance
             </h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Chats still in Active at end of day or shift count as Unresolved for
+            performance tracking.
+          </p>
+
+          {/* Performance metrics: Assigned, Resolved, Unresolved, Expired, 1st Response, Resolution time */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <StatCard
+              label="Assigned"
+              value={performanceMetrics?.assigned ?? 0}
+              subValue="chats assigned in period"
+              icon={<Inbox className="w-4 h-4" />}
+            />
+            <StatCard
+              label="Resolved"
+              value={performanceMetrics?.resolved ?? 0}
+              subValue="chats resolved in period"
+              icon={<CheckCircle className="w-4 h-4" />}
+            />
+            <StatCard
+              label="Unresolved"
+              value={performanceMetrics?.unresolved ?? 0}
+              subValue="assigned but not resolved"
+              icon={<AlertTriangle className="w-4 h-4" />}
+            />
+            <StatCard
+              label="Expired"
+              value={performanceMetrics?.expired ?? 0}
+              subValue="no activity 24h+ in period"
+              positive={(performanceMetrics?.expired ?? 0) <= 0}
+              icon={<AlertTriangle className="w-4 h-4" />}
+            />
+            <StatCard
+              label="1st Response"
+              value={
+                performanceMetrics?.avgFirstResponseMinutes != null
+                  ? `${performanceMetrics.avgFirstResponseMinutes} min`
+                  : "—"
+              }
+              subValue="avg accept to first reply"
+              icon={<Activity className="w-4 h-4" />}
+            />
+            <StatCard
+              label="Resolution time"
+              value={
+                performanceMetrics?.avgResolutionTimeMinutes != null
+                  ? `${performanceMetrics.avgResolutionTimeMinutes} min`
+                  : "—"
+              }
+              subValue="avg accept to resolve"
+              icon={<Target className="w-4 h-4" />}
+            />
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">

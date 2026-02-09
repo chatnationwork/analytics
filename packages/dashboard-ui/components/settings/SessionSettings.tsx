@@ -11,8 +11,10 @@ interface SessionSettingsData {
   sessionsRevokedAt?: string;
 }
 
-/** Resolved chats in Inbox: 0 = all time, 1/7/30 = last N days. Default 1. */
+/** Resolved chats in Inbox: 0 = all time; 0.25 = 6h, 0.5 = 12h; 1/7/30 = last N days. Default 1. */
 const RESOLVED_CHATS_OPTIONS = [
+  { value: 0.25, label: "Last 6 hours" },
+  { value: 0.5, label: "Last 12 hours" },
   { value: 1, label: "Last 1 day (default)" },
   { value: 7, label: "Last 7 days" },
   { value: 30, label: "Last 30 days" },

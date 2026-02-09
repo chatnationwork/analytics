@@ -16,6 +16,8 @@ import {
   SessionStatus,
   ResolutionEntity,
   UserEntity,
+  MessageEntity,
+  MessageDirection,
 } from "@lib/database";
 
 type Granularity = "day" | "week" | "month";
@@ -30,6 +32,8 @@ export class AgentInboxAnalyticsService {
     private readonly resolutionRepo: Repository<ResolutionEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    @InjectRepository(MessageEntity)
+    private readonly messageRepo: Repository<MessageEntity>,
   ) {}
 
   /**
@@ -946,6 +950,117 @@ export class AgentInboxAnalyticsService {
     return {
       ...current,
       resolutionRateChange,
+      startDate,
+      endDate,
+      granularity,
+    };
+  }
+
+  /**
+   * Get agent performance metrics for the date range.
+   * Chats still Active at end of period are counted as Unresolved for performance tracking.
+   * - Assigned: sessions assigned in period (assignedAt in range).
+   * - Resolved: sessions resolved in period (resolution createdAt in range).
+   * - Unresolved: assigned in period but not resolved in period (includes still-active at end of day/shift).
+   * - Expired: assigned in period, still ASSIGNED, no message in last 24h (as of endDate).
+   * - 1st Response: avg minutes from acceptedAt to first outbound message (sessions with both in range).
+   * - Resolution time: avg minutes from acceptedAt to resolution createdAt (resolutions in range).
+   */
+  async getAgentPerformanceMetrics(
+    tenantId: string,
+    granularity: Granularity = "day",
+    periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
+  ): Promise<{
+    assigned: number;
+    resolved: number;
+    unresolved: number;
+    expired: number;
+    avgFirstResponseMinutes: number | null;
+    avgResolutionTimeMinutes: number | null;
+    startDate: Date;
+    endDate: Date;
+    granularity: string;
+  }> {
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
+
+    const endDatePlusOne = new Date(endDate);
+    endDatePlusOne.setDate(endDatePlusOne.getDate() + 1);
+    const expiredThreshold = new Date(endDate);
+    expiredThreshold.setHours(expiredThreshold.getHours() - 24);
+
+    const [assignedRow] = await this.sessionRepo.query(
+      `SELECT COUNT(*)::int AS cnt FROM inbox_sessions
+       WHERE "tenantId" = $1 AND "assignedAt" IS NOT NULL AND "assignedAt" >= $2 AND "assignedAt" < $3`,
+      [tenantId, startDate, endDatePlusOne],
+    );
+    const assigned = assignedRow?.cnt ?? 0;
+
+    const [resolvedRow] = await this.resolutionRepo.query(
+      `SELECT COUNT(*)::int AS cnt FROM resolutions r
+       INNER JOIN inbox_sessions s ON s.id = r."sessionId"
+       WHERE s."tenantId" = $1 AND r."createdAt" >= $2 AND r."createdAt" < $3`,
+      [tenantId, startDate, endDatePlusOne],
+    );
+    const resolved = resolvedRow?.cnt ?? 0;
+
+    const unresolved = Math.max(0, assigned - resolved);
+
+    const [expiredRow] = await this.sessionRepo.query(
+      `SELECT COUNT(*)::int AS cnt FROM inbox_sessions
+       WHERE "tenantId" = $1 AND status = $2 AND "assignedAt" IS NOT NULL
+         AND "assignedAt" >= $3 AND "assignedAt" < $4
+         AND ("lastMessageAt" IS NULL OR "lastMessageAt" < $5)`,
+      [tenantId, SessionStatus.ASSIGNED, startDate, endDatePlusOne, expiredThreshold],
+    );
+    const expired = expiredRow?.cnt ?? 0;
+
+    const [firstResponseRow] = await this.messageRepo.query(
+      `WITH first_outbound AS (
+         SELECT m."sessionId", MIN(m."createdAt") AS first_at
+         FROM messages m
+         INNER JOIN inbox_sessions s ON s.id = m."sessionId"
+         WHERE s."tenantId" = $1 AND m.direction = $2
+           AND s."acceptedAt" IS NOT NULL
+           AND s."acceptedAt" >= $3 AND s."acceptedAt" < $4
+         GROUP BY m."sessionId"
+       )
+       SELECT AVG(EXTRACT(EPOCH FROM (f.first_at - s."acceptedAt")) / 60)::float AS avg_mins
+       FROM first_outbound f
+       INNER JOIN inbox_sessions s ON s.id = f."sessionId"`,
+      [tenantId, MessageDirection.OUTBOUND, startDate, endDatePlusOne],
+    );
+    const avgFirstResponseMinutes =
+      firstResponseRow?.avg_mins != null && !isNaN(firstResponseRow.avg_mins)
+        ? Math.round(firstResponseRow.avg_mins * 10) / 10
+        : null;
+
+    const [resolutionTimeRow] = await this.resolutionRepo.query(
+      `SELECT AVG(EXTRACT(EPOCH FROM (r."createdAt" - s."acceptedAt")) / 60)::float AS avg_mins
+       FROM resolutions r
+       INNER JOIN inbox_sessions s ON s.id = r."sessionId"
+       WHERE s."tenantId" = $1 AND s."acceptedAt" IS NOT NULL
+         AND r."createdAt" >= $2 AND r."createdAt" < $3`,
+      [tenantId, startDate, endDatePlusOne],
+    );
+    const avgResolutionTimeMinutes =
+      resolutionTimeRow?.avg_mins != null && !isNaN(resolutionTimeRow.avg_mins)
+        ? Math.round(resolutionTimeRow.avg_mins * 10) / 10
+        : null;
+
+    return {
+      assigned,
+      resolved,
+      unresolved,
+      expired,
+      avgFirstResponseMinutes,
+      avgResolutionTimeMinutes,
       startDate,
       endDate,
       granularity,

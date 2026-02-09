@@ -384,6 +384,18 @@ export interface AgentPerformanceSummaryResponse {
   granularity: string;
 }
 
+export interface AgentPerformanceMetricsResponse {
+  assigned: number;
+  resolved: number;
+  unresolved: number;
+  expired: number;
+  avgFirstResponseMinutes: number | null;
+  avgResolutionTimeMinutes: number | null;
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
 // =============================================================================
 // AGENT PERFORMANCE API FUNCTIONS
 // =============================================================================
@@ -429,5 +441,16 @@ export async function getAgentPerformanceSummary(
 ): Promise<AgentPerformanceSummaryResponse> {
   return fetchWithAuth(
     `/agent-inbox-analytics/agents/summary?${buildParams(granularity, periods, startDate, endDate)}`,
+  );
+}
+
+export async function getAgentPerformanceMetrics(
+  granularity: Granularity = "day",
+  periods: number = 30,
+  startDate?: string,
+  endDate?: string,
+): Promise<AgentPerformanceMetricsResponse> {
+  return fetchWithAuth(
+    `/agent-inbox-analytics/agents/performance-metrics?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }

@@ -289,4 +289,26 @@ export class AgentInboxAnalyticsController {
       endDate,
     );
   }
+
+  /**
+   * Get agent performance metrics: Assigned, Resolved, Unresolved, Expired,
+   * avg 1st Response (minutes), avg Resolution time (minutes).
+   * Chats still Active at end of day/shift count as Unresolved.
+   */
+  @Get("agents/performance-metrics")
+  async getPerformanceMetrics(
+    @Request() req: { user: { tenantId: string } },
+    @Query("granularity") granularity: Granularity = "day",
+    @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.analyticsService.getAgentPerformanceMetrics(
+      req.user.tenantId,
+      granularity,
+      parseInt(periods, 10) || 30,
+      startDate,
+      endDate,
+    );
+  }
 }
