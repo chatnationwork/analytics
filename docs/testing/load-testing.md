@@ -51,18 +51,18 @@ winget install k6
 2. Run the load test script:
    - **Using included binary:**
      ```bash
-     ./tests/load/k6 run tests/load/load-test.js
+     WRITE_KEY=your-write-key ./tests/load/k6 run tests/load/load-test.js
      ```
    - **Using system install:**
      ```bash
-     k6 run tests/load/load-test.js
+     WRITE_KEY=your-write-key k6 run tests/load/load-test.js
      ```
 
 ### Configuration
 
-You can override the target URL using an environment variable:
+You can override the target URL and Write Key using environment variables:
 ```bash
-k6 run -e BASE_URL=http://localhost:3000 tests/load/load-test.js
+BASE_URL=https://analytics.chatnationbot.com WRITE_KEY=your-write-key ./tests/load/k6 run tests/load/load-test.js
 ```
 
 ## Test Scenarios

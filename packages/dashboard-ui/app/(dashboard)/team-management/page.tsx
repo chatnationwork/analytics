@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, Inbox } from "lucide-react";
+import { Plus, Users, Inbox, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { agentApi, Team } from "@/lib/api/agent";
 import { CreateTeamDialog } from "@/components/team-management/CreateTeamDialog";
 import { AssignQueueDialog } from "@/components/team-management/AssignQueueDialog";
+import { BulkTransferDialog } from "@/components/team-management/BulkTransferDialog";
 import {
   TeamList,
   type TeamQueueStats,
@@ -19,11 +20,13 @@ import { usePermission } from "@/components/auth/PermissionContext";
 export default function TeamManagementPage() {
   const { can } = usePermission();
   const canManage = can("teams.manage");
+  const canBulkTransfer = can("session.bulk_transfer");
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isAssignQueueOpen, setIsAssignQueueOpen] = useState(false);
+  const [isBulkTransferOpen, setIsBulkTransferOpen] = useState(false);
 
   const fetchTeams = async () => {
     try {
@@ -75,6 +78,16 @@ export default function TeamManagementPage() {
     }
   };
 
+  const handleBulkTransferSuccess = () => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["agent-teams-queue-stats"] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-status-list"] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-status-sessions"] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-inbox-counts"] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-inbox-for-bulk-transfer"] }),
+    ]);
+  };
+
   return (
     <RouteGuard
       permissions={["teams.manage", "teams.view_all", "teams.view_team"]}
@@ -124,10 +137,10 @@ export default function TeamManagementPage() {
               Scheduling & Queue
             </h3>
             <p className="text-sm text-muted-foreground -mt-4">
-              Assign unassigned chats in the queue. Choose to let the system
-              assign, assign to specific agents, or distribute to teams.
+              Assign unassigned chats in the queue, or bulk transfer assigned
+              chats to another agent.
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -136,6 +149,16 @@ export default function TeamManagementPage() {
                 <Inbox className="h-4 w-4 mr-1.5" />
                 Assign queue
               </Button>
+              {canBulkTransfer && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkTransferOpen(true)}
+                >
+                  <ArrowRightLeft className="h-4 w-4 mr-1.5" />
+                  Bulk transfer
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -150,6 +173,13 @@ export default function TeamManagementPage() {
           onOpenChange={setIsAssignQueueOpen}
           onSuccess={handleAssignQueueSuccess}
         />
+        {canBulkTransfer && (
+          <BulkTransferDialog
+            open={isBulkTransferOpen}
+            onOpenChange={setIsBulkTransferOpen}
+            onSuccess={handleBulkTransferSuccess}
+          />
+        )}
       </div>
     </RouteGuard>
   );

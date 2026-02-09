@@ -8,7 +8,6 @@ import {
   MessageSquare,
   RefreshCw,
   CheckCircle,
-  ArrowRightLeft,
   Clock,
   Inbox,
   Archive,
@@ -94,15 +93,10 @@ export default function AgentInboxPage() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [canViewAllChats, setCanViewAllChats] = useState(false);
-  const [canBulkTransfer, setCanBulkTransfer] = useState(false);
   const [canTransfer, setCanTransfer] = useState(false);
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
-  const [bulkSelectedSessionIds, setBulkSelectedSessionIds] = useState<
-    Set<string>
-  >(new Set());
-  const [bulkTransferMode, setBulkTransferMode] = useState(false);
   const [resolveWrapUpConfig, setResolveWrapUpConfig] = useState<
     TeamWrapUpReport | null | undefined
   >(undefined);
@@ -130,9 +124,6 @@ export default function AgentInboxPage() {
         setCurrentUserId(u.id);
         setCanViewAllChats(
           u.permissions?.global?.includes("session.view_all") ?? false,
-        );
-        setCanBulkTransfer(
-          u.permissions?.global?.includes("session.bulk_transfer") ?? false,
         );
         const hasTransfer =
           (u.permissions?.global ?? []).includes("session.transfer") ||
@@ -344,35 +335,7 @@ export default function AgentInboxPage() {
     targetAgentId: string,
     reason?: string,
   ) => {
-    if (bulkTransferMode && bulkSelectedSessionIds.size > 0) {
-      const ids = Array.from(bulkSelectedSessionIds);
-      const { transferred, errors } = await agentApi.bulkTransferSessions(
-        ids,
-        targetAgentId,
-        reason,
-      );
-      setBulkSelectedSessionIds(new Set());
-      setBulkTransferMode(false);
-      setShowTransferDialog(false);
-      fetchInbox();
-      invalidateInboxCounts();
-      if (selectedSessionId && ids.includes(selectedSessionId)) {
-        setSelectedSessionId(null);
-        setMessages([]);
-      }
-      if (transferred > 0) {
-        toast.success(`${transferred} chat(s) transferred`);
-      }
-      if (errors.length > 0 && transferred === 0) {
-        toast.error(errors[0]?.message ?? "Failed to transfer");
-      } else if (errors.length > 0) {
-        toast.warning(`${transferred} transferred; ${errors.length} failed`);
-      }
-      return;
-    }
-
     if (!selectedSessionId) return;
-
     await agentApi.transferSession(selectedSessionId, targetAgentId, reason);
     setShowTransferDialog(false);
     fetchInbox();
@@ -382,24 +345,7 @@ export default function AgentInboxPage() {
     toast.success("Chat transferred");
   };
 
-  const openBulkTransferDialog = () => {
-    setBulkTransferMode(true);
-    setShowTransferDialog(true);
-  };
-
-  const openSingleTransferDialog = () => {
-    setBulkTransferMode(false);
-    setShowTransferDialog(true);
-  };
-
-  const toggleBulkSession = (sessionId: string) => {
-    setBulkSelectedSessionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
-    });
-  };
+  const openTransferDialog = () => setShowTransferDialog(true);
 
   const handleReengage = async () => {
     if (!selectedSessionId || !selectedSession) return;
@@ -450,17 +396,6 @@ export default function AgentInboxPage() {
               Inbox
             </CardTitle>
             <div className="flex items-center gap-1">
-              {canBulkTransfer && bulkSelectedSessionIds.size > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={openBulkTransferDialog}
-                  className="gap-1.5"
-                >
-                  <ArrowRightLeft className="h-4 w-4" />
-                  Bulk transfer ({bulkSelectedSessionIds.size})
-                </Button>
-              )}
               <Button variant="ghost" size="icon" onClick={fetchInbox}>
                 <RefreshCw
                   className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -519,9 +454,6 @@ export default function AgentInboxPage() {
               selectedSessionId={selectedSessionId || undefined}
               onSelectSession={handleSelectSession}
               isExpired={isSessionExpired}
-              canBulkTransfer={canBulkTransfer}
-              bulkSelectedIds={bulkSelectedSessionIds}
-              onBulkToggle={toggleBulkSession}
             />
           )}
         </CardContent>
@@ -615,7 +547,7 @@ export default function AgentInboxPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={openSingleTransferDialog}
+                      onClick={openTransferDialog}
                       className="gap-1.5"
                     >
                       <ArrowRightLeft className="h-4 w-4" />
@@ -695,21 +627,13 @@ export default function AgentInboxPage() {
         wrapUpConfig={resolveWrapUpConfig}
       />
 
-      {/* Transfer Dialog (single or bulk) */}
+      {/* Transfer Dialog (single chat) */}
       <TransferDialog
         isOpen={showTransferDialog}
-        onClose={() => {
-          setShowTransferDialog(false);
-          setBulkTransferMode(false);
-        }}
+        onClose={() => setShowTransferDialog(false)}
         onTransfer={handleTransferSession}
         contactName={
-          bulkTransferMode
-            ? undefined
-            : selectedSession?.contactName || selectedSession?.contactId
-        }
-        sessionCount={
-          bulkTransferMode ? bulkSelectedSessionIds.size : undefined
+          selectedSession?.contactName || selectedSession?.contactId
         }
         reasonRequired={transferReasonRequired}
       />
