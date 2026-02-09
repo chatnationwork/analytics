@@ -38,3 +38,8 @@ backups/
 # Misc
 *.tgz
 .turbo
+
+
+tests/load/k6
+tests/load/*
+tests/load*
