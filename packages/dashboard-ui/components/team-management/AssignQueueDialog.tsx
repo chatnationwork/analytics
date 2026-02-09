@@ -19,6 +19,9 @@ import { agentApi } from "@/lib/api/agent";
 import { agentStatusApi } from "@/lib/agent-status-api";
 import { Inbox, User, Users } from "lucide-react";
 
+// Stable reference for empty lists to prevent infinite loops in useEffect
+const EMPTY_LIST: any[] = [];
+
 export type AssignQueueMode = "auto" | "manual" | "teams";
 
 interface AssignQueueDialogProps {
@@ -38,13 +41,13 @@ export function AssignQueueDialog({
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const { data: agentList = [] } = useQuery({
+  const { data: agentList = EMPTY_LIST } = useQuery({
     queryKey: ["agent-status-list"],
     queryFn: () => agentStatusApi.getAgentStatusList(),
     enabled: open && mode === "manual",
   });
 
-  const { data: availableTeams = [] } = useQuery({
+  const { data: availableTeams = EMPTY_LIST } = useQuery({
     queryKey: ["teams-available-for-queue"],
     queryFn: () => agentApi.getTeamsAvailableForQueue(),
     enabled: open && mode === "teams",

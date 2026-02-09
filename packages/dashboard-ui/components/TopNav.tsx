@@ -111,6 +111,12 @@ const navGroups = [
         permission: "settings.manage",
       },
       {
+        href: "/settings/system-messages",
+        label: "System messages",
+        icon: MessageCircle,
+        permission: "settings.manage",
+      },
+      {
         href: "/settings/security",
         label: "Security",
         icon: Lock,
