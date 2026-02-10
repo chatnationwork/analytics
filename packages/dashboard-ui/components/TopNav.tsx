@@ -232,10 +232,10 @@ export function TopNav() {
             className="flex items-center gap-2.5 min-w-0 flex-1"
           >
             <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-              A
+              S
             </div>
             <span className="font-semibold text-foreground truncate">
-              Analytics
+             Shuru Connect
             </span>
           </Link>
         ) : (

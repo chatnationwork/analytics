@@ -54,7 +54,7 @@ export default function ShowcasePage() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-bold text-sm">
               A
             </div>
-            <span className="font-semibold">Kra Analytics · Preview</span>
+            <span className="font-semibold">Shuru Connect · Preview</span>
           </div>
           <div className="flex items-center gap-6">
             <Link
@@ -134,7 +134,7 @@ export default function ShowcasePage() {
         {/* CTA */}
         <div className="mt-12 text-center py-12 border-t border-white/10">
           <h3 className="text-2xl font-bold mb-4">
-            Log in to see Kra Analytics with your data
+            Log in to see Shuru Connect with your data
           </h3>
           <p className="text-gray-400 mb-6">
             Funnels, journeys, CSAT, agent inbox, and reports in one place.

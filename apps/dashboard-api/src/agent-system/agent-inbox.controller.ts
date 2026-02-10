@@ -113,9 +113,17 @@ interface AssignQueueDto {
   teamIds?: string[];
 }
 
-/** DTO for mass reengagement: send reengagement template to chats inactive for at least this many days. */
+/**
+ * DTO for mass reengagement: send reengagement template to chats inactive for
+ * at least olderThanDays, OR within a custom date range (startDate–endDate).
+ * When startDate/endDate are provided, they take precedence over olderThanDays.
+ */
 interface BulkReengageDto {
   olderThanDays: number;
+  /** ISO date string (YYYY-MM-DD). When set with endDate, filters lastMessageAt >= startDate. */
+  startDate?: string;
+  /** ISO date string (YYYY-MM-DD). When set with startDate, filters lastMessageAt <= endDate. */
+  endDate?: string;
 }
 
 /**
@@ -669,7 +677,8 @@ export class AgentInboxController {
   }
 
   /**
-   * Count of assigned chats that have been inactive for at least olderThanDays (for mass reengagement UI).
+   * Count of assigned chats that have been inactive for at least olderThanDays,
+   * or within a custom date range (startDate–endDate) when provided.
    * Must be declared before :sessionId/reengage so "reengage/expired-count" is not matched as sessionId.
    */
   @Get("reengage/expired-count")
@@ -679,6 +688,8 @@ export class AgentInboxController {
       user: { tenantId: string; permissions?: { global?: string[] } };
     },
     @Query("olderThanDays") olderThanDaysStr?: string,
+    @Query("startDate") startDateStr?: string,
+    @Query("endDate") endDateStr?: string,
   ) {
     if (
       !req.user.permissions?.global?.includes(
@@ -693,16 +704,19 @@ export class AgentInboxController {
       1,
       Math.min(365, parseInt(String(olderThanDaysStr ?? "1"), 10) || 1),
     );
+    const dateRange = this.parseDateRange(startDateStr, endDateStr);
     const sessions =
       await this.inboxService.getExpiredSessionsForReengagement(
         req.user.tenantId,
         olderThanDays,
+        dateRange,
       );
     return { count: sessions.length };
   }
 
   /**
-   * Send reengagement template to all assigned chats inactive for at least olderThanDays days.
+   * Send reengagement template to all assigned chats inactive for at least olderThanDays days,
+   * or within a custom date range (startDate–endDate) when provided.
    * Must be declared before :sessionId/reengage so "reengage/bulk" is not matched as sessionId.
    */
   @Post("reengage/bulk")
@@ -730,11 +744,30 @@ export class AgentInboxController {
       1,
       Math.min(365, Number(dto.olderThanDays) || 1),
     );
+    const dateRange = this.parseDateRange(dto.startDate, dto.endDate);
     return this.inboxService.bulkReengageSessions(
       req.user.tenantId,
       req.user.id,
       olderThanDays,
+      dateRange,
     );
+  }
+
+  /**
+   * Parse optional startDate/endDate strings into Date objects for reengagement date range filtering.
+   * Returns undefined if either date is missing or invalid.
+   */
+  private parseDateRange(
+    startDateStr?: string,
+    endDateStr?: string,
+  ): { startDate: Date; endDate: Date } | undefined {
+    if (!startDateStr || !endDateStr) return undefined;
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return undefined;
+    // Set end to end of day so the full day is included
+    end.setHours(23, 59, 59, 999);
+    return { startDate: start, endDate: end };
   }
 
   /**

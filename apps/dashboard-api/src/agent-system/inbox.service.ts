@@ -1170,46 +1170,59 @@ export class InboxService {
   }
 
   /**
-   * Get assigned, non-resolved sessions that have been inactive for at least olderThanDays.
-   * Used for mass reengagement: "chats expired for at least N days".
+   * Get assigned, non-resolved sessions that have been inactive for at least olderThanDays,
+   * or within a custom date range when provided.
+   * Used for mass reengagement: "chats expired for at least N days" or within a date window.
+   * When dateRange is provided it takes precedence over olderThanDays.
    */
   async getExpiredSessionsForReengagement(
     tenantId: string,
     olderThanDays: number,
+    dateRange?: { startDate: Date; endDate: Date },
   ): Promise<InboxSessionEntity[]> {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - Math.max(1, olderThanDays));
-    cutoff.setHours(0, 0, 0, 0);
-
-    return this.sessionRepo
+    const query = this.sessionRepo
       .createQueryBuilder("session")
       .where("session.tenantId = :tenantId", { tenantId })
       .andWhere("session.status = :status", {
         status: SessionStatus.ASSIGNED,
-      })
-      .andWhere(
+      });
+
+    if (dateRange) {
+      // Custom date range: filter sessions whose lastMessageAt falls between start and end
+      query.andWhere(
+        "(session.lastMessageAt IS NOT NULL AND session.lastMessageAt >= :start AND session.lastMessageAt <= :end)",
+        { start: dateRange.startDate, end: dateRange.endDate },
+      );
+    } else {
+      // Default: sessions inactive for at least N days
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - Math.max(1, olderThanDays));
+      cutoff.setHours(0, 0, 0, 0);
+      query.andWhere(
         "(session.lastMessageAt IS NULL OR session.lastMessageAt <= :cutoff)",
         { cutoff },
-      )
-      .orderBy("session.lastMessageAt", "ASC")
-      .getMany();
+      );
+    }
+
+    return query.orderBy("session.lastMessageAt", "ASC").getMany();
   }
 
   /**
    * Send reengagement template to multiple expired sessions (mass reengagement).
-   * Sessions are those assigned and inactive for at least olderThanDays.
+   * Sessions are those assigned and inactive for at least olderThanDays, or within a custom date range.
    * Caller must have session.bulk_transfer permission.
    */
   async bulkReengageSessions(
     tenantId: string,
     initiatorId: string,
     olderThanDays: number,
+    dateRange?: { startDate: Date; endDate: Date },
   ): Promise<{
     sent: number;
     errors: Array<{ sessionId: string; message: string }>;
   }> {
     const sessions =
-      await this.getExpiredSessionsForReengagement(tenantId, olderThanDays);
+      await this.getExpiredSessionsForReengagement(tenantId, olderThanDays, dateRange);
     const errors: Array<{ sessionId: string; message: string }> = [];
     let sent = 0;
 
@@ -1243,8 +1256,11 @@ export class InboxService {
     }
 
     if (sent > 0) {
+      const rangeDesc = dateRange
+        ? `between ${dateRange.startDate.toISOString().slice(0, 10)} and ${dateRange.endDate.toISOString().slice(0, 10)}`
+        : `inactive ≥${olderThanDays} day(s)`;
       this.logger.log(
-        `Bulk reengagement: ${sent} template(s) sent for sessions inactive ≥${olderThanDays} day(s) by ${initiatorId}`,
+        `Bulk reengagement: ${sent} template(s) sent for sessions ${rangeDesc} by ${initiatorId}`,
       );
     }
 
