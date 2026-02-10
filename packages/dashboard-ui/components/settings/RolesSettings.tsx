@@ -161,6 +161,13 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     }));
   }, [permissions]);
 
+  // Filter out legacy roles (admin, member, manager)
+  // These exist for backward compatibility but should not be displayed
+  const LEGACY_ROLES = ['admin', 'member', 'manager'];
+  const filteredRoles = useMemo(() => {
+    return roles?.filter(role => !LEGACY_ROLES.includes(role.name)) ?? [];
+  }, [roles]);
+
   if (isLoadingRoles) {
     return (
       <div className="flex justify-center p-8">
@@ -211,7 +218,7 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
             </tr>
           </thead>
           <tbody className="bg-card divide-y divide-border">
-            {roles?.map((role) => (
+            {filteredRoles.map((role) => (
               <tr key={role.id}>
                 <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
                   {role.name}

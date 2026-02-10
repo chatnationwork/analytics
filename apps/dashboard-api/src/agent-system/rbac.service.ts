@@ -35,11 +35,8 @@ export class RbacService implements OnModuleInit {
         Permission.SETTINGS_MANAGE, // To manage API keys
       ],
 
-      // Super Admin (was admin): Full Tenant Access
+      // Super Admin: Full Tenant Access
       super_admin: Object.values(Permission),
-
-      // Admin (Deprecated - alias to super_admin for now)
-      admin: Object.values(Permission),
 
       // Auditor: Read-only compliance
       auditor: [
@@ -49,18 +46,8 @@ export class RbacService implements OnModuleInit {
         Permission.DOCS_ADMIN, // Auditors might need to read docs to understand system
       ],
 
-      // Agent (was member): Standard user
+      // Agent: Standard user
       agent: [
-        Permission.SESSION_VIEW,
-        Permission.SESSION_MANAGE,
-        Permission.SESSION_TRANSFER,
-        Permission.CONTACTS_VIEW,
-        Permission.CONTACTS_UPDATE,
-        Permission.DOCS_AGENT,
-      ],
-
-      // Member (Deprecated - alias to agent for now)
-      member: [
         Permission.SESSION_VIEW,
         Permission.SESSION_MANAGE,
         Permission.SESSION_TRANSFER,

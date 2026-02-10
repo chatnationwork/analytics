@@ -44,7 +44,7 @@ export class InvitationsService {
     tenantId: string,
     email: string,
     createdByUserId: string,
-    role: MembershipRole = "member",
+    role: MembershipRole = "agent",
   ): Promise<InvitationEntity> {
     // 1. Check if user is already a member
     const existingUser = await this.userRepo.findOne({ where: { email } });

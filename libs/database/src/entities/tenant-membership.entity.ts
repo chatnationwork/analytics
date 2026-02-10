@@ -9,9 +9,11 @@
  *
  * ROLES:
  * -----
- * - owner: Full access, can delete tenant, manage billing
- * - admin: Can manage members, settings, projects
- * - member: Can view analytics, create funnels
+ * - system_admin: Full access, super user of the platform
+ * - developer: Technical access (API keys, webhooks, docs)
+ * - super_admin: Full tenant access, can manage members, settings
+ * - auditor: Read-only compliance access
+ * - agent: Standard user, can handle sessions
  *
  * A user can belong to multiple tenants with different roles.
  */
@@ -31,13 +33,11 @@ import { RoleEntity } from "./role.entity";
 
 /** Available membership roles */
 export type MembershipRole =
-  | "system_admin" // New: System-wide admin (all tenants)
-  | "developer" // New: Technical access (API keys, webhooks)
-  | "super_admin" // Renamed from admin: Full tenant access
+  | "system_admin" // System-wide admin (all tenants)
+  | "developer" // Technical access (API keys, webhooks)
+  | "super_admin" // Full tenant access
   | "auditor" // Read-only access
-  | "agent" // Renamed from member: Standard agent access
-  | "admin" // Deprecated: Migration target -> super_admin
-  | "member"; // Deprecated: Migration target -> agent
+  | "agent"; // Standard agent access
 
 @Entity("tenant_memberships")
 @Index(["tenantId", "userId"], { unique: true })
@@ -51,7 +51,7 @@ export class TenantMembershipEntity {
   tenantId: string;
 
   /** User's role within this tenant */
-  @Column({ default: "member" })
+  @Column({ default: "agent" })
   role: MembershipRole;
 
   /** When the membership was created */

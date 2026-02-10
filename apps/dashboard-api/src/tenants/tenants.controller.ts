@@ -101,7 +101,7 @@ export class TenantsController {
   ) {
     const context = await this.tenantContextService.getTenantForUser(user.id);
 
-    if (context.role !== "super_admin" && context.role !== "admin") {
+    if (context.role !== "super_admin" && context.role !== "system_admin") {
       throw new ForbiddenException("Insufficient permissions");
     }
 
@@ -199,7 +199,7 @@ export class TenantsController {
   }
 
   /**
-   * Update a member's role (requires admin or super_admin).
+   * Update a member's role (requires system_admin or super_admin).
    */
   @Patch("current/members/:userId")
   async updateMemberRole(
@@ -208,7 +208,7 @@ export class TenantsController {
     @Body() body: { role: MembershipRole },
   ) {
     const context = await this.tenantContextService.getTenantForUser(user.id);
-    if (context.role !== "super_admin" && context.role !== "admin") {
+    if (context.role !== "super_admin" && context.role !== "system_admin") {
       throw new ForbiddenException("Insufficient permissions");
     }
     if (!body.role) {
@@ -216,9 +216,10 @@ export class TenantsController {
     }
     const validRoles: MembershipRole[] = [
       "super_admin",
-      "admin",
+      "system_admin",
+      "developer",
       "auditor",
-      "member",
+      "agent",
     ];
     if (!validRoles.includes(body.role)) {
       throw new BadRequestException("Invalid role");
@@ -241,7 +242,7 @@ export class TenantsController {
     @Param("userId") targetUserId: string,
   ) {
     const context = await this.tenantContextService.getTenantForUser(user.id);
-    if (context.role !== "super_admin" && context.role !== "admin") {
+    if (context.role !== "super_admin" && context.role !== "system_admin") {
       throw new ForbiddenException("Insufficient permissions");
     }
     if (targetUserId === user.id) {
@@ -277,7 +278,7 @@ export class TenantsController {
     @Param("userId") targetUserId: string,
   ) {
     const context = await this.tenantContextService.getTenantForUser(user.id);
-    if (context.role !== "super_admin" && context.role !== "admin") {
+    if (context.role !== "super_admin" && context.role !== "system_admin") {
       throw new ForbiddenException("Insufficient permissions");
     }
     const updated = await this.tenantRepository.setMemberActive(
