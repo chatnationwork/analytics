@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { signupAction } from "./actions";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PasswordInput } from "@/components/ui/password-input";
 
 const PASSWORD_MIN_LENGTH = 8;
 
@@ -181,12 +182,10 @@ export default function SignupPage() {
               character.
             </p>
             <div className="mt-1">
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 {...register("password")}
                 autoComplete="new-password"
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3"
               />
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">

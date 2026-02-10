@@ -188,6 +188,11 @@ export class AgentStatusService {
     };
   }
 
+  /**
+   * Get agent user IDs for a tenant, filtered to only include users with role='agent'
+   * in tenant_memberships. This ensures admin, developer, and auditor users are excluded
+   * from the agent status list used for queue assignments.
+   */
   private async getAgentIdsForTenant(tenantId: string): Promise<string[]> {
     const teams = await this.teamRepo.find({
       where: { tenantId },
@@ -199,7 +204,22 @@ export class AgentStatusService {
       where: { teamId: In(teamIds) },
       select: ["userId"],
     });
-    return [...new Set(members.map((m) => m.userId))];
+    const allUserIds = [...new Set(members.map((m) => m.userId))];
+    if (allUserIds.length === 0) return [];
+
+    // Filter to only users with role = 'agent' in tenant_memberships
+    const agentMembers: Array<{ userId: string }> =
+      await this.teamRepo.manager.query(
+        `
+        SELECT tm."userId"
+        FROM tenant_memberships tm
+        WHERE tm."tenantId" = $1
+          AND tm."userId" = ANY($2)
+          AND tm.role = 'agent'
+        `,
+        [tenantId, allUserIds],
+      );
+    return agentMembers.map((m) => m.userId);
   }
 
   /**

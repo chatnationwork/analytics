@@ -106,6 +106,8 @@ export interface AvailableAgent {
   id: string;
   name: string;
   email: string;
+  /** Tenant membership role (e.g. 'agent'). Returned by the backend for informational use. */
+  role?: string;
 }
 
 /**

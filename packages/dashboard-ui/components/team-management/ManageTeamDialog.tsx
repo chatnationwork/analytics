@@ -538,21 +538,7 @@ export function ManageTeamDialog({
 
           <TabsContent value="schedule" className="space-y-4 py-4">
             {/* --- Schedule Toggle --- */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="schedule-enabled"
-                checked={scheduleConfig.enabled}
-                onCheckedChange={(checked: boolean | string) =>
-                  setScheduleConfig((prev) => ({ ...prev, enabled: !!checked }))
-                }
-              />
-              <label
-                htmlFor="schedule-enabled"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Enable Working Hours & OOO Auto-Reply
-              </label>
-            </div>
+           
 
             {/* --- Routing Strategy Section --- */}
             <div className="border rounded-md p-4 space-y-4 bg-slate-50 dark:bg-slate-900/20">
@@ -751,6 +737,21 @@ export function ManageTeamDialog({
             <div
               className={`space-y-4 ${!scheduleConfig.enabled ? "opacity-50 pointer-events-none" : ""}`}
             >
+               <div className="flex items-center space-x-2">
+              <Checkbox
+                id="schedule-enabled"
+                checked={scheduleConfig.enabled}
+                onCheckedChange={(checked: boolean | string) =>
+                  setScheduleConfig((prev) => ({ ...prev, enabled: !!checked }))
+                }
+              />
+              <label
+                htmlFor="schedule-enabled"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Enable Working Hours & OOO Auto-Reply
+              </label>
+            </div>
               <div className="grid gap-2">
                 <Label htmlFor="timezone">Timezone</Label>
                 <Select

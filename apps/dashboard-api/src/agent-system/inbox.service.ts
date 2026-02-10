@@ -1254,22 +1254,24 @@ export class InboxService {
   /**
    * Get available agents for transfer (same tenant, excluding the current agent).
    * When availableOnly is true, only returns agents who are online (agent_profiles.status = 'online').
+   * Only returns users with role = 'agent' so admins, developers, and auditors are excluded.
    */
   async getAvailableAgentsForTransfer(
     tenantId: string,
     excludeAgentId: string,
     options?: { availableOnly?: boolean },
-  ): Promise<Array<{ id: string; name: string; email: string }>> {
+  ): Promise<Array<{ id: string; name: string; email: string; role: string }>> {
     if (options?.availableOnly) {
       const result = await this.sessionRepo.manager.query(
         `
-        SELECT DISTINCT u.id, u.name, u.email
+        SELECT DISTINCT u.id, u.name, u.email, tm.role
         FROM users u
         INNER JOIN tenant_memberships tm ON tm."userId" = u.id
         INNER JOIN agent_profiles ap ON ap."userId" = u.id
         WHERE tm."tenantId" = $1
           AND u.id != $2
           AND ap.status = 'online'
+          AND tm.role = 'agent'
         ORDER BY u.name
         `,
         [tenantId, excludeAgentId],
@@ -1279,11 +1281,12 @@ export class InboxService {
 
     const result = await this.sessionRepo.manager.query(
       `
-      SELECT DISTINCT u.id, u.name, u.email
+      SELECT DISTINCT u.id, u.name, u.email, tm.role
       FROM users u
       INNER JOIN tenant_memberships tm ON tm."userId" = u.id
       WHERE tm."tenantId" = $1
         AND u.id != $2
+        AND tm.role = 'agent'
       ORDER BY u.name
       `,
       [tenantId, excludeAgentId],

@@ -9,6 +9,8 @@ export interface AgentStatusItem {
   name: string | null;
   email: string;
   status: string;
+  /** Tenant membership role (e.g. 'agent'). Optional, for informational use. */
+  role?: string;
   currentSessionStartedAt: string | null;
   lastSessionEndedAt: string | null;
 }

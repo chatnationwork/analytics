@@ -15,6 +15,7 @@ import {
   verifySessionTakeoverAction,
 } from "./actions";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PasswordInput } from "@/components/ui/password-input";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -395,15 +396,7 @@ function LoginForm() {
       <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
         Sign in to your account
       </h2>
-      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-        Or{" "}
-        <Link
-          href="/signup"
-          className="font-medium text-[var(--primary)] hover:text-[var(--primary-dark)]"
-        >
-          create a new account
-        </Link>
-      </p>
+     
 
       <form
         onSubmit={loginForm.handleSubmit(onLoginSubmit)}
@@ -459,12 +452,13 @@ function LoginForm() {
               </Link>
             </div>
             <div className="mt-1">
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 {...loginForm.register("password")}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3"
+                autoComplete="current-password"
               />
+
+
               {loginForm.formState.errors.password && (
                 <p className="mt-1 text-sm text-red-600">
                   {loginForm.formState.errors.password.message}

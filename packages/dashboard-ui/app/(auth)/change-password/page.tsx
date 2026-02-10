@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { changePasswordAction } from "../login/actions";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Lock, Loader2, ArrowRight } from "lucide-react";
 
 export default function ChangePasswordPage() {
@@ -97,15 +98,14 @@ export default function ChangePasswordPage() {
             Current password
           </label>
           <div className="mt-1 relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+            <PasswordInput
               id="currentPassword"
-              type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="block w-full pl-10 rounded-md border border-gray-300 dark:border-gray-600 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:text-white py-2 px-3"
+              className="pl-10"
             />
           </div>
         </div>
@@ -122,15 +122,14 @@ export default function ChangePasswordPage() {
             special character.
           </p>
           <div className="mt-1 relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+            <PasswordInput
               id="newPassword"
-              type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="block w-full pl-10 rounded-md border border-gray-300 dark:border-gray-600 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:text-white py-2 px-3"
+              className="pl-10"
             />
           </div>
         </div>
@@ -143,15 +142,14 @@ export default function ChangePasswordPage() {
             Confirm new password
           </label>
           <div className="mt-1 relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="block w-full pl-10 rounded-md border border-gray-300 dark:border-gray-600 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:text-white py-2 px-3"
+              className="pl-10"
             />
           </div>
         </div>

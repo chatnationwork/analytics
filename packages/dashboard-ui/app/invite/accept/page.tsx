@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { CheckCircle, XCircle, Loader2, UserPlus, Lock } from "lucide-react";
 
 interface PasswordRequirements {
@@ -236,9 +237,8 @@ function AcceptInviteContent() {
                     </p>
                   )}
                   <div className="relative mt-1">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      type="password"
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                    <PasswordInput
                       placeholder="At least 8 characters"
                       className="pl-10"
                       value={password}
@@ -252,9 +252,8 @@ function AcceptInviteContent() {
                     Confirm Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      type="password"
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                    <PasswordInput
                       placeholder="Confirm password"
                       className="pl-10"
                       value={confirmPassword}
