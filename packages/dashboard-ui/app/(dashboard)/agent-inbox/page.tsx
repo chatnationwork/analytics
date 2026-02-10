@@ -558,16 +558,22 @@ export default function AgentInboxPage() {
                       <Button
                         size="sm"
                         onClick={async () => {
-                          if (selectedSession?.assignedTeamId) {
-                            try {
+                          try {
+                            if (selectedSession?.assignedTeamId) {
                               const team = await agentApi.getTeam(
                                 selectedSession.assignedTeamId,
                               );
                               setResolveWrapUpConfig(team.wrapUpReport ?? null);
-                            } catch {
-                              setResolveWrapUpConfig(null);
+                            } else {
+                              // No team assigned (e.g. super admin not in any team) –
+                              // fall back to the default team's wrap-up report
+                              const teams = await agentApi.getTeams();
+                              const defaultTeam = teams.find((t) => t.isDefault);
+                              setResolveWrapUpConfig(
+                                defaultTeam?.wrapUpReport ?? null,
+                              );
                             }
-                          } else {
+                          } catch {
                             setResolveWrapUpConfig(null);
                           }
                           setShowResolveDialog(true);
