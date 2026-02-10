@@ -440,15 +440,6 @@ export default function WhatsAppAnalyticsPage() {
         <MessageFunnel data={funnel?.funnel ?? []} rates={funnel?.rates} />
       </div>
 
-      {/* Note about data source */}
-      <div className="bg-blue-500/10 rounded-xl border border-blue-500/20 p-4">
-        <div className="flex items-start gap-3">
-          <div className="text-blue-400 mt-0.5">ℹ️</div>
-          <div>
-            <div className="font-medium text-blue-400">About This Data</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

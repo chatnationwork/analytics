@@ -46,6 +46,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException("User not found");
     }
 
+    // Token issued for forced password change (expired password flow). No session
+    // exists yet; allow access only to change-password so the user can set a new password.
+    if (payload.mustChangePassword === true) {
+      return user;
+    }
+
     const tenants = await this.tenantRepository.findByUserId(user.id);
     const activeTenant = tenants[0];
     const singleLoginEnforced =

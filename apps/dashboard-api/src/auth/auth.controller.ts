@@ -35,6 +35,7 @@ import {
   VerifySessionTakeoverDto,
 } from "./dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
+import { ChangePasswordTokenGuard } from "./change-password-token.guard";
 import { CurrentUser } from "./current-user.decorator";
 import { AuditService, AuditActions } from "../audit/audit.service";
 import { getRequestContext } from "../request-context";
@@ -229,9 +230,10 @@ export class AuthController {
   /**
    * Change password. Use when password has expired (changePasswordToken) or from settings.
    * Returns full login response with new JWT.
+   * ChangePasswordTokenGuard copies body.changePasswordToken into Authorization when header is missing (e.g. server-side or proxied requests).
    */
   @Post("change-password")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(ChangePasswordTokenGuard, JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async changePassword(
     @CurrentUser() user: AuthUser,

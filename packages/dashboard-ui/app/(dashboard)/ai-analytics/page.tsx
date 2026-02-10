@@ -371,13 +371,13 @@ export default function AiAnalyticsPage() {
             positive={(aiStats?.avgConfidence ?? 0) > 0.8}
             icon={<Target className="w-4 h-4" />}
           />
-          <StatCard
+          {/* <StatCard
             label="Avg Latency"
             value={`${Math.round(aiStats?.avgLatencyMs ?? 0)}ms`}
             change={(aiStats?.avgLatencyMs ?? 0) < 500 ? "Fast" : "Check"}
             positive={(aiStats?.avgLatencyMs ?? 0) < 500}
             icon={<Zap className="w-4 h-4" />}
-          />
+          /> */}
           <StatCard
             label="Error Rate"
             value={`${(aiStats?.errorRate ?? 0).toFixed(1)}%`}
@@ -394,12 +394,12 @@ export default function AiAnalyticsPage() {
             </h3>
             <IntentBreakdown data={aiIntents ?? []} />
           </div>
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+          {/* <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
             <h3 className="font-medium text-foreground mb-6">
               AI Latency Distribution
             </h3>
             <AiLatencyChart data={aiLatency ?? []} />
-          </div>
+          </div> */}
         </div>
 
         <h2 className="text-lg font-semibold text-foreground">Trends</h2>
@@ -432,7 +432,7 @@ export default function AiAnalyticsPage() {
               data={classificationTrend?.data ?? []}
             />
           </div>
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+          {/* <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-foreground">AI Latency Trend</h3>
               {aiLatencyTrend?.summary && (
@@ -445,7 +445,7 @@ export default function AiAnalyticsPage() {
               )}
             </div>
             <AiLatencyTrendChart data={aiLatencyTrend?.data ?? []} />
-          </div>
+          </div> */}
         </div>
       </div>
     </RouteGuard>

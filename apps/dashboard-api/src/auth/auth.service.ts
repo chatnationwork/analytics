@@ -58,6 +58,8 @@ export interface JwtPayload {
   email: string;
   /** Session id for single-login enforcement; validated on each request when present. */
   sessionId?: string;
+  /** When true, token was issued for forced password change (no session); skip session checks. */
+  mustChangePassword?: boolean;
   iat?: number; // Issued at
   exp?: number; // Expiry
 }

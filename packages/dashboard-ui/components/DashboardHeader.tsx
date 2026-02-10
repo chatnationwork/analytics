@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { LogOut, User } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
+import { LogOut, User, Shield } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { authClient } from "@/lib/auth-client";
@@ -15,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 /** Display labels and backend (status, reason) values. Online = available for assignments. */
 const STATUS_OPTIONS = [
@@ -42,6 +44,8 @@ export function DashboardHeader() {
     name: string | null;
     email: string;
   } | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const { data: presence, isLoading: presenceLoading } = useQuery({
     queryKey: ["agent", "presence"],
@@ -54,6 +58,20 @@ export function DashboardHeader() {
       .then((u) => setUser({ name: u.name ?? null, email: u.email }))
       .catch(() => setUser(null));
   }, []);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(e.target as Node)
+      ) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const handleStatusChange = useCallback(
     async (value: string) => {
@@ -103,23 +121,61 @@ export function DashboardHeader() {
           </SelectContent>
         </Select>
 
-        <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground max-w-[200px] truncate">
-          <User className="h-4 w-4 shrink-0" />
-          <span className="truncate" title={user?.email ?? undefined}>
-            {user?.name ?? user?.email ?? "—"}
-          </span>
+        <div className="relative shrink-0" ref={profileRef}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden sm:flex items-center gap-2 text-muted-foreground max-w-[200px]"
+            onClick={() => setProfileOpen((o) => !o)}
+            aria-expanded={profileOpen}
+            aria-haspopup="true"
+            aria-label="Profile menu"
+          >
+            <User className="h-4 w-4 shrink-0" />
+            <span className="truncate" title={user?.email ?? undefined}>
+              {user?.name ?? user?.email ?? "—"}
+            </span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="sm:hidden"
+            onClick={() => setProfileOpen((o) => !o)}
+            aria-expanded={profileOpen}
+            aria-haspopup="true"
+            aria-label="Profile menu"
+          >
+            <User className="h-4 w-4" />
+          </Button>
+          {profileOpen && (
+            <div
+              className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-md border bg-popover text-popover-foreground shadow-md py-1"
+              role="menu"
+            >
+              <Link
+                href="/settings/security"
+                role="menuitem"
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground rounded-none"
+                onClick={() => setProfileOpen(false)}
+              >
+                <Shield className="h-4 w-4 shrink-0" />
+                Security
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground rounded-none text-left"
+                onClick={() => {
+                  setProfileOpen(false);
+                  void handleLogout();
+                }}
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                Log out
+              </button>
+            </div>
+          )}
         </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleLogout}
-          title="Logout"
-          aria-label="Logout"
-          className="shrink-0"
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
       </div>
     </header>
   );

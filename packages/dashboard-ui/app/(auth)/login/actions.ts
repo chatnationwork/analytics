@@ -299,6 +299,7 @@ export async function changePasswordAction(
         Authorization: `Bearer ${changePasswordToken}`,
       },
       body: JSON.stringify({
+        changePasswordToken,
         currentPassword,
         newPassword,
       }),
@@ -308,11 +309,13 @@ export async function changePasswordAction(
     const responseData = data.data ?? data;
 
     if (!res.ok) {
-      return {
-        success: false,
-        error:
-          data.message || responseData.message || "Failed to change password",
-      };
+      const msg =
+        data.message || responseData.message || "Failed to change password";
+      const friendly =
+        typeof msg === "string" && /expired|invalid/i.test(msg)
+          ? "Your password change link has expired. Please log in again to get a new link."
+          : msg;
+      return { success: false, error: friendly };
     }
 
     if (!responseData.accessToken || !responseData.user) {

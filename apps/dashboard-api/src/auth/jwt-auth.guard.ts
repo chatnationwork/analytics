@@ -25,11 +25,18 @@ import { AuthGuard } from '@nestjs/passport';
 export class JwtAuthGuard extends AuthGuard('jwt') {
   /**
    * Custom error handling.
-   * Return 401 Unauthorized with a clear message.
+   * Return 401 Unauthorized with a clear message (e.g. "jwt expired" when token TTL has passed).
    */
-  handleRequest<TUser>(err: Error | null, user: TUser | false, info: Error | null): TUser {
+  handleRequest<TUser>(err: Error | null, user: TUser | false, info: unknown): TUser {
     if (err || !user) {
-      const message = info?.message || 'Authentication required';
+      const raw =
+        (info && typeof info === "object" && "message" in info && typeof (info as { message: unknown }).message === "string"
+          ? (info as { message: string }).message
+          : null) ?? err?.message;
+      const message =
+        typeof raw === "string" && raw.length > 0
+          ? raw
+          : "Authentication required";
       throw new UnauthorizedException(message);
     }
     return user;
