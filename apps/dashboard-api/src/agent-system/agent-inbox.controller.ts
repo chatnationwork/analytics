@@ -779,11 +779,16 @@ export class AgentInboxController {
         "A transfer reason is required by your organization",
       );
     }
+    const hasViewAll =
+      (req.user.permissions?.global ?? []).includes(
+        Permission.SESSION_VIEW_ALL as string,
+      ) ?? false;
     const session = await this.inboxService.transferSession(
       sessionId,
       req.user.id,
       dto.targetAgentId,
       dto.reason,
+      hasViewAll,
     );
     await this.auditService.log({
       tenantId: req.user.tenantId,
@@ -804,6 +809,7 @@ export class AgentInboxController {
 
   /**
    * Get available agents for transferring a session. Requires session.transfer permission.
+   * When availableOnly=true, only returns agents who are online (agent_profiles.status = 'online').
    */
   @Get("transfer/agents")
   async getAvailableAgents(
@@ -815,6 +821,7 @@ export class AgentInboxController {
         permissions?: { global?: string[]; team?: Record<string, string[]> };
       };
     },
+    @Query("availableOnly") availableOnly?: string,
   ) {
     const hasTransfer =
       (req.user.permissions?.global ?? []).includes(
@@ -828,9 +835,12 @@ export class AgentInboxController {
         "You do not have permission to transfer chats",
       );
     }
+    const onlyAvailable =
+      availableOnly === "true" || availableOnly === "1";
     return this.inboxService.getAvailableAgentsForTransfer(
       req.user.tenantId,
       req.user.id,
+      { availableOnly: onlyAvailable },
     );
   }
 }

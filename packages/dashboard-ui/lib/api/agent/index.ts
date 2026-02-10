@@ -381,10 +381,17 @@ export const agentApi = {
   },
 
   /**
-   * Get available agents for transferring a session
+   * Get available agents for transferring a session.
+   * When availableOnly is true, only returns agents who are online (available for assignments).
    */
-  getAvailableAgents: async () => {
-    return fetchWithAuth<AvailableAgent[]>("/agent/inbox/transfer/agents");
+  getAvailableAgents: async (availableOnly?: boolean) => {
+    const qs =
+      availableOnly === true
+        ? "?availableOnly=true"
+        : "";
+    return fetchWithAuth<AvailableAgent[]>(
+      `/agent/inbox/transfer/agents${qs}`,
+    );
   },
 
   /**

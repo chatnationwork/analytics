@@ -40,7 +40,7 @@ export function TransferDialog({
   const fetchAgents = async () => {
     setIsLoading(true);
     try {
-      const data = await agentApi.getAvailableAgents();
+      const data = await agentApi.getAvailableAgents(true);
       setAgents(data);
     } catch (error) {
       console.error("Failed to fetch agents:", error);

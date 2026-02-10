@@ -53,8 +53,8 @@ export function BulkTransferDialog({
 
   const { data: agents = [] } = useQuery({
     queryKey: ["available-agents-bulk-transfer", open],
-    queryFn: () => agentApi.getAvailableAgents(),
-    enabled: open,
+    queryFn: () => agentApi.getAvailableAgents(true),
+    enabled: open && destinationType === "agent",
   });
 
   const { data: teams = [], isFetching: teamsLoading } = useQuery({
