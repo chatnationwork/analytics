@@ -27,6 +27,9 @@ export class ChangePasswordTokenGuard implements CanActivate {
     const body = request.body as Record<string, unknown> | undefined;
     const token = body?.changePasswordToken;
     if (typeof token === "string" && token.trim()) {
+      if (!request.headers) {
+        request.headers = {};
+      }
       request.headers.authorization = `Bearer ${token.trim()}`;
     }
     return true;
