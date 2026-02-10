@@ -830,8 +830,10 @@ export class InboxService {
       | null
       | undefined;
 
-    const useTeamWrapUp = wrapUp?.enabled === true;
     const fields = Array.isArray(wrapUp?.fields) ? wrapUp.fields! : [];
+    // Only enforce team wrap-up when enabled AND fields are actually configured;
+    // an empty fields list with mandatory=true is a misconfiguration.
+    const useTeamWrapUp = wrapUp?.enabled === true && fields.length > 0;
 
     let category: string;
     let notes: string | undefined;

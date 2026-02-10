@@ -41,8 +41,12 @@ export function ResolveDialog({
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const useTeamWrapUp = wrapUpConfig?.enabled === true;
-  const fields = useTeamWrapUp ? (wrapUpConfig?.fields ?? []) : [];
+  const configFields = wrapUpConfig?.fields ?? [];
+  // Only use team wrap-up when enabled AND fields are configured;
+  // an empty fields list with mandatory=true is a misconfiguration.
+  const useTeamWrapUp =
+    wrapUpConfig?.enabled === true && configFields.length > 0;
+  const fields = useTeamWrapUp ? configFields : [];
   const mandatory = useTeamWrapUp && wrapUpConfig.mandatory === true;
   const categoryRequired = !useTeamWrapUp; // default form always requires category
 
