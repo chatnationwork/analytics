@@ -148,10 +148,10 @@ function ResolutionTrendChart({ data }: { data: ResolutionTrendDataPoint[] }) {
           return (
             <div
               key={toPeriodString(point.period) || i}
-              className="flex-1 flex flex-col items-center gap-1 group relative"
+              className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
             >
               <div
-                className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t transition-all hover:from-green-500 hover:to-green-300"
+                className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t transition-all hover:from-green-500 hover:to-green-300 min-h-[2px] flex-shrink-0"
                 style={{ height: `${Math.max(height, 2)}%` }}
               />
               {/* Tooltip */}
@@ -209,10 +209,10 @@ function TransferTrendChart({ data }: { data: TransferTrendDataPoint[] }) {
           return (
             <div
               key={toPeriodString(point.period) || i}
-              className="flex-1 flex flex-col items-center gap-1 group relative"
+              className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
             >
               <div
-                className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t transition-all hover:from-blue-500 hover:to-blue-300"
+                className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t transition-all hover:from-blue-500 hover:to-blue-300 min-h-[2px] flex-shrink-0"
                 style={{ height: `${Math.max(height, 2)}%` }}
               />
               <div className="absolute bottom-full mb-2 hidden group-hover:block bg-popover text-popover-foreground text-xs p-2 rounded shadow-lg whitespace-nowrap z-10">
@@ -503,10 +503,10 @@ function AgentActivityChart({ data }: { data: AgentActivityDataPoint[] }) {
           return (
             <div
               key={i}
-              className="flex-1 flex flex-col items-center gap-1 group relative"
+              className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
             >
               <div
-                className="w-full bg-gradient-to-t from-purple-600 to-purple-400 rounded-t transition-all hover:from-purple-500 hover:to-purple-300"
+                className="w-full bg-gradient-to-t from-purple-600 to-purple-400 rounded-t transition-all hover:from-purple-500 hover:to-purple-300 min-h-[2px] flex-shrink-0"
                 style={{ height: `${Math.max(height, 2)}%` }}
               />
               <div className="absolute bottom-full mb-2 hidden group-hover:block bg-popover text-popover-foreground text-xs p-2 rounded shadow-lg whitespace-nowrap z-10">
