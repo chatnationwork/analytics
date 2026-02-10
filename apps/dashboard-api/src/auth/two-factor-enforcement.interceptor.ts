@@ -16,6 +16,8 @@ const ALLOWED_WHEN_2FA_REQUIRED: Array<{ method: string; path: string }> = [
   { method: "GET", path: "/auth/me" },
   { method: "GET", path: "/auth/2fa/status" },
   { method: "PATCH", path: "/auth/2fa" },
+  { method: "POST", path: "/auth/2fa/send-setup-code" },
+  { method: "POST", path: "/auth/2fa/verify-setup" },
   { method: "GET", path: "/tenants/current" },
   { method: "PATCH", path: "/tenants/current" },
 ];

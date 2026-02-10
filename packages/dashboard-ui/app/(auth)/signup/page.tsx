@@ -68,7 +68,7 @@ export default function SignupPage() {
       login(result.token, result.user);
 
       toast.success("Account created successfully!");
-      router.push("/agent-inbox");
+      router.push("/setup-2fa");
     } catch (err: any) {
       setError(err.message);
       toast.error(err.message);

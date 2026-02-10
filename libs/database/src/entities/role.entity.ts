@@ -45,6 +45,16 @@ export enum Permission {
   CONTACTS_UPDATE = "contacts.update",
   /** Deactivate a contact (soft disable). Admins only by default. */
   CONTACTS_DEACTIVATE = "contacts.deactivate",
+
+  // Docs permissions (role-based access to in-app user guides)
+  /** View agent-focused documentation (inbox, chats, wrap-up, CSAT). All agents. */
+  DOCS_AGENT = "docs.agent",
+  /** View supervisor-focused documentation (team management, agent analytics, logs). Team managers. */
+  DOCS_SUPERVISOR = "docs.supervisor",
+  /** View admin-focused documentation (settings, users, roles, audit logs, campaigns). Admins. */
+  DOCS_ADMIN = "docs.admin",
+  /** View developer-focused documentation (SDK, API, WhatsApp, AI integration). Developers / super admins. */
+  DOCS_DEVELOPER = "docs.developer",
 }
 
 @Entity("roles")

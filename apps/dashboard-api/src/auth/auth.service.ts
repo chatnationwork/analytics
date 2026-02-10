@@ -50,6 +50,8 @@ import {
   Update2FaDto,
   Resend2FaDto,
   VerifySessionTakeoverDto,
+  SendSetupCodeDto,
+  VerifySetupCodeDto,
 } from "./dto";
 
 /** JWT payload structure */
@@ -515,6 +517,95 @@ export class AuthService {
       twoFactorEnabled,
       phone: phone ? this.maskPhone(phone) : null,
     };
+  }
+
+  /**
+   * Send a verification code to a phone number during 2FA setup (post-signup).
+   * Creates a TwoFaVerification row and sends the code via WhatsApp.
+   * Reuses existing OTP infrastructure (TwoFaVerificationEntity + WhatsappService).
+   */
+  async sendSetupCode(
+    userId: string,
+    dto: SendSetupCodeDto,
+  ): Promise<{ token: string }> {
+    const phone = this.normalizePhone(dto.phone);
+    if (phone.length < 10 || phone.length > 15) {
+      throw new BadRequestException("Phone must be 10–15 digits.");
+    }
+
+    const tenants = await this.tenantRepository.findByUserId(userId);
+    const tenantId = tenants[0]?.id;
+    if (!tenantId) {
+      throw new BadRequestException("User has no organization.");
+    }
+
+    // Clean up any previous setup codes for this user
+    await this.twoFaRepo.delete({ userId });
+
+    const code = this.generateSixDigitCode();
+    const token = randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + this.TWO_FA_CODE_TTL_MINUTES);
+
+    await this.twoFaRepo.save({ token, userId, code, expiresAt });
+
+    const sendResult = await this.whatsappService.sendTwoFactorCode(
+      tenantId,
+      phone,
+      code,
+    );
+    if (!sendResult.success) {
+      this.logger.warn(
+        `Failed to send 2FA setup code to ${phone}: ${sendResult.error}`,
+      );
+      throw new BadRequestException(
+        sendResult.error ?? "Could not send code to WhatsApp. Check CRM setup.",
+      );
+    }
+
+    this.logger.log(`2FA setup code sent to phone ending ${phone.slice(-4)}`);
+    return { token };
+  }
+
+  /**
+   * Verify the OTP code sent during 2FA setup and enable 2FA with the verified phone.
+   * Reuses existing TwoFaVerificationEntity for code lookup and updateTwoFactor() to enable 2FA.
+   */
+  async verifySetupCode(
+    userId: string,
+    dto: VerifySetupCodeDto,
+  ): Promise<{ twoFactorEnabled: boolean; phone: string | null }> {
+    const row = await this.twoFaRepo.findOne({
+      where: { token: dto.token, userId },
+    });
+    if (!row) {
+      throw new UnauthorizedException(
+        "Invalid or expired code. Please request a new one.",
+      );
+    }
+    if (new Date() > row.expiresAt) {
+      await this.twoFaRepo.delete({ id: row.id });
+      throw new UnauthorizedException(
+        "Code expired. Please request a new one.",
+      );
+    }
+    if (row.code !== dto.code) {
+      throw new UnauthorizedException("Invalid code.");
+    }
+
+    await this.twoFaRepo.delete({ id: row.id });
+
+    // Enable 2FA with the verified phone number using existing updateTwoFactor flow
+    const phone = this.normalizePhone(dto.phone);
+    const result = await this.updateTwoFactor(userId, {
+      twoFactorEnabled: true,
+      phone,
+    });
+
+    this.logger.log(
+      `2FA setup completed for user ${userId} with phone ending ${phone.slice(-4)}`,
+    );
+    return result;
   }
 
   private generateSixDigitCode(): string {

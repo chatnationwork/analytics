@@ -125,7 +125,7 @@ const navGroups = [
   },
   {
     title: "System",
-    items: [{ href: "/docs", label: "Docs", icon: BookOpen }],
+    items: [{ href: "/guides", label: "Docs", icon: BookOpen }],
   },
 ];
 

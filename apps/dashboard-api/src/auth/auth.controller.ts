@@ -33,6 +33,8 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   VerifySessionTakeoverDto,
+  SendSetupCodeDto,
+  VerifySetupCodeDto,
 } from "./dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { ChangePasswordTokenGuard } from "./change-password-token.guard";
@@ -279,5 +281,33 @@ export class AuthController {
       }
     }
     return this.authService.updateTwoFactor(user.id, dto);
+  }
+
+  /**
+   * Send a verification code to a phone number during 2FA setup (post-signup).
+   * Creates a pending verification and sends a 6-digit OTP via WhatsApp.
+   */
+  @Post("2fa/send-setup-code")
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async sendSetupCode(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SendSetupCodeDto,
+  ): Promise<{ token: string }> {
+    return this.authService.sendSetupCode(user.id, dto);
+  }
+
+  /**
+   * Verify the OTP sent during 2FA setup and enable 2FA with the verified phone.
+   * Completes the mandatory post-signup 2FA setup flow.
+   */
+  @Post("2fa/verify-setup")
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async verifySetupCode(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: VerifySetupCodeDto,
+  ): Promise<{ twoFactorEnabled: boolean; phone: string | null }> {
+    return this.authService.verifySetupCode(user.id, dto);
   }
 }

@@ -23,9 +23,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 import { SessionExpiredDialog } from "../session/SessionExpiredDialog";
 
-/** Paths allowed when org requires 2FA and user has not set it (only Settings → Security). */
+/** Paths allowed when org requires 2FA and user has not set it (only Settings → Security and 2FA setup). */
 function isAllowedWithout2Fa(pathname: string): boolean {
   if (pathname.startsWith("/login")) return true;
+  if (pathname.startsWith("/setup-2fa")) return true;
   if (pathname === "/settings" || pathname === "/settings/security")
     return true;
   return false;

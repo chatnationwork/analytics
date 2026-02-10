@@ -30,20 +30,32 @@ const PERMISSIONS = {
         'team.analytics',
         'session.view',
         'session.manage',
-        'agent.assign'
+        'agent.assign',
+        // Docs: super admins see all documentation
+        'docs.agent',
+        'docs.supervisor',
+        'docs.admin',
+        'docs.developer'
     ],
     ADMIN: [
         'analytics.view',
         'analytics.export',
         'settings.manage',
         'users.manage',
-        'teams.manage'
+        'teams.manage',
+        // Docs: admins see agent, supervisor, and admin docs
+        'docs.agent',
+        'docs.supervisor',
+        'docs.admin'
     ],
     AUDITOR: [
         'analytics.view',
         'audit.view'
     ],
-    MEMBER: [], // Base role
+    MEMBER: [
+        // Docs: members see agent docs for inbox/chat guidance
+        'docs.agent'
+    ],
 
     // Team Roles (Prefixed or handled separately? 
     // Usually these are static checks in code, but if we store them:
