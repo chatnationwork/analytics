@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { agentApi } from "@/lib/api/agent";
+import { agentApi, TenantInboxCounts } from "@/lib/api/agent";
 import { agentStatusApi } from "@/lib/agent-status-api";
 import { Inbox, User, Users } from "lucide-react";
 
@@ -41,6 +41,17 @@ export function AssignQueueDialog({
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const { data: inboxCounts } = useQuery({
+    queryKey: ["agent-inbox-counts"],
+    queryFn: () => agentApi.getInboxCounts(),
+    enabled: open,
+  });
+
+  const queueSize = useMemo(() => {
+    const counts = inboxCounts as TenantInboxCounts | undefined;
+    return counts && "unassigned" in counts ? counts.unassigned : 0;
+  }, [inboxCounts]);
+
   const { data: agentList = EMPTY_LIST } = useQuery({
     queryKey: ["agent-status-list"],
     queryFn: () => agentStatusApi.getAgentStatusList(),
@@ -57,6 +68,17 @@ export function AssignQueueDialog({
     () => agentList.filter((a) => a.status === "online"),
     [agentList],
   );
+
+  const totalManualRequested = useMemo(
+    () =>
+      onlineAgents.reduce(
+        (sum, a) => sum + (manualCounts[a.agentId] ?? 0),
+        0,
+      ),
+    [onlineAgents, manualCounts],
+  );
+
+  const manualRemaining = Math.max(0, queueSize - totalManualRequested);
 
   useEffect(() => {
     if (!open) return;
@@ -75,11 +97,13 @@ export function AssignQueueDialog({
   }, [open, mode, onlineAgents]);
 
   const canAssign =
-    mode === "auto" ||
-    (mode === "manual" &&
-      onlineAgents.length > 0 &&
-      onlineAgents.some((a) => (manualCounts[a.agentId] ?? 0) > 0)) ||
-    (mode === "teams" && selectedTeamIds.length > 0);
+    queueSize > 0 &&
+    (mode === "auto" ||
+      (mode === "manual" &&
+        onlineAgents.length > 0 &&
+        onlineAgents.some((a) => (manualCounts[a.agentId] ?? 0) > 0) &&
+        totalManualRequested <= queueSize) ||
+      (mode === "teams" && selectedTeamIds.length > 0));
 
   const handleAssign = async () => {
     if (!canAssign) return;
@@ -143,6 +167,19 @@ export function AssignQueueDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {queueSize === 0 && (
+          <p className="text-sm text-muted-foreground rounded-md bg-muted/50 p-3">
+            There are no chats to assign.
+          </p>
+        )}
+
+        {queueSize > 0 && (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{queueSize}</span>{" "}
+            chat{queueSize !== 1 ? "s" : ""} in queue.
+          </p>
+        )}
+
         <div className="space-y-4 py-2">
           {/* Mode: auto */}
           <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 has-checked:border-primary has-checked:bg-primary/5">
@@ -193,42 +230,75 @@ export function AssignQueueDialog({
                   assignments.
                 </p>
               ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {onlineAgents.map((agent) => (
-                    <div
-                      key={agent.agentId}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <span className="flex-1 truncate">
-                        {agent.name ?? agent.email}
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    {totalManualRequested} of {queueSize} chats assigned to
+                    agents
+                    {manualRemaining > 0 && (
+                      <span> ({manualRemaining} remaining)</span>
+                    )}
+                    {totalManualRequested > queueSize && (
+                      <span className="text-destructive">
+                        {" "}
+                        — reduce total to {queueSize} or less
                       </span>
-                      <Label
-                        htmlFor={`count-${agent.agentId}`}
-                        className="sr-only"
-                      >
-                        Chats to assign
-                      </Label>
-                      <Input
-                        id={`count-${agent.agentId}`}
-                        type="number"
-                        min={0}
-                        max={50}
-                        value={manualCounts[agent.agentId] ?? 1}
-                        onChange={(e) =>
-                          setManualCounts((prev) => ({
-                            ...prev,
-                            [agent.agentId]: Math.max(
-                              0,
-                              parseInt(e.target.value, 10) || 0,
-                            ),
-                          }))
-                        }
-                        className="w-20 h-8 text-sm"
-                      />
-                      <span className="text-muted-foreground">chats</span>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {onlineAgents.map((agent) => {
+                      const current = manualCounts[agent.agentId] ?? 0;
+                      const othersTotal =
+                        totalManualRequested - current;
+                      const maxForThis = Math.max(
+                        0,
+                        queueSize - othersTotal,
+                      );
+                      return (
+                        <div
+                          key={agent.agentId}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <span className="flex-1 truncate">
+                            {agent.name ?? agent.email}
+                          </span>
+                          <Label
+                            htmlFor={`count-${agent.agentId}`}
+                            className="sr-only"
+                          >
+                            Chats to assign
+                          </Label>
+                          <Input
+                            id={`count-${agent.agentId}`}
+                            type="number"
+                            min={0}
+                            max={maxForThis}
+                            value={manualCounts[agent.agentId] ?? 1}
+                            onChange={(e) => {
+                              const raw = parseInt(
+                                e.target.value,
+                                10,
+                              );
+                              const value = Number.isNaN(raw)
+                                ? 0
+                                : Math.max(0, raw);
+                              setManualCounts((prev) => ({
+                                ...prev,
+                                [agent.agentId]: Math.min(
+                                  value,
+                                  maxForThis,
+                                ),
+                              }));
+                            }}
+                            className="w-20 h-8 text-sm"
+                          />
+                          <span className="text-muted-foreground">
+                            chats (max {maxForThis})
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}
