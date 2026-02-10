@@ -95,8 +95,8 @@ export function AddMemberDialog({
         <DialogHeader>
           <DialogTitle>Add Member to {teamName}</DialogTitle>
           <DialogDescription>
-            Choose a workspace member to add to this team. Only people who are
-            in your workspace and not already in this team are listed.
+            Choose a workspace member to add to this team. Only members with the
+            "Agent" role who are not already in this team are listed.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>

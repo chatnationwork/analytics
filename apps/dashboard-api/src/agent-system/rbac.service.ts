@@ -24,44 +24,62 @@ export class RbacService implements OnModuleInit {
 
     const defaults: Record<string, Permission[]> = {
       // --- Global Roles ---
-      super_admin: Object.values(Permission), // Full access
-      admin: [
-        Permission.ANALYTICS_VIEW,
-        Permission.ANALYTICS_EXPORT,
-        Permission.SETTINGS_MANAGE,
-        Permission.USERS_MANAGE,
-        Permission.TEAMS_MANAGE,
-        Permission.TEAMS_VIEW_ALL,
-        Permission.SESSION_TRANSFER,
-        Permission.SESSION_BULK_TRANSFER,
-        Permission.AUDIT_VIEW,
-        Permission.CONTACTS_VIEW,
-        Permission.CONTACTS_CREATE,
-        Permission.CONTACTS_UPDATE,
-        Permission.CONTACTS_DEACTIVATE,
+      // System Admin: Super user of the platform (if needed in future)
+      system_admin: Object.values(Permission),
+
+      // Developer: Technical focus
+      developer: [
+        Permission.DOCS_DEVELOPER,
+        Permission.DOCS_AGENT, // Developers likely need to see agent docs too
+        Permission.ANALYTICS_VIEW, // To see API usage stats etc
+        Permission.SETTINGS_MANAGE, // To manage API keys
       ],
+
+      // Super Admin (was admin): Full Tenant Access
+      super_admin: Object.values(Permission),
+
+      // Admin (Deprecated - alias to super_admin for now)
+      admin: Object.values(Permission),
+
+      // Auditor: Read-only compliance
       auditor: [
         Permission.ANALYTICS_VIEW,
         Permission.AUDIT_VIEW,
         Permission.CONTACTS_VIEW,
+        Permission.DOCS_ADMIN, // Auditors might need to read docs to understand system
       ],
-      member: [Permission.CONTACTS_VIEW, Permission.CONTACTS_UPDATE],
 
-      // --- Team Roles ---
+      // Agent (was member): Standard user
+      agent: [
+        Permission.SESSION_VIEW,
+        Permission.SESSION_MANAGE,
+        Permission.SESSION_TRANSFER,
+        Permission.CONTACTS_VIEW,
+        Permission.CONTACTS_UPDATE,
+        Permission.DOCS_AGENT,
+      ],
+
+      // Member (Deprecated - alias to agent for now)
+      member: [
+        Permission.SESSION_VIEW,
+        Permission.SESSION_MANAGE,
+        Permission.SESSION_TRANSFER,
+        Permission.CONTACTS_VIEW,
+        Permission.CONTACTS_UPDATE,
+        Permission.DOCS_AGENT,
+      ],
+
+      // --- Team Roles (TeamMemberEntity.role) ---
       [TeamRole.MANAGER]: [
         Permission.TEAM_SETTINGS,
         Permission.TEAM_ANALYTICS,
-        Permission.TEAMS_VIEW_TEAM,
+        Permission.TEAMS_VIEW_TEAM, // Can view stats for their team
         Permission.SESSION_VIEW,
         Permission.SESSION_MANAGE,
         Permission.SESSION_TRANSFER,
         Permission.AGENT_ASSIGN,
         Permission.SESSION_BULK_TRANSFER,
-      ],
-      [TeamRole.AGENT]: [
-        Permission.SESSION_VIEW,
-        Permission.SESSION_MANAGE,
-        Permission.SESSION_TRANSFER,
+        Permission.DOCS_SUPERVISOR,
       ],
     };
 

@@ -30,7 +30,14 @@ import { TenantEntity } from "./tenant.entity";
 import { RoleEntity } from "./role.entity";
 
 /** Available membership roles */
-export type MembershipRole = "super_admin" | "admin" | "auditor" | "member";
+export type MembershipRole =
+  | "system_admin" // New: System-wide admin (all tenants)
+  | "developer" // New: Technical access (API keys, webhooks)
+  | "super_admin" // Renamed from admin: Full tenant access
+  | "auditor" // Read-only access
+  | "agent" // Renamed from member: Standard agent access
+  | "admin" // Deprecated: Migration target -> super_admin
+  | "member"; // Deprecated: Migration target -> agent
 
 @Entity("tenant_memberships")
 @Index(["tenantId", "userId"], { unique: true })

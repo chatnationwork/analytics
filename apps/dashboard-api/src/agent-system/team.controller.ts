@@ -337,7 +337,10 @@ export class TeamController {
     @Request() req: { user: { tenantId: string } },
   ) {
     const memberships = await this.tenantMembershipRepo.find({
-      where: { tenantId: req.user.tenantId },
+      where: {
+        tenantId: req.user.tenantId,
+        role: "agent",
+      },
       relations: ["user"],
     });
 

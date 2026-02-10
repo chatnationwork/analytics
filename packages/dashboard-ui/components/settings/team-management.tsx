@@ -69,10 +69,10 @@ interface Invitation {
 }
 
 const ROLES: { value: string; label: string }[] = [
+  { value: "developer", label: "Developer (API & Webhooks)" },
   { value: "super_admin", label: "Super Admin (Full access)" },
-  { value: "admin", label: "Admin (Manage workspace)" },
   { value: "auditor", label: "Auditor (View only)" },
-  { value: "member", label: "Member (Standard access)" },
+  { value: "agent", label: "Agent (Standard access)" },
 ];
 
 function formatRole(role: string): string {
@@ -86,7 +86,7 @@ export function TeamManagement({ tenantId }: { tenantId: string }) {
   const canManage = useCan("teams.manage");
 
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("member");
+  const [inviteRole, setInviteRole] = useState("agent");
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
