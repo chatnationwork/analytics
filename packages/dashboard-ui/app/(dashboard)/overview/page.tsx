@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { overviewEnhancedApi } from "@/lib/overview-enhanced-api";
@@ -13,8 +13,8 @@ import {
   Clock,
   Target,
   BarChart3,
-  Monitor,
   UserCheck,
+  Calendar,
 } from "lucide-react";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import {
@@ -22,10 +22,36 @@ import {
   StackedTrendChart,
   RateTrendChart,
 } from "@/components/charts/TrendChart";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+
+function getDefaultDateRange(): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 29);
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
 
 export default function OverviewPage() {
+  const [dateRange, setDateRange] = useState(getDefaultDateRange);
   const [granularity, setGranularity] = useState<Granularity>("day");
-  const periods = granularity === "day" ? 30 : granularity === "week" ? 12 : 12;
+
+  const dateRangeDays = useMemo(() => {
+    const start = new Date(dateRange.start).getTime();
+    const end = new Date(dateRange.end).getTime();
+    return Math.max(1, Math.ceil((end - start) / (24 * 60 * 60 * 1000)) + 1);
+  }, [dateRange.start, dateRange.end]);
+
+  const periods =
+    granularity === "day"
+      ? Math.min(365, dateRangeDays)
+      : granularity === "week"
+        ? Math.min(52, Math.ceil(dateRangeDays / 7))
+        : Math.min(24, Math.ceil(dateRangeDays / 30));
 
   const { data: tenant } = useQuery({
     queryKey: ["tenant"],
@@ -33,36 +59,68 @@ export default function OverviewPage() {
   });
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["overview", tenant?.tenantId],
-    queryFn: () => api.getOverview(tenant?.tenantId),
+    queryKey: ["overview", tenant?.tenantId, dateRange.start, dateRange.end],
+    queryFn: () =>
+      api.getOverview(tenant?.tenantId!, dateRange.start, dateRange.end),
     enabled: !!tenant?.tenantId,
   });
 
   const { data: pagePaths } = useQuery({
-    queryKey: ["page-paths", tenant?.tenantId],
-    queryFn: () => api.getTopPagePaths(tenant?.tenantId),
+    queryKey: ["page-paths", tenant?.tenantId, dateRange.start, dateRange.end],
+    queryFn: () =>
+      api.getTopPagePaths(tenant?.tenantId!, dateRange.start, dateRange.end),
     enabled: !!tenant?.tenantId,
   });
 
   const { data: dailyUsers } = useQuery({
-    queryKey: ["daily-users", tenant?.tenantId],
-    queryFn: () => overviewEnhancedApi.getDailyActiveUsers(tenant?.tenantId),
+    queryKey: [
+      "daily-users",
+      tenant?.tenantId,
+      dateRange.start,
+      dateRange.end,
+    ],
+    queryFn: () =>
+      overviewEnhancedApi.getDailyActiveUsers(
+        tenant?.tenantId,
+        dateRange.start,
+        dateRange.end,
+      ),
     enabled: !!tenant?.tenantId,
   });
 
   const { data: browsers } = useQuery({
-    queryKey: ["browser-breakdown", tenant?.tenantId],
-    queryFn: () => overviewEnhancedApi.getBrowserBreakdown(tenant?.tenantId),
+    queryKey: [
+      "browser-breakdown",
+      tenant?.tenantId,
+      dateRange.start,
+      dateRange.end,
+    ],
+    queryFn: () =>
+      overviewEnhancedApi.getBrowserBreakdown(
+        tenant?.tenantId,
+        dateRange.start,
+        dateRange.end,
+      ),
     enabled: !!tenant?.tenantId,
   });
 
   const { data: userIdentity } = useQuery({
-    queryKey: ["user-identity", tenant?.tenantId],
-    queryFn: () => overviewEnhancedApi.getUserIdentityStats(tenant?.tenantId),
+    queryKey: [
+      "user-identity",
+      tenant?.tenantId,
+      dateRange.start,
+      dateRange.end,
+    ],
+    queryFn: () =>
+      overviewEnhancedApi.getUserIdentityStats(
+        tenant?.tenantId,
+        dateRange.start,
+        dateRange.end,
+      ),
     enabled: !!tenant?.tenantId,
   });
 
-  // Trends queries
+  // Trends queries (periods derived from date range)
   const { data: sessionTrend } = useQuery({
     queryKey: ["session-trend", granularity, periods],
     queryFn: () => trendsApi.getSessionTrend(granularity, periods),
@@ -79,19 +137,106 @@ export default function OverviewPage() {
   });
 
   const { data: countries } = useQuery({
-    queryKey: ["traffic-by-country", tenant?.tenantId],
-    queryFn: () => whatsappAnalyticsApi.getCountries(),
+    queryKey: [
+      "traffic-by-country",
+      tenant?.tenantId,
+      dateRange.start,
+      dateRange.end,
+    ],
+    queryFn: () =>
+      whatsappAnalyticsApi.getCountries(dateRange.start, dateRange.end),
     enabled: !!tenant?.tenantId,
   });
+
+  const setRangeToLast = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    setDateRange({
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10),
+    });
+  };
 
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Overview</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Last 30 days</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {dateRange.start === dateRange.end
+                ? dateRange.start
+                : `${dateRange.start} – ${dateRange.end}`}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="overview-start" className="text-xs">
+                    From
+                  </Label>
+                  <Input
+                    id="overview-start"
+                    type="date"
+                    value={dateRange.start}
+                    onChange={(e) =>
+                      setDateRange((prev) => ({
+                        ...prev,
+                        start: e.target.value,
+                      }))
+                    }
+                    className="w-[140px] h-9"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="overview-end" className="text-xs">
+                    To
+                  </Label>
+                  <Input
+                    id="overview-end"
+                    type="date"
+                    value={dateRange.end}
+                    onChange={(e) =>
+                      setDateRange((prev) => ({
+                        ...prev,
+                        end: e.target.value,
+                      }))
+                    }
+                    className="w-[140px] h-9"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRangeToLast(7)}
+                className="h-9"
+              >
+                7d
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRangeToLast(30)}
+                className="h-9"
+              >
+                30d
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRangeToLast(90)}
+                className="h-9"
+              >
+                90d
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -365,13 +510,13 @@ function SessionsTrendChart({
         return (
           <div
             key={i}
-            className="flex-1 flex flex-col items-center gap-1 group relative"
+            className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
           >
             <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
               {point.date}: {point.count} sessions
             </div>
             <div
-              className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t hover:from-blue-400 hover:to-blue-300 transition-colors"
+              className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t hover:from-blue-400 hover:to-blue-300 transition-colors min-h-[2px] flex-shrink-0"
               style={{ height: `${height}%` }}
             />
           </div>
@@ -612,13 +757,13 @@ function DailyActiveUsersChart({
         return (
           <div
             key={i}
-            className="flex-1 flex flex-col items-center gap-1 group relative"
+            className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
           >
             <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
               {date}: {point.count} users
             </div>
             <div
-              className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t hover:from-green-400 hover:to-green-300 transition-colors min-h-[2px]"
+              className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t hover:from-green-400 hover:to-green-300 transition-colors min-h-[2px] flex-shrink-0"
               style={{ height: `${height}%` }}
             />
           </div>

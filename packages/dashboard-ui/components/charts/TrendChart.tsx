@@ -121,7 +121,7 @@ export function TrendChart({
           return (
             <div
               key={i}
-              className="flex-1 flex flex-col items-center gap-1 group relative"
+              className="flex-1 flex flex-col items-center justify-end gap-0 h-full min-h-0 group relative"
             >
               <div
                 className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md"
@@ -129,7 +129,7 @@ export function TrendChart({
                 {formatDate(point.period)}: {formatValue(point.value)} {valueLabel || ''}
               </div>
               <div
-                className={`w-full bg-gradient-to-t ${colors.bar} rounded-t ${colors.barHover} transition-colors min-h-[2px]`}
+                className={`w-full bg-gradient-to-t ${colors.bar} rounded-t ${colors.barHover} transition-colors min-h-[2px] flex-shrink-0`}
                 style={{ height: `${heightPercent}%` }}
               />
             </div>
@@ -234,7 +234,7 @@ export function StackedTrendChart({
           return (
             <div
               key={i}
-              className="flex-1 flex flex-col items-center group relative"
+              className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
             >
               <div
                 className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md"
@@ -242,7 +242,7 @@ export function StackedTrendChart({
                 {formatDate(point.period)}: {point.newUsers} new, {point.returningUsers} returning
               </div>
               <div
-                className="w-full rounded-t overflow-hidden flex flex-col-reverse"
+                className="w-full rounded-t overflow-hidden flex flex-col-reverse flex-shrink-0 min-h-[2px]"
                 style={{ height: `${totalHeight}%` }}
               >
                 <div
@@ -361,7 +361,7 @@ export function RateTrendChart({
           return (
             <div
               key={i}
-              className="flex-1 flex flex-col items-center gap-1 group relative"
+              className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
             >
               <div
                 className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md"
@@ -370,7 +370,7 @@ export function RateTrendChart({
                 {point.total && ` (${point.total.toLocaleString()} sessions)`}
               </div>
               <div
-                className={`w-full rounded-t transition-colors min-h-[2px] ${
+                className={`w-full rounded-t transition-colors min-h-[2px] flex-shrink-0 ${
                   isAboveTarget
                     ? 'bg-gradient-to-t from-green-600 to-green-400 hover:from-green-500 hover:to-green-300'
                     : 'bg-gradient-to-t from-amber-600 to-amber-400 hover:from-amber-500 hover:to-amber-300'

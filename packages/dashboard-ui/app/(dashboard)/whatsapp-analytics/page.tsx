@@ -617,14 +617,14 @@ function VolumeChart({ data }: { data: any[] }) {
       {counts.map((val, i) => (
         <div
           key={i}
-          className="flex-1 flex flex-col items-center gap-1 group relative"
+          className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
         >
           <div
-            className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t min-h-[1px]"
+            className="w-full bg-gradient-to-t from-green-600 to-green-400 rounded-t min-h-[1px] flex-shrink-0"
             style={{ height: `${(val / max) * 100}%` }}
           />
           {i % 3 === 0 && (
-            <span className="text-[10px] text-muted-foreground">{i}h</span>
+            <span className="text-[10px] text-muted-foreground shrink-0">{i}h</span>
           )}
           {val > 0 && (
             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
@@ -782,22 +782,19 @@ function MessageVolumeTrendChart({
         {receivedSent.map((point, i) => (
           <div
             key={toPeriodString(point.period) || i}
-            className="flex-1 flex flex-col items-center gap-0.5 group relative"
+            className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
           >
             <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
               {formatDate(point.period)}: {point.received} received,{" "}
               {point.sent} sent
             </div>
-            <div
-              className="w-full flex gap-0.5 items-end"
-              style={{ height: "100%" }}
-            >
+            <div className="w-full flex gap-0.5 items-end flex-shrink-0 h-full min-h-0">
               <div
-                className="flex-1 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t min-h-[2px]"
+                className="flex-1 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t min-h-[2px] flex-shrink-0"
                 style={{ height: `${(point.received / max) * 100}%` }}
               />
               <div
-                className="flex-1 bg-gradient-to-t from-green-600 to-green-400 rounded-t min-h-[2px]"
+                className="flex-1 bg-gradient-to-t from-green-600 to-green-400 rounded-t min-h-[2px] flex-shrink-0"
                 style={{ height: `${(point.sent / max) * 100}%` }}
               />
             </div>
@@ -902,14 +899,14 @@ function ResponseTimeTrendChart({
           return (
             <div
               key={toPeriodString(point.period) || i}
-              className="flex-1 flex flex-col items-center gap-1 group relative"
+              className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
             >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
                 {formatDate(point.period)}: {point.medianMinutes.toFixed(1)}m
                 median
               </div>
               <div
-                className={`w-full rounded-t min-h-[2px] ${
+                className={`w-full rounded-t min-h-[2px] flex-shrink-0 ${
                   isUnderTarget
                     ? "bg-gradient-to-t from-green-600 to-green-400"
                     : "bg-gradient-to-t from-amber-600 to-amber-400"
@@ -983,14 +980,14 @@ function ReadRateTrendChart({
           return (
             <div
               key={toPeriodString(point.period) || i}
-              className="flex-1 flex flex-col items-center gap-1 group relative"
+              className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
             >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
                 {formatDate(point.period)}: {Number(point.readRate).toFixed(1)}%
                 ({point.readCount}/{point.sent})
               </div>
               <div
-                className="w-full bg-gradient-to-t from-purple-600 to-purple-400 rounded-t min-h-[2px]"
+                className="w-full bg-gradient-to-t from-purple-600 to-purple-400 rounded-t min-h-[2px] flex-shrink-0"
                 style={{ height: `${heightPercent}%` }}
               />
             </div>
@@ -1074,13 +1071,13 @@ function NewContactsTrendChart({
           return (
             <div
               key={toPeriodString(point.period) || i}
-              className="flex-1 flex flex-col items-center gap-1 group relative"
+              className="flex-1 flex flex-col items-center justify-end h-full min-h-0 group relative"
             >
               <div className="absolute bottom-full mb-2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 border border-border shadow-md">
                 {formatDate(point.period)}: {point.newContacts} new contacts
               </div>
               <div
-                className="w-full bg-gradient-to-t from-cyan-600 to-cyan-400 rounded-t min-h-[2px]"
+                className="w-full bg-gradient-to-t from-cyan-600 to-cyan-400 rounded-t min-h-[2px] flex-shrink-0"
                 style={{ height: `${heightPercent}%` }}
               />
             </div>

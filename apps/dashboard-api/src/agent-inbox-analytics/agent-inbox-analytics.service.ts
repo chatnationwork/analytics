@@ -871,7 +871,7 @@ export class AgentInboxAnalyticsService {
       0,
     );
 
-    // Calculate resolution rate and attach agent name for each agent
+    // Calculate resolution rate (Resolved / Total) and attach agent name for each agent
     const enrichedData = data.map(
       (d: {
         agentId: string;
@@ -884,8 +884,10 @@ export class AgentInboxAnalyticsService {
         ...d,
         agentName: nameByAgentId.get(d.agentId) ?? null,
         resolutionRate:
-          d.handoffsReceived > 0
-            ? Math.round((d.resolvedCount / d.handoffsReceived) * 1000) / 10
+          d.totalChatsHandled > 0
+            ? Math.round(
+                (d.resolvedCount / d.totalChatsHandled) * 1000,
+              ) / 10
             : 0,
       }),
     );

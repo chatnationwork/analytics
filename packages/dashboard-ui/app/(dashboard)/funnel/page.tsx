@@ -3,7 +3,20 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Settings2 } from "lucide-react";
+import { Settings2, Calendar } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+
+function getDefaultDateRange(): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 29);
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
 
 interface FunnelStep {
   name: string;
@@ -32,6 +45,7 @@ export default function FunnelPage() {
   const [steps, setSteps] = useState<FunnelStep[]>([]);
   const [showFilters, setShowFilters] = useState(true);
   const [useJourneyFlags, setUseJourneyFlags] = useState(false);
+  const [dateRange, setDateRange] = useState(getDefaultDateRange);
 
   // Fetch current tenant first
   const { data: tenant } = useQuery({
@@ -59,19 +73,34 @@ export default function FunnelPage() {
   }, [availableEvents, steps.length]);
 
   const { data: funnelData, isLoading } = useQuery({
-    queryKey: ["funnel", steps, tenant?.tenantId],
-    queryFn: () => {
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return api.analyzeFunnel(
+    queryKey: [
+      "funnel",
+      steps,
+      tenant?.tenantId,
+      dateRange.start,
+      dateRange.end,
+      useJourneyFlags,
+    ],
+    queryFn: () =>
+      api.analyzeFunnel(
         steps,
-        thirtyDaysAgo.toISOString(),
-        now.toISOString(),
+        dateRange.start,
+        dateRange.end,
         tenant?.tenantId,
-      );
-    },
+        useJourneyFlags,
+      ),
     enabled: steps.length >= 2 && !!tenant?.tenantId,
   });
+
+  const setRangeToLast = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    setDateRange({
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10),
+    });
+  };
 
   const addStep = () => {
     if (steps.length >= MAX_STEPS || availableEvents.length === 0) return;
@@ -120,22 +149,87 @@ export default function FunnelPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Funnels</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Last 30 days</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {dateRange.start === dateRange.end
+              ? dateRange.start
+              : `${dateRange.start} – ${dateRange.end}`}
+          </p>
         </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-            showFilters
-              ? "bg-secondary text-secondary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-          }`}
-        >
-          <Settings2 className="w-4 h-4" />
-          Customize
-        </button>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="funnel-start" className="text-xs">
+                  From
+                </Label>
+                <Input
+                  id="funnel-start"
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) =>
+                    setDateRange((prev) => ({ ...prev, start: e.target.value }))
+                  }
+                  className="w-[140px] h-9"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="funnel-end" className="text-xs">
+                  To
+                </Label>
+                <Input
+                  id="funnel-end"
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) =>
+                    setDateRange((prev) => ({ ...prev, end: e.target.value }))
+                  }
+                  className="w-[140px] h-9"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRangeToLast(7)}
+              className="h-9"
+            >
+              7d
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRangeToLast(30)}
+              className="h-9"
+            >
+              30d
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRangeToLast(90)}
+              className="h-9"
+            >
+              90d
+            </Button>
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-3 py-2 h-9 text-sm font-medium rounded-lg transition-colors ${
+              showFilters
+                ? "bg-secondary text-secondary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+            }`}
+          >
+            <Settings2 className="w-4 h-4" />
+            Customize
+          </button>
+        </div>
       </div>
 
       {/* Step Builder */}
