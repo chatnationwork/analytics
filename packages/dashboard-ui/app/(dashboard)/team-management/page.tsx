@@ -101,24 +101,53 @@ export default function TeamManagementPage() {
     <RouteGuard
       permissions={["teams.manage", "teams.view_all", "teams.view_team"]}
     >
-      <div className="p-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">
-              Team Management
-            </h2>
-            <p className="text-muted-foreground">
-              {canManage
-                ? "Manage support teams and agent assignments."
-                : "View active chats, queued chats, and agent workload for your teams."}
-            </p>
-          </div>
-          {canManage && (
-            <Button onClick={() => setIsCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Create Team
-            </Button>
-          )}
+      <div className="p-8 space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Team Management
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            {canManage
+              ? "Manage support teams and agent assignments."
+              : "View active chats, queued chats, and agent workload for your teams."}
+          </p>
         </div>
+
+        {canManage && (
+          <div className="flex items-center gap-2 flex-wrap border-b pb-4">
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Create Team
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAssignQueueOpen(true)}
+            >
+              <Inbox className="h-4 w-4 mr-1.5" />
+              Assign queue
+            </Button>
+            {canBulkTransfer && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkTransferOpen(true)}
+                >
+                  <ArrowRightLeft className="h-4 w-4 mr-1.5" />
+                  Bulk transfer
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsMassReengageOpen(true)}
+                >
+                  <MessageCircle className="h-4 w-4 mr-1.5" />
+                  Mass re-engagement
+                </Button>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {loading ? (
@@ -138,49 +167,6 @@ export default function TeamManagementPage() {
             />
           )}
         </div>
-
-        {canManage && (
-          /* Scheduling & queue */
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-foreground">
-              Scheduling & Queue
-            </h3>
-            <p className="text-sm text-muted-foreground -mt-4">
-              Assign unassigned chats in the queue, bulk transfer assigned
-              chats, or send re-engagement templates to expired chats.
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAssignQueueOpen(true)}
-              >
-                <Inbox className="h-4 w-4 mr-1.5" />
-                Assign queue
-              </Button>
-              {canBulkTransfer && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsBulkTransferOpen(true)}
-                  >
-                    <ArrowRightLeft className="h-4 w-4 mr-1.5" />
-                    Bulk transfer
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsMassReengageOpen(true)}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-1.5" />
-                    Mass re-engagement
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
 
         <CreateTeamDialog
           open={isCreateOpen}

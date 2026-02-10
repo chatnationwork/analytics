@@ -272,7 +272,7 @@ export function AssignQueueDialog({
                             type="number"
                             min={0}
                             max={maxForThis}
-                            value={manualCounts[agent.agentId] ?? 1}
+                            value={manualCounts[agent.agentId] ?? 0}
                             onChange={(e) => {
                               const raw = parseInt(
                                 e.target.value,
