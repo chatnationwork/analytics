@@ -100,10 +100,14 @@ export function ChatList({
           <div
             key={session.id}
             className={cn(
-              "flex items-center gap-2 rounded-lg text-sm transition-all",
-              selectedSessionId === session.id ? "bg-accent" : "transparent",
-              expired && "border-l-2 border-orange-500",
-              unread && "border-l-2 border-primary",
+              "flex items-center gap-2 rounded-lg text-sm transition-all border-l-4",
+              selectedSessionId === session.id
+                ? "bg-accent border-l-transparent"
+                : unread
+                  ? "bg-primary/10 border-l-primary"
+                  : "bg-transparent border-l-transparent hover:bg-accent/50",
+              expired && !unread && "border-l-orange-500", // Expired warning only if read
+              unread && "border-l-primary", // Ensure unread overrides if both
             )}
           >
             {canSelectBulk && (
