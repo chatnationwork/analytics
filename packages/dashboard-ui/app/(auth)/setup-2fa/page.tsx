@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { sendSetupCodeAction, verifySetupCodeAction } from "./actions";
 
@@ -241,14 +242,14 @@ export default function Setup2FaPage() {
           </div>
         </div>
 
-        <button
-          type="button"
+        <Button
+          type="submit"
           onClick={handleVerifyCode}
           disabled={isLoading || code.length !== 6}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+          className="w-full"
         >
           {isLoading ? "Verifying..." : "Verify & continue"}
-        </button>
+        </Button>
 
         <div className="flex flex-col items-center gap-2">
           <button

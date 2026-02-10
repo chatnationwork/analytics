@@ -7,6 +7,7 @@ import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { signupAction } from "./actions";
 import { useAuth } from "@/components/auth/AuthProvider";
 
@@ -196,13 +197,13 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={isLoading}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+          className="w-full"
         >
           {isLoading ? "Create account" : "Sign up"}
-        </button>
+        </Button>
       </form>
     </div>
   );

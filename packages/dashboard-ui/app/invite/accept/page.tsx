@@ -160,8 +160,8 @@ function AcceptInviteContent() {
       setStatus("success");
       setMessage("Welcome! Your account has been created.");
 
-      // Redirect to dashboard after 2 seconds
-      setTimeout(() => router.push("/"), 2000);
+      // Redirect to 2FA setup after 2 seconds
+      setTimeout(() => router.push("/setup-2fa"), 2000);
     } catch (e: any) {
       setStatus("ready");
       setMessage(e.message || "Something went wrong");
@@ -285,7 +285,7 @@ function AcceptInviteContent() {
                 {message}
               </p>
               <p className="text-sm text-gray-500">
-                Redirecting to dashboard...
+                Redirecting to 2FA setup...
               </p>
             </>
           )}

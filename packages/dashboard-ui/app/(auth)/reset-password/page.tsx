@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { resetPasswordAction } from "../login/actions";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
-import { Lock, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Lock, Loader2, ArrowRight } from "lucide-react";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -125,17 +126,14 @@ function ResetPasswordForm() {
         </div>
 
         <div className="flex gap-3">
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="flex-1 flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50"
+            className="flex-1 gap-2"
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Reset password"
-            )}
-          </button>
+            {loading ? "Resetting..." : "Reset Password"}
+            <ArrowRight size={16} />
+          </Button>
           <Link
             href="/login"
             className="py-2 px-4 rounded-md border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center"

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { verifySessionTakeoverAction } from "../login/actions";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 function VerifyLoginContent() {
@@ -64,12 +65,14 @@ function VerifyLoginContent() {
           Verification failed
         </h2>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{error}</p>
-        <Link
-          href="/login"
-          className="mt-6 inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)]"
+        <Button
+          asChild
+          className="mt-6 w-full"
         >
-          Back to sign in
-        </Link>
+          <Link href="/login">
+            Back to sign in
+          </Link>
+        </Button>
       </div>
     );
   }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -15,6 +16,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -116,12 +118,12 @@ export function CrmSettings() {
           </p>
         </div>
         {!isAdding && (
-          <button
+          <Button
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-md hover:bg-[var(--primary-dark)] transition-colors text-sm font-medium"
+            className="gap-2"
           >
             <Plus size={16} /> Add Integration
-          </button>
+          </Button>
         )}
       </div>
 
@@ -253,13 +255,12 @@ export function CrmSettings() {
               >
                 Cancel
               </button>
-              <button
+              <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-[var(--primary)] text-white rounded-md text-sm font-medium hover:bg-[var(--primary-dark)] disabled:opacity-50"
               >
                 {isSubmitting ? "Saving..." : "Save Integration"}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

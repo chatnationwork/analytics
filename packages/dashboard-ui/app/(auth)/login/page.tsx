@@ -7,6 +7,7 @@ import * as z from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   loginAction,
   verify2FaAction,
@@ -372,16 +373,17 @@ function LoginForm() {
                   ? `Resend code in ${resendCooldown}s`
                   : "Resend code"}
             </button>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => {
                 setTwoFactorToken(null);
                 setError(null);
               }}
               className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
-              Back to sign in
-            </button>
+              Back to Login
+            </Button>
           </div>
         </form>
       </div>
@@ -472,13 +474,13 @@ function LoginForm() {
           </div>
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={isLoading}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+          className="w-full"
         >
           {isLoading ? "Signing in..." : "Sign in"}
-        </button>
+        </Button>
       </form>
     </div>
   );

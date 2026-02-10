@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { forgotPasswordAction } from "../login/actions";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -84,13 +85,13 @@ export default function ForgotPasswordPage() {
         </div>
 
         <div className="flex gap-3">
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+            className="flex-1"
           >
-            {loading ? "Sending…" : "Send reset link"}
-          </button>
+            {loading ? "Sending..." : "Send reset link"}
+          </Button>
           <Link
             href="/login"
             className="py-2 px-4 rounded-md border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center"

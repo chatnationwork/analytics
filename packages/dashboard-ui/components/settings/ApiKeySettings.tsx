@@ -8,6 +8,7 @@ import * as z from "zod";
 import { toast } from "sonner";
 import { settingsApi } from "@/lib/settings-api";
 import { Plus, Copy, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -88,12 +89,9 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
           </p>
         </div>
         {!isAdding && !newKey && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-md hover:bg-[var(--primary-dark)] transition-colors text-sm font-medium"
-          >
-            <Plus size={16} /> Generate Key
-          </button>
+          <Button onClick={() => setIsAdding(true)} className="gap-2">
+            <Plus size={16} /> Create API Key
+          </Button>
         )}
       </div>
 
@@ -186,23 +184,22 @@ export function ApiKeySettings({ tenantId }: ApiKeySettingsProps) {
               </select>
             </div>
             <div className="flex justify-end gap-3">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
                   setIsAdding(false);
                   reset();
                 }}
-                className="px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-muted"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-[var(--primary)] text-white rounded-md text-sm font-medium hover:bg-[var(--primary-dark)] disabled:opacity-50"
               >
-                {isSubmitting ? "Generating..." : "Generate"}
-              </button>
+                {isSubmitting ? "Creating..." : "Create"}
+              </Button>
             </div>
           </form>
         </div>

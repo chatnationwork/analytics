@@ -16,6 +16,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const roleSchema = z.object({
@@ -188,12 +189,9 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
             members.
           </p>
         </div>
-        <button
-          onClick={() => setIsDialogOpen(true)}
-          className="flex items-center gap-2 bg-[var(--primary)] text-white px-4 py-2 rounded-md hover:bg-[var(--primary-dark)] transition-colors text-sm font-medium"
-        >
+        <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
           <Plus size={16} /> Create Role
-        </button>
+        </Button>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -369,28 +367,23 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
             </div>
 
             <DialogFooter>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-4 py-2 border border-border rounded-md hover:bg-muted text-sm text-foreground"
-              >
+              <Button type="button" variant="outline" onClick={handleClose}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={
                   isSubmitting ||
                   createMutation.isPending ||
                   updateMutation.isPending
                 }
-                className="px-4 py-2 bg-[var(--primary)] text-white rounded-md text-sm hover:bg-[var(--primary-dark)]"
               >
                 {isSubmitting ||
                 createMutation.isPending ||
                 updateMutation.isPending
                   ? "Saving..."
                   : "Save Role"}
-              </button>
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

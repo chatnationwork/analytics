@@ -1,0 +1,17 @@
+docker exec -it analytics-postgres psql -U analytics -d analytics -c "
+  BEGIN;
+  DELETE FROM inbox_sessions WHERE \"assignedAgentId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM team_members WHERE \"userId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM agent_profiles WHERE \"userId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM invitations WHERE \"createdBy\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM tenant_memberships WHERE \"userId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM session_takeover_requests WHERE \"userId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM user_sessions WHERE \"userId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM password_reset_tokens WHERE \"userId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM contact_notes WHERE \"authorId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM two_fa_verification WHERE \"userId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM agent_sessions WHERE \"agentId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM shifts WHERE \"userId\" = (SELECT id FROM users WHERE email = 'chatnationresources@gmail.com');
+  DELETE FROM users WHERE email = 'chatnationresources@gmail.com';
+  COMMIT;
+"
