@@ -807,6 +807,14 @@ export class InboxService {
       });
     }
 
+    // Fall back to the default team's wrap-up config when session has no team
+    // (e.g. system admin accepting an unrouted chat)
+    if (!team) {
+      team = await this.teamRepo.findOne({
+        where: { isDefault: true },
+      });
+    }
+
     const wrapUp = team?.wrapUpReport as
       | {
           enabled: boolean;

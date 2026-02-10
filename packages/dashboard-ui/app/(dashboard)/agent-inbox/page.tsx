@@ -320,16 +320,26 @@ export default function AgentInboxPage() {
   }) => {
     if (!selectedSessionId) return;
 
-    await agentApi.resolveSession(selectedSessionId, data);
-    // Refresh inbox
-    fetchInbox();
-    invalidateInboxCounts();
-    // Update local session status
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === selectedSessionId ? { ...s, status: "resolved" as const } : s,
-      ),
-    );
+    try {
+      await agentApi.resolveSession(selectedSessionId, data);
+      toast.success("Chat resolved");
+      // Refresh inbox
+      fetchInbox();
+      invalidateInboxCounts();
+      // Update local session status
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === selectedSessionId
+            ? { ...s, status: "resolved" as const }
+            : s,
+        ),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to resolve session";
+      toast.error(message);
+      throw error; // Re-throw so ResolveDialog keeps the dialog open
+    }
   };
 
   const handleTransferSession = async (
