@@ -900,6 +900,25 @@ export class InboxService {
         this.logger.warn(
           `CSAT CTA not sent for session ${sessionId}: ${result.error}`,
         );
+      } else {
+        // Record CSAT message as sent by agent
+        await this.addMessage({
+          sessionId: savedSession.id,
+          tenantId: savedSession.tenantId,
+          contactId: savedSession.contactId,
+          direction: MessageDirection.OUTBOUND,
+          type: MessageType.INTERACTIVE,
+          content: "Sent CSAT survey",
+          metadata: {
+            interactive: result.payload?.interactive,
+            sent_by_system: true,
+          },
+          senderId: agentId,
+        }).catch((err) =>
+          this.logger.warn(
+            `Failed to record CSAT message for session ${sessionId}: ${err.message}`,
+          ),
+        );
       }
     } catch (error) {
       this.logger.warn(
@@ -1248,6 +1267,26 @@ export class InboxService {
           });
           continue;
         }
+
+        // Record reengagement message
+        await this.addMessage({
+          sessionId: session.id,
+          tenantId: tenantId,
+          contactId: session.contactId,
+          direction: MessageDirection.OUTBOUND,
+          type: MessageType.TEMPLATE,
+          content: `Sent re-engagement template to ${contactName}`,
+          metadata: {
+            template: result.payload?.template,
+            sent_by_system: true,
+          },
+          senderId: initiatorId,
+        }).catch((err) =>
+          this.logger.warn(
+            `Failed to record reengagement message for session ${session.id}: ${err.message}`,
+          ),
+        );
+
         sent++;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";

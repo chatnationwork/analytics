@@ -310,7 +310,12 @@ export class WhatsappService {
     tenantId: string,
     to: string,
     options?: { account?: string },
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    messageId?: string;
+    error?: string;
+    payload?: any;
+  }> {
     const integration = await this.crmService.getActiveIntegration(
       tenantId,
       options?.account,
@@ -385,6 +390,7 @@ export class WhatsappService {
       return {
         success: true,
         messageId: data.messages?.[0]?.id,
+        payload,
       };
     } catch (error: any) {
       console.error("Network Error sending CSAT CTA message:", error);
@@ -402,7 +408,12 @@ export class WhatsappService {
     to: string,
     contactName: string,
     options?: { account?: string },
-  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    messageId?: string;
+    error?: string;
+    payload?: any;
+  }> {
     const integration = await this.crmService.getActiveIntegration(
       tenantId,
       options?.account,
@@ -463,6 +474,7 @@ export class WhatsappService {
       return {
         success: true,
         messageId: data.messages?.[0]?.id,
+        payload,
       };
     } catch (error: any) {
       console.error("Network error sending reengagement template:", error);
@@ -479,7 +491,7 @@ export class WhatsappService {
     tenantId: string,
     to: string,
     code: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; payload?: any }> {
     const integration = await this.crmService.getActiveIntegration(tenantId);
 
     if (!integration || !integration.config?.phoneNumberId) {
@@ -538,7 +550,7 @@ export class WhatsappService {
         };
       }
 
-      return { success: true };
+      return { success: true, payload };
     } catch (error: any) {
       console.error("Network Error sending 2FA code:", error);
       return { success: false, error: error.message };
