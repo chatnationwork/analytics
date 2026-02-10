@@ -68,7 +68,15 @@ export interface Message {
   id: string;
   sessionId: string;
   direction: "inbound" | "outbound";
-  type: "text" | "image" | "video" | "audio" | "document" | "location";
+  type:
+    | "text"
+    | "image"
+    | "video"
+    | "audio"
+    | "document"
+    | "location"
+    | "template"
+    | "interactive";
   content?: string;
   /** Media ID, filename, or location coords for non-text messages */
   metadata?: Record<string, unknown>;

@@ -19,6 +19,8 @@ import {
   ExternalLink,
   ArrowRightLeft,
   UserPlus,
+  ClipboardList,
+  Send,
 } from "lucide-react";
 
 /** One item in the chat timeline: a message or a system event (transfer / new conversation). */
@@ -224,6 +226,38 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
               </a>
             )}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Template message (e.g. re-engagement)
+  if (msg.type === "template") {
+    const templateName =
+      (meta.template as Record<string, unknown>)?.name ?? null;
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-dashed border-current/20 bg-black/5 dark:bg-white/5 p-2">
+        <Send className="h-5 w-5 shrink-0 opacity-70" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium">{content || "Template message sent"}</p>
+          {templateName && (
+            <p className="text-[10px] opacity-70 truncate mt-0.5">
+              Template: {String(templateName)}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Interactive message (e.g. CSAT survey)
+  if (msg.type === "interactive") {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-dashed border-current/20 bg-black/5 dark:bg-white/5 p-2">
+        <ClipboardList className="h-5 w-5 shrink-0 opacity-70" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium">{content || "Interactive message sent"}</p>
+          <p className="text-[10px] opacity-70 mt-0.5">Customer survey</p>
         </div>
       </div>
     );
