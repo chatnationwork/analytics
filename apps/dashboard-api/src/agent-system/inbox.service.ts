@@ -1006,7 +1006,7 @@ export class InboxService {
     try {
       await this.fireTransferEvent(
         savedSession,
-        previousAgentId,
+        previousAgentId ?? fromAgentId,
         toAgentId,
         reason,
       );
@@ -1015,7 +1015,7 @@ export class InboxService {
     }
 
     this.logger.log(
-      `Session ${sessionId} transferred from ${previousAgentId} to ${toAgentId}`,
+      `Session ${sessionId} transferred from ${previousAgentId ?? fromAgentId} to ${toAgentId}`,
     );
     return savedSession;
   }
