@@ -2,7 +2,7 @@
  * Agent status viewership API – list agents (online/offline), session history with metrics.
  */
 
-import { fetchWithAuthFull } from "./api";
+import { fetchWithAuthFull, fetchBlobWithAuth } from "./api";
 
 export interface AgentStatusItem {
   agentId: string;
@@ -92,6 +92,22 @@ export const agentStatusApi = {
         page: number;
         limit: number;
       })
+    );
+  },
+
+  /** Export agent logs as CSV. */
+  exportAgentLogs: async (params?: {
+    agentId?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    const search = new URLSearchParams();
+    if (params?.agentId) search.set("agentId", params.agentId);
+    if (params?.startDate) search.set("startDate", params.startDate);
+    if (params?.endDate) search.set("endDate", params.endDate);
+    const q = search.toString();
+    return fetchBlobWithAuth(
+      `/agent/status/sessions/export${q ? `?${q}` : ""}`,
     );
   },
 };

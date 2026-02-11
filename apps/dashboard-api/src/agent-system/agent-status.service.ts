@@ -223,6 +223,94 @@ export class AgentStatusService {
   }
 
   /**
+   * Export agent session logs as CSV stream.
+   */
+  async exportAgentLogs(
+    tenantId: string,
+    options: {
+      agentId?: string;
+      startDate?: Date;
+      endDate?: Date;
+    } = {},
+  ) {
+    const { data: sessions } =
+      await this.agentSessionRepo.getSessionHistory(tenantId, {
+        agentId: options.agentId,
+        startDate: options.startDate,
+        endDate: options.endDate,
+        page: 1,
+        limit: 10000,
+      });
+
+    const agentIds = [...new Set(sessions.map((s) => s.agentId))];
+    const [users, loginCountByAgent] = await Promise.all([
+      this.userRepo.find({
+        where: { id: In(agentIds) },
+        select: ["id", "name", "email"],
+      }),
+      this.agentSessionRepo.getLoginCountByAgent(tenantId, agentIds),
+    ]);
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    const rows = await Promise.all(
+      sessions.map(async (s) => {
+        const end = s.endedAt ?? new Date();
+        const durationMinutes = s.endedAt
+          ? Math.round((s.endedAt.getTime() - s.startedAt.getTime()) / 60000)
+          : null;
+        const [chatsReceived, chatsResolved] = await Promise.all([
+          this.sessionRepo.count({
+            where: {
+              tenantId,
+              assignedAgentId: s.agentId,
+              assignedAt: Between(s.startedAt, end),
+            },
+          }),
+          this.resolutionRepo.count({
+            where: {
+              resolvedByAgentId: s.agentId,
+              createdAt: Between(s.startedAt, end),
+            },
+          }),
+        ]);
+        const user = userMap.get(s.agentId);
+        return {
+          Agent: user?.name ?? s.agentId.slice(0, 8),
+          Email: user?.email ?? "",
+          Status: s.endedAt ? "Offline" : "Online",
+          "Started at": s.startedAt.toISOString(),
+          "Ended at": s.endedAt ? s.endedAt.toISOString() : "",
+          "Duration (min)": durationMinutes ?? "",
+          "Times logged in": loginCountByAgent.get(s.agentId) ?? 0,
+          "Chats received": chatsReceived,
+          "Chats resolved": chatsResolved,
+        };
+      }),
+    );
+
+    const { stringify } = await import("csv-stringify");
+    const stringifier = stringify({
+      header: true,
+      columns: [
+        "Agent",
+        "Email",
+        "Status",
+        "Started at",
+        "Ended at",
+        "Duration (min)",
+        "Times logged in",
+        "Chats received",
+        "Chats resolved",
+      ],
+    });
+    for (const row of rows) {
+      stringifier.write(row);
+    }
+    stringifier.end();
+    return stringifier;
+  }
+
+  /**
    * Set another agent's presence (online/offline). Caller must have permission.
    * Only allowed for users who are team members in this tenant.
    */

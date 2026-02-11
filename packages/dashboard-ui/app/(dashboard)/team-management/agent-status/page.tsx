@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -20,7 +20,10 @@ import {
   MessageSquare,
   CheckCircle,
   LogIn,
+  Download,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import {
   agentStatusApi,
@@ -99,6 +102,27 @@ export default function AgentStatusPage() {
   const canPrevSession = sessionPage > 1;
   const canNextSession = sessionPage < totalSessionPages;
 
+  const exportMutation = useMutation({
+    mutationFn: () =>
+      agentStatusApi.exportAgentLogs(
+        agentFilter ? { agentId: agentFilter } : undefined,
+      ),
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `agent-logs-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Agent logs exported successfully");
+    },
+    onError: () => {
+      toast.error("Failed to export agent logs");
+    },
+  });
+
   return (
     <RouteGuard permission="teams.manage">
       <div className="p-8 space-y-6">
@@ -112,6 +136,18 @@ export default function AgentStatusPage() {
               resolved).
             </p>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending}
+          >
+            {exportMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Export
+          </Button>
         </div>
 
         <Card>

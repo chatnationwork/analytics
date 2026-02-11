@@ -10,8 +10,10 @@ import {
   Body,
   Query,
   Request,
+  Res,
   UseGuards,
 } from "@nestjs/common";
+import type { FastifyReply } from "fastify";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { AgentStatusService } from "./agent-status.service";
 
@@ -50,6 +52,33 @@ export class AgentStatusController {
       dto.status,
     );
     return { ok: true };
+  }
+
+  /**
+   * Export agent session logs as CSV.
+   */
+  @Get("sessions/export")
+  async exportAgentLogs(
+    @Request() req: { user: { tenantId: string } },
+    @Res() res: FastifyReply,
+    @Query("agentId") agentId?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    const csvStream = await this.agentStatusService.exportAgentLogs(
+      req.user.tenantId,
+      {
+        agentId,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+      },
+    );
+    res.header("Content-Type", "text/csv");
+    res.header(
+      "Content-Disposition",
+      `attachment; filename="agent-logs-${new Date().toISOString().split("T")[0]}.csv"`,
+    );
+    return res.send(csvStream);
   }
 
   /**

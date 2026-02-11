@@ -257,7 +257,7 @@ function MessageBubbleContent({ msg }: { msg: Message }) {
         <ClipboardList className="h-5 w-5 shrink-0 opacity-70" />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium">{content || "Interactive message sent"}</p>
-          <p className="text-[10px] opacity-70 mt-0.5">Customer survey</p>
+          <p className="text-[10px] opacity-70 mt-0.5">Interactive</p>
         </div>
       </div>
     );
