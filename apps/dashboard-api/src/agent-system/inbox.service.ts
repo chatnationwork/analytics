@@ -506,7 +506,7 @@ export class InboxService {
       .orderBy("session.lastMessageAt", "DESC");
 
     const sessions = await query.getMany();
-    return sessions.map((s) => {
+    const mapped = sessions.map((s) => {
       const assignedAgent = (s as any).assignedAgent;
       const assignedTeam = (s as any).assignedTeam;
       const out = { ...s } as Record<string, unknown>;
@@ -520,6 +520,7 @@ export class InboxService {
         : null;
       return out;
     });
+    return mapped as InboxSessionEntity[];
   }
 
   /**

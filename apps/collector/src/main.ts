@@ -96,10 +96,10 @@ async function bootstrap() {
    * stored in the project configuration. The WriteKeyGuard handles this.
    */
   app.enableCors({
-    origin: true, // Allow requests, further validation in WriteKeyGuard
+    origin: true, // Reflect request origin (allows SDK from any domain)
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'X-Write-Key'],
-    credentials: true,
+    credentials: false, // Capture API does not use cookies; avoids * + credentials conflict
   });
 
   /**

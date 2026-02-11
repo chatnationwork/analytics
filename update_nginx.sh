@@ -65,27 +65,13 @@ server {
     }
 
     # 2. Collector API Proxy (SDK -> Collector)
-    # Proxies /v1/* requests to internal port 3000
+    # Proxies /v1/* requests to internal port 3000. CORS handled by Collector.
     location /v1/ {
         proxy_pass http://localhost:3000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
-        
-        # Enable CORS for SDK from other domains if needed
-        add_header 'Access-Control-Allow-Origin' '*' always;
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-        add_header 'Access-Control-Allow-Headers' 'Content-Type, X-Write-Key' always;
-        
-        if (\$request_method = 'OPTIONS') {
-           add_header 'Access-Control-Allow-Origin' '*';
-           add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
-           add_header 'Access-Control-Allow-Headers' 'Content-Type, X-Write-Key';
-           add_header 'Content-Type' 'text/plain; charset=utf-8';
-           add_header 'Content-Length' 0;
-           return 204;
-        }
     }
 
     # 3. Dashboard UI Proxy (Browser -> Next.js)
