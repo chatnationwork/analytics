@@ -44,6 +44,8 @@ if command -v psql &> /dev/null; then
     -- Support Chats & Reports
     DELETE FROM resolutions;
     DELETE FROM inbox_sessions;
+    -- Analytics Events for Inbox (resolutions, transfers, handoffs)
+    DELETE FROM events WHERE "eventName" IN ('chat.resolved', 'chat.transferred', 'agent.handoff', 'chat.assigned', 'chat.accepted');
     
     COMMIT;
   "
@@ -59,6 +61,8 @@ else
     -- Support Chats & Reports
     DELETE FROM resolutions;
     DELETE FROM inbox_sessions;
+    -- Analytics Events for Inbox (resolutions, transfers, handoffs)
+    DELETE FROM events WHERE "eventName" IN ('chat.resolved', 'chat.transferred', 'agent.handoff', 'chat.assigned', 'chat.accepted');
     
     COMMIT;
   "

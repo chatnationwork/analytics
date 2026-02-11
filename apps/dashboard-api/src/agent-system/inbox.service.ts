@@ -875,24 +875,63 @@ export class InboxService {
       notes = data.notes?.trim() || undefined;
     }
 
-    // Create Resolution record
-    const resolution = this.resolutionRepo.create({
-      sessionId,
-      category,
-      notes,
-      outcome: data.outcome || "resolved",
-      resolvedByAgentId: agentId,
-      formData,
-    });
-    await this.resolutionRepo.save(resolution);
+    // Use a transaction to ensure atomicity (create resolution + update session status)
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Update session status
-    session.status = SessionStatus.RESOLVED;
-    const savedSession = await this.sessionRepo.save(session);
+    let savedSession: InboxSessionEntity;
+
+    try {
+      // Check if resolution already exists (handle "zombie" resolution from previous failure)
+      let resolution = await queryRunner.manager.findOne(ResolutionEntity, {
+        where: { sessionId },
+      });
+
+      if (resolution) {
+        this.logger.warn(
+          `Resolution found for active session ${sessionId} (zombie record). Updating existing resolution.`,
+        );
+        // Update existing resolution
+        resolution.category = category;
+        resolution.notes = notes ?? "";
+        resolution.outcome = data.outcome || "resolved";
+        resolution.resolvedByAgentId = agentId;
+        resolution.formData = formData;
+      } else {
+        // Create new Resolution record
+        resolution = queryRunner.manager.create(ResolutionEntity, {
+          sessionId,
+          category,
+          notes,
+          outcome: data.outcome || "resolved",
+          resolvedByAgentId: agentId,
+          formData,
+        });
+      }
+
+      await queryRunner.manager.save(ResolutionEntity, resolution);
+
+      // Update session status
+      session.status = SessionStatus.RESOLVED;
+      savedSession = await queryRunner.manager.save(InboxSessionEntity, session);
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
 
     // Fire analytics event for chat resolution
     try {
-      await this.fireResolutionEvent(savedSession, agentId, resolution);
+      const resolution = await this.resolutionRepo.findOne({
+        where: { sessionId: savedSession.id },
+      });
+      if (resolution) {
+        await this.fireResolutionEvent(savedSession, agentId, resolution);
+      }
     } catch (error) {
       this.logger.error(`Failed to fire resolution event: ${error.message}`);
     }
