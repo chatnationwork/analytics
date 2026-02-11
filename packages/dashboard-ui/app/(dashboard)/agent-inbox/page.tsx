@@ -348,6 +348,11 @@ export default function AgentInboxPage() {
   ) => {
     if (!selectedSessionId) return;
     await agentApi.transferSession(selectedSessionId, targetAgentId, reason);
+    setAcceptedSessions((prev) => {
+      const next = new Set(prev);
+      next.delete(selectedSessionId);
+      return next;
+    });
     setShowTransferDialog(false);
     fetchInbox();
     invalidateInboxCounts();
