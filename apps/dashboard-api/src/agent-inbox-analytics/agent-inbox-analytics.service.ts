@@ -643,6 +643,132 @@ export class AgentInboxAnalyticsService {
   }
 
   /**
+   * Get re-engagement analytics: sent count, reply rate, time to reply, by agent.
+   * Uses messages with metadata.reengagement = true.
+   */
+  async getReengagementAnalytics(
+    tenantId: string,
+    startDateStr?: string,
+    endDateStr?: string,
+  ) {
+    const startDate = startDateStr
+      ? new Date(startDateStr)
+      : this.calculateStartDate("day", 30);
+    const endDate = endDateStr
+      ? new Date(endDateStr)
+      : new Date();
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    const rows = await this.messageRepo.manager.query(
+      `
+      SELECT r.id, r."senderId", r."contactId", r."createdAt" as reeng_at,
+             reply."createdAt" as reply_at,
+             reply.content as reply_content,
+             reply.type as reply_type
+      FROM messages r
+      LEFT JOIN LATERAL (
+        SELECT m."createdAt", m.content, m.type
+        FROM messages m
+        WHERE m."contactId" = r."contactId"
+          AND m.direction = 'inbound'
+          AND m."createdAt" > r."createdAt"
+          AND m."tenantId" = r."tenantId"
+        ORDER BY m."createdAt" ASC
+        LIMIT 1
+      ) reply ON true
+      WHERE r."tenantId" = $1
+        AND r.direction = 'outbound'
+        AND (r.metadata->>'reengagement') = 'true'
+        AND r."createdAt" >= $2
+        AND r."createdAt" <= $3
+      ORDER BY r."createdAt" DESC
+      `,
+      [tenantId, startDate, endDate],
+    );
+
+    const totalSent = rows.length;
+    const withReply = rows.filter((r: { reply_at: string | null }) => r.reply_at != null);
+    const repliedCount = withReply.length;
+    const replyRate = totalSent > 0 ? (repliedCount / totalSent) * 100 : 0;
+
+    let avgTimeToReplyMinutes: number | null = null;
+    if (withReply.length > 0) {
+      const totalMinutes = withReply.reduce(
+        (sum: number, r: { reeng_at: string; reply_at: string }) => {
+          const reeng = new Date(r.reeng_at).getTime();
+          const reply = new Date(r.reply_at).getTime();
+          return sum + (reply - reeng) / (60 * 1000);
+        },
+        0,
+      );
+      avgTimeToReplyMinutes = Math.round(totalMinutes / withReply.length);
+    }
+
+    const byAgentMap = new Map<
+      string,
+      { sent: number; replied: number }
+    >();
+    for (const r of rows) {
+      const agentId = r.senderId ?? "unknown";
+      const entry = byAgentMap.get(agentId) ?? { sent: 0, replied: 0 };
+      entry.sent++;
+      if (r.reply_at) entry.replied++;
+      byAgentMap.set(agentId, entry);
+    }
+
+    const agentIds = [...byAgentMap.keys()].filter((id) => id !== "unknown");
+    const users =
+      agentIds.length > 0
+        ? await this.userRepo.find({ where: { id: In(agentIds) } })
+        : [];
+    const nameByAgentId = new Map(
+      users.map((u) => [u.id, u.name ?? null]),
+    );
+
+    const byAgent = [...byAgentMap.entries()].map(
+      ([agentId, counts]) => ({
+        agentId,
+        agentName: nameByAgentId.get(agentId) ?? null,
+        sent: counts.sent,
+        replied: counts.replied,
+        replyRate: counts.sent > 0 ? (counts.replied / counts.sent) * 100 : 0,
+      }),
+    );
+
+    const recentReplies = withReply.slice(0, 10).map(
+      (r: {
+        reeng_at: string;
+        reply_at: string;
+        reply_content: string | null;
+        reply_type: string | null;
+      }) => {
+        const reeng = new Date(r.reeng_at).getTime();
+        const reply = new Date(r.reply_at).getTime();
+        const minutes = Math.round((reply - reeng) / (60 * 1000));
+        return {
+          reengagedAt: r.reeng_at,
+          repliedAt: r.reply_at,
+          timeToReplyMinutes: minutes,
+          replyContent: r.reply_content ?? null,
+          replyType: r.reply_type ?? "text",
+        };
+      },
+    );
+
+    return {
+      totalSent,
+      repliedCount,
+      replyRate,
+      avgTimeToReplyMinutes,
+      byAgent,
+      recentReplies,
+      startDate,
+      endDate,
+    };
+  }
+
+  /**
    * Get agent performance leaderboard.
    */
   async getAgentLeaderboard(

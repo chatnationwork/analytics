@@ -52,6 +52,7 @@ import {
   Activity,
   BarChart3,
   Target,
+  Send,
 } from "lucide-react";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import {
@@ -65,6 +66,7 @@ import {
   getAgentDetailedStats,
   getAgentWorkload,
   getAgentPerformanceMetrics,
+  getReengagement,
   type Granularity,
   type ResolutionTrendDataPoint,
   type ResolutionCategoryItem,
@@ -774,6 +776,11 @@ export default function AgentAnalyticsPage() {
       getAgentPerformanceMetrics(granularity, periods, dateStart, dateEnd),
   });
 
+  const { data: reengagement } = useQuery({
+    queryKey: ["agent-analytics-reengagement", dateStart, dateEnd],
+    queryFn: () => getReengagement(dateStart, dateEnd),
+  });
+
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6 p-6">
@@ -1002,6 +1009,111 @@ export default function AgentAnalyticsPage() {
               )}
             </div>
             <AgentActivityChart data={agentActivity?.data ?? []} />
+          </div>
+        </div>
+
+        {/* Expired & Re-engagement Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Send className="w-5 h-5 text-foreground" />
+            <h2 className="text-lg font-semibold text-foreground">
+              Expired & Re-engagement
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              label="Re-engagements sent"
+              value={reengagement?.totalSent ?? 0}
+              subValue={`in ${dateRangeLabel}`}
+              icon={<Send className="w-4 h-4" />}
+            />
+            <StatCard
+              label="Reply rate"
+              value={`${(reengagement?.replyRate ?? 0).toFixed(1)}%`}
+              subValue={`${reengagement?.repliedCount ?? 0} of ${reengagement?.totalSent ?? 0} replied`}
+              positive={(reengagement?.replyRate ?? 0) >= 30}
+              icon={<CheckCircle className="w-4 h-4" />}
+            />
+            <StatCard
+              label="Avg time to reply"
+              value={
+                reengagement?.avgTimeToReplyMinutes != null
+                  ? `${reengagement.avgTimeToReplyMinutes} min`
+                  : "—"
+              }
+              subValue="when user replied"
+              icon={<Activity className="w-4 h-4" />}
+            />
+            <StatCard
+              label="Expired (now)"
+              value={dashboard?.chats.expired ?? 0}
+              subValue={`${(dashboard?.chats.expiredRate ?? 0).toFixed(1)}% of assigned`}
+              positive={(dashboard?.chats.expiredRate ?? 0) <= 10}
+              icon={<AlertTriangle className="w-4 h-4" />}
+            />
+          </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Re-engagement by agent */}
+            <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+              <h3 className="font-medium text-foreground mb-4">
+                Re-engagements by agent
+              </h3>
+              {!reengagement?.byAgent?.length ? (
+                <p className="text-sm text-muted-foreground py-4">
+                  No re-engagements in this period
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {reengagement.byAgent.map((a) => (
+                    <div
+                      key={a.agentId}
+                      className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                    >
+                      <span className="font-medium text-foreground">
+                        {a.agentName ?? a.agentId.slice(0, 8)}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {a.sent} sent · {a.replied} replied (
+                        {a.replyRate.toFixed(0)}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Recent replies */}
+            <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+              <h3 className="font-medium text-foreground mb-4">
+                Recent replies after re-engagement
+              </h3>
+              {!reengagement?.recentReplies?.length ? (
+                <p className="text-sm text-muted-foreground py-4">
+                  No replies yet
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {reengagement.recentReplies.map((r, i) => (
+                    <div
+                      key={i}
+                      className="py-2 border-b border-border last:border-0"
+                    >
+                      <div className="text-sm text-muted-foreground">
+                        Replied in{" "}
+                        <span className="font-medium text-foreground">
+                          {r.timeToReplyMinutes} min
+                        </span>
+                        {r.replyContent ? (
+                          <>: &ldquo;{r.replyContent.slice(0, 60)}
+                            {r.replyContent.length > 60 ? "…" : ""}&rdquo;</>
+                        ) : (
+                          <> ({r.replyType})</>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

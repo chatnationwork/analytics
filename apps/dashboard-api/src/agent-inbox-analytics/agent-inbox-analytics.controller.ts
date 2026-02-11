@@ -194,6 +194,22 @@ export class AgentInboxAnalyticsController {
   }
 
   /**
+   * Get re-engagement analytics: sent count, reply rate, time to reply, by agent.
+   */
+  @Get("reengagement")
+  async getReengagement(
+    @Request() req: { user: { tenantId: string } },
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.analyticsService.getReengagementAnalytics(
+      req.user.tenantId,
+      startDate,
+      endDate,
+    );
+  }
+
+  /**
    * Get agent performance leaderboard.
    */
   @Get("leaderboard")

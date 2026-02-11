@@ -1335,6 +1335,7 @@ export class InboxService {
           metadata: {
             template: result.payload?.template,
             sent_by_system: true,
+            reengagement: true,
           },
           senderId: initiatorId,
         }).catch((err) =>

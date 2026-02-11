@@ -375,6 +375,23 @@ export class AgentInboxController {
       );
     }
 
+    await this.inboxService
+      .addMessage({
+        sessionId,
+        tenantId: req.user.tenantId,
+        contactId: session.contactId,
+        direction: MessageDirection.OUTBOUND,
+        type: MessageType.TEMPLATE,
+        content: `Sent re-engagement template to ${contactName}`,
+        metadata: {
+          template: result.payload?.template,
+          sent_by_system: true,
+          reengagement: true,
+        },
+        senderId: req.user.id,
+      })
+      .catch(() => {});
+
     return { success: true, messageId: result.messageId };
   }
 

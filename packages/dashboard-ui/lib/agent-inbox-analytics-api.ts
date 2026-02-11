@@ -300,6 +300,42 @@ export async function getExpiredChats(): Promise<ExpiredChatsResponse> {
   return fetchWithAuth(`/agent-inbox-analytics/expired-chats`);
 }
 
+export interface ReengagementResponse {
+  totalSent: number;
+  repliedCount: number;
+  replyRate: number;
+  avgTimeToReplyMinutes: number | null;
+  byAgent: Array<{
+    agentId: string;
+    agentName: string | null;
+    sent: number;
+    replied: number;
+    replyRate: number;
+  }>;
+  recentReplies: Array<{
+    reengagedAt: string;
+    repliedAt: string;
+    timeToReplyMinutes: number;
+    replyContent: string | null;
+    replyType: string;
+  }>;
+  startDate: string;
+  endDate: string;
+}
+
+export async function getReengagement(
+  startDate?: string,
+  endDate?: string,
+): Promise<ReengagementResponse> {
+  const params = new URLSearchParams();
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  const q = params.toString();
+  return fetchWithAuth(
+    `/agent-inbox-analytics/reengagement${q ? `?${q}` : ""}`,
+  );
+}
+
 export async function getAgentLeaderboard(
   granularity: Granularity = "day",
   periods: number = 30,
