@@ -286,30 +286,42 @@ export class WhatsappService {
 
   /**
    * Resolve CSAT URL for a tenant: use csatLink if set, otherwise webLink + '/csat'.
+   * Appends session_id and channel as query params when provided.
    */
-  private getCsatUrl(integration: {
-    webLink?: string | null;
-    csatLink?: string | null;
-  }): string | null {
+  private getCsatUrl(
+    integration: {
+      webLink?: string | null;
+      csatLink?: string | null;
+    },
+    params?: { sessionId?: string; channel?: string },
+  ): string | null {
+    let base: string;
     if (integration.csatLink && integration.csatLink.trim()) {
-      return integration.csatLink.trim();
+      base = integration.csatLink.trim();
+    } else {
+      const web = integration.webLink?.trim();
+      if (!web) return null;
+      base = web.replace(/\/$/, "") + "/csat";
     }
-    const web = integration.webLink?.trim();
-    if (web) {
-      return web.replace(/\/$/, "") + "/csat";
+    if (params?.sessionId || params?.channel) {
+      const url = new URL(base);
+      if (params.sessionId) url.searchParams.set("session_id", params.sessionId);
+      if (params.channel) url.searchParams.set("channel", params.channel);
+      return url.toString();
     }
-    return null;
+    return base;
   }
 
   /**
    * Send CSAT (customer satisfaction) CTA URL message to the user when a chat is resolved.
    * Uses interactive type "cta_url". Link is csatLink if set, otherwise webLink + '/csat'.
    * When account (WABA phone) is provided, uses that integration when the tenant has multiple.
+   * Appends session_id and channel as URL params when provided.
    */
   async sendCsatCtaMessage(
     tenantId: string,
     to: string,
-    options?: { account?: string },
+    options?: { account?: string; sessionId?: string; channel?: string },
   ): Promise<{
     success: boolean;
     messageId?: string;
@@ -328,7 +340,10 @@ export class WhatsappService {
       };
     }
 
-    const csatUrl = this.getCsatUrl(integration);
+    const csatUrl = this.getCsatUrl(integration, {
+      sessionId: options?.sessionId,
+      channel: options?.channel,
+    });
     if (!csatUrl) {
       return {
         success: false,

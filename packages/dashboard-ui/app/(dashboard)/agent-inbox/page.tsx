@@ -470,6 +470,7 @@ export default function AgentInboxPage() {
               selectedSessionId={selectedSessionId || undefined}
               onSelectSession={handleSelectSession}
               isExpired={isSessionExpired}
+              showAssignmentIndicator={canViewAllChats}
             />
           )}
         </CardContent>

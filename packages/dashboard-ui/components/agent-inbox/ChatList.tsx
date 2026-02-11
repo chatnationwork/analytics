@@ -19,6 +19,8 @@ interface ChatListProps {
   canBulkTransfer?: boolean;
   bulkSelectedIds?: Set<string>;
   onBulkToggle?: (sessionId: string) => void;
+  /** When true (super admin), show which agent/team the chat is assigned to. */
+  showAssignmentIndicator?: boolean;
 }
 
 export function ChatList({
@@ -29,6 +31,7 @@ export function ChatList({
   canBulkTransfer = false,
   bulkSelectedIds,
   onBulkToggle,
+  showAssignmentIndicator = false,
 }: ChatListProps) {
   if (sessions.length === 0) {
     return (
@@ -200,6 +203,18 @@ export function ChatList({
                         ?.subject as string) ||
                       "General Inquiry"}
                   </span>
+                  {showAssignmentIndicator && (
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {session.assignedAgent || session.assignedTeam ? (
+                        <>
+                          {session.assignedAgent?.name ?? "—"} •{" "}
+                          {session.assignedTeam?.name ?? "—"}
+                        </>
+                      ) : (
+                        "Unassigned"
+                      )}
+                    </span>
+                  )}
                 </div>
               </div>
             </button>

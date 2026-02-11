@@ -500,8 +500,26 @@ export class InboxService {
         });
     }
 
-    query.orderBy("session.lastMessageAt", "DESC");
-    return query.getMany();
+    query
+      .leftJoinAndSelect("session.assignedAgent", "assignedAgent")
+      .leftJoinAndSelect("session.assignedTeam", "assignedTeam")
+      .orderBy("session.lastMessageAt", "DESC");
+
+    const sessions = await query.getMany();
+    return sessions.map((s) => {
+      const assignedAgent = (s as any).assignedAgent;
+      const assignedTeam = (s as any).assignedTeam;
+      const out = { ...s } as Record<string, unknown>;
+      delete out.assignedAgent;
+      delete out.assignedTeam;
+      (out as any).assignedAgent = assignedAgent
+        ? { id: assignedAgent.id, name: assignedAgent.name ?? assignedAgent.email }
+        : null;
+      (out as any).assignedTeam = assignedTeam
+        ? { id: assignedTeam.id, name: assignedTeam.name }
+        : null;
+      return out;
+    });
   }
 
   /**
@@ -950,7 +968,11 @@ export class InboxService {
       const result = await this.whatsappService.sendCsatCtaMessage(
         savedSession.tenantId,
         savedSession.contactId,
-        { account },
+        {
+          account,
+          sessionId: savedSession.id,
+          channel: "whatsapp_agent",
+        },
       );
       if (!result.success) {
         this.logger.warn(

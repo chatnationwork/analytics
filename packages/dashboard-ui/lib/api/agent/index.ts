@@ -55,6 +55,9 @@ export interface InboxSession {
   lastMessageAt?: string;
   assignedAgentId?: string;
   assignedTeamId?: string;
+  /** Agent/team info when session.view_all (super admin). Populated by backend for tenant inbox. */
+  assignedAgent?: { id: string; name?: string } | null;
+  assignedTeam?: { id: string; name: string } | null;
   /** Set when the assigned agent has explicitly accepted the chat (required before sending). */
   acceptedAt?: string | null;
   context?: Record<string, unknown>;
