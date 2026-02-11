@@ -136,13 +136,20 @@ export class InboxService {
    */
   async addMessage(dto: CreateMessageDto): Promise<MessageEntity> {
     // Get or create session
-    const session = await this.getOrCreateSession(
-      dto.tenantId,
-      dto.contactId,
-      dto.contactName,
-      dto.channel || "whatsapp",
-      dto.context,
-    );
+    let session: InboxSessionEntity | null = null;
+    if (dto.sessionId) {
+      session = await this.sessionRepo.findOne({ where: { id: dto.sessionId } });
+    }
+
+    if (!session) {
+      session = await this.getOrCreateSession(
+        dto.tenantId,
+        dto.contactId,
+        dto.contactName,
+        dto.channel || "whatsapp",
+        dto.context,
+      );
+    }
 
     // Create message
     const message = this.messageRepo.create({
@@ -956,7 +963,7 @@ export class InboxService {
           tenantId: savedSession.tenantId,
           contactId: savedSession.contactId,
           direction: MessageDirection.OUTBOUND,
-          type: MessageType.INTERACTIVE,
+          type: MessageType.TEXT,
           content: "Sent CSAT survey",
           metadata: {
             interactive: result.payload?.interactive,
