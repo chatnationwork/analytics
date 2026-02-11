@@ -45,7 +45,7 @@ if command -v psql &> /dev/null; then
     DELETE FROM resolutions;
     DELETE FROM inbox_sessions;
     -- Analytics Events for Inbox (resolutions, transfers, handoffs)
-    DELETE FROM events WHERE "eventName" IN ('chat.resolved', 'chat.transferred', 'agent.handoff', 'chat.assigned', 'chat.accepted');
+    DELETE FROM events WHERE \"eventName\" IN ('chat.resolved', 'chat.transferred', 'agent.handoff', 'chat.assigned', 'chat.accepted');
     
     COMMIT;
   "
@@ -62,7 +62,7 @@ else
     DELETE FROM resolutions;
     DELETE FROM inbox_sessions;
     -- Analytics Events for Inbox (resolutions, transfers, handoffs)
-    DELETE FROM events WHERE "eventName" IN ('chat.resolved', 'chat.transferred', 'agent.handoff', 'chat.assigned', 'chat.accepted');
+    DELETE FROM events WHERE \"eventName\" IN ('chat.resolved', 'chat.transferred', 'agent.handoff', 'chat.assigned', 'chat.accepted');
     
     COMMIT;
   "
