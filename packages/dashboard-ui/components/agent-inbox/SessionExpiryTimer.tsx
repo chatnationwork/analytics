@@ -84,9 +84,16 @@ export function SessionExpiryTimer({
   const label =
     hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 
+  let colorClass = "text-red-600 dark:text-red-400 bg-red-500/10";
+  if (hours >= 16) {
+    colorClass = "text-green-600 dark:text-green-400 bg-green-500/10";
+  } else if (hours >= 8) {
+    colorClass = "text-amber-600 dark:text-amber-400 bg-amber-500/10";
+  }
+
   return (
     <div
-      className="flex items-center justify-center gap-2 py-2 px-3 text-xs text-muted-foreground border-b bg-muted/10"
+      className={`flex items-center justify-center gap-2 py-2 px-3 text-xs border-b ${colorClass}`}
       role="timer"
       aria-live="polite"
       aria-label={label}
