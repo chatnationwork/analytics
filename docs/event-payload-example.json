@@ -1,0 +1,43 @@
+{
+    "batch": [
+        {
+            "event_id": "UUID (auto-generated)",
+            "event_name": "message.sent",
+            "event_type": "track",
+            "timestamp": "2023-10-27T10:00:00.000Z",
+            "user_id": "254712345678",
+            "anonymous_id": "UUID (or phone hash)",
+            "context": {
+                "channel": "whatsapp"
+            },
+            "properties": {
+                "message_id": "wamid.HBgM...",
+                "from": "254...",
+                "to": "2547...",
+                "type": "text",
+                "content": "Click below to access our services...",
+                "interactive": {
+                    "type": "cta_url",
+                    "header": {
+                        "type": "text",
+                        "text": "Main Menu"
+                    },
+                    "body": {
+                        "text": "Click below..."
+                    },
+                    "footer": {
+                        "text": "KRA Tax Agent"
+                    },
+                    "action": {
+                        "name": "cta_url",
+                        "parameters": {
+                            "display_text": "Main Menu",
+                            "url": "https://..."
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "sent_at": "2023-10-27T10:00:00.000Z"
+}

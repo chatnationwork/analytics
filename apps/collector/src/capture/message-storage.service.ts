@@ -32,7 +32,6 @@ export class MessageStorageService {
     this.sessionHelper = new InboxSessionHelper(this.sessionRepo, this.teamRepo);
   }
 
-
   /**
    * Process and store message events.
    * Only handles 'message.received' and 'message.sent'.
@@ -66,47 +65,44 @@ export class MessageStorageService {
         `Storing message event: ${event.event_name} for ${rawContactId}`,
       );
 
-      // 1. Only add to inbox when contact already has a session (created by handover).
-      // Do not create sessions from message events; that bypasses the connect-to-agent flow.
+      // 1. Only add to inbox when contact already has a session (created by handover or existing).
+      // If no session exists, we still store the message (orphaned) so we don't lose data.
+      // But we do NOT create a new session here (to respect handover flow).
       const session = await this.sessionHelper.getExistingSession(
         tenantId,
         rawContactId,
       );
-      if (!session) {
-        this.logger.debug(
-          `No inbox session for ${rawContactId}; skipping message storage (handover not triggered).`,
-        );
-        // Still upsert contact for analytics when we receive a message
-        const normalizedContactId = normalizeContactIdDigits(rawContactId);
-        if (event.event_name === "message.received" && normalizedContactId) {
-          await this.contactRepo.upsertFromMessageReceived(
-            tenantId,
-            normalizedContactId,
-            new Date(),
-            contactName || undefined,
-          );
-        }
-        return;
-      }
 
-      const now = new Date();
-      await this.sessionRepo.update(session.id, {
-        lastMessageAt: now,
-        ...(event.event_name === "message.received"
-          ? { lastInboundMessageAt: now }
-          : {}),
-      });
-
-      // Upsert contact when we receive a message (creates or updates contacts table)
+      // Still upsert contact for analytics when we receive a message
       const normalizedContactId = normalizeContactIdDigits(rawContactId);
-      if (event.event_name === "message.received" && normalizedContactId) {
+      if (
+        (event.event_name === "message.received" ||
+          event.event_name === "message.sent") &&
+        normalizedContactId
+      ) {
         await this.contactRepo.upsertFromMessageReceived(
           tenantId,
           normalizedContactId,
           new Date(),
           contactName || undefined,
         );
+      }
 
+      if (!session) {
+        this.logger.debug(
+          `No inbox session for ${rawContactId}; storing message as ORPHAN (sessionId=null).`,
+        );
+      } else {
+        // Only update session timestamp if session exists
+        const now = new Date();
+        const updatePayload: Partial<InboxSessionEntity> = {
+          lastMessageAt: now,
+        };
+        // Update lastInboundMessageAt if it was inbound
+        if (event.event_name === "message.received") {
+          updatePayload.lastInboundMessageAt = now;
+        }
+        await this.sessionRepo.update(session.id, updatePayload);
       }
 
       // 2. Create Message
@@ -120,8 +116,8 @@ export class MessageStorageService {
         "text") as MessageType;
 
       const message = this.messageRepo.create({
-        contactId: session.contactId,
-        sessionId: session.id,
+        contactId: normalizedContactId || rawContactId, // fallback to raw
+        sessionId: session?.id || undefined, // Allow null/undefined for orphan messages
         tenantId,
         externalId: properties.messageId as string,
         direction,
@@ -136,10 +132,11 @@ export class MessageStorageService {
             : undefined,
       });
 
-
       await this.messageRepo.save(message);
 
-      this.logger.log(`Stored message ${message.id} for session ${session.id}`);
+      this.logger.log(
+        `Stored message ${message.id} for contact ${normalizedContactId} (Session: ${session?.id || "None"})`,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to store message event: ${error.message}`,
