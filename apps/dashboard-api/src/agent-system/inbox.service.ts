@@ -34,6 +34,14 @@ import {
 import { randomUUID } from "crypto";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 
+/** 23h 59m expiry window - matches frontend SESSION_EXPIRY_MS */
+const SESSION_EXPIRY_MS = (24 * 60 - 1) * 60 * 1000;
+
+/** Cutoff: sessions with last user engagement before this are expired */
+function getExpiredCutoff(): Date {
+  return new Date(Date.now() - SESSION_EXPIRY_MS);
+}
+
 /**
  * Filter types for inbox queries
  */
@@ -221,7 +229,7 @@ export class InboxService {
    * - 'assigned': Assigned to agent but not yet accepted (acceptedAt IS NULL)
    * - 'pending' (active): Assigned, accepted, and open (last message within 24h)
    * - 'resolved': RESOLVED (optionally only since resolvedSince; null = all time)
-   * - 'expired': ASSIGNED with lastMessageAt > 24h ago
+   * - 'expired': ASSIGNED with last user engagement (lastInboundMessageAt) > 23h59m ago
    * - 'all': All assigned to agent except resolved (assigned + active + expired)
    */
   async getAgentInbox(
@@ -235,7 +243,7 @@ export class InboxService {
       .where("session.tenantId = :tenantId", { tenantId })
       .andWhere("session.assignedAgentId = :agentId", { agentId });
 
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = getExpiredCutoff();
 
     switch (filter) {
       case "assigned":
@@ -246,14 +254,14 @@ export class InboxService {
         query.andWhere("session.acceptedAt IS NULL");
         break;
       case "pending":
-        // Active: assigned, accepted, not expired
+        // Active: assigned, accepted, not expired (expiry based on last user engagement)
         query.andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         });
         query.andWhere("session.acceptedAt IS NOT NULL");
         query.andWhere(
-          "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
-          { cutoff: twentyFourHoursAgo },
+          "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) > :cutoff)",
+          { cutoff },
         );
         break;
       case "resolved":
@@ -270,9 +278,10 @@ export class InboxService {
         query.andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         });
-        query.andWhere("session.lastMessageAt <= :cutoff", {
-          cutoff: twentyFourHoursAgo,
-        });
+        query.andWhere(
+          "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+          { cutoff },
+        );
         break;
       case "all":
         // All assigned to agent except resolved
@@ -306,7 +315,7 @@ export class InboxService {
     resolved: number;
     expired: number;
   }> {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = getExpiredCutoff();
 
     const [assigned, active, resolved, expired] = await Promise.all([
       this.sessionRepo
@@ -327,8 +336,8 @@ export class InboxService {
         })
         .andWhere("session.acceptedAt IS NOT NULL")
         .andWhere(
-          "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
-          { cutoff: twentyFourHoursAgo },
+          "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) > :cutoff)",
+          { cutoff },
         )
         .getCount(),
       (() => {
@@ -353,9 +362,10 @@ export class InboxService {
         .andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         })
-        .andWhere("session.lastMessageAt <= :cutoff", {
-          cutoff: twentyFourHoursAgo,
-        })
+        .andWhere(
+          "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+          { cutoff },
+        )
         .getCount(),
     ]);
 
@@ -383,7 +393,7 @@ export class InboxService {
     resolved: number;
     expired: number;
   }> {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = getExpiredCutoff();
 
     const [all, assigned, unassigned, active, resolved, expired] =
       await Promise.all([
@@ -417,8 +427,8 @@ export class InboxService {
           })
           .andWhere("session.acceptedAt IS NOT NULL")
           .andWhere(
-            "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
-            { cutoff: twentyFourHoursAgo },
+            "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) > :cutoff)",
+            { cutoff },
           )
           .getCount(),
         (() => {
@@ -441,9 +451,10 @@ export class InboxService {
           .andWhere("session.status = :status", {
             status: SessionStatus.ASSIGNED,
           })
-          .andWhere("session.lastMessageAt <= :cutoff", {
-            cutoff: twentyFourHoursAgo,
-          })
+          .andWhere(
+            "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+            { cutoff },
+          )
           .getCount(),
       ]);
 
@@ -474,7 +485,7 @@ export class InboxService {
       .createQueryBuilder("session")
       .where("session.tenantId = :tenantId", { tenantId });
 
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = getExpiredCutoff();
 
     switch (filter) {
       case "all":
@@ -500,8 +511,8 @@ export class InboxService {
         });
         query.andWhere("session.acceptedAt IS NOT NULL");
         query.andWhere(
-          "(session.lastMessageAt IS NULL OR session.lastMessageAt > :cutoff)",
-          { cutoff: twentyFourHoursAgo },
+          "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) > :cutoff)",
+          { cutoff },
         );
         break;
       case "resolved":
@@ -518,9 +529,10 @@ export class InboxService {
         query.andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         });
-        query.andWhere("session.lastMessageAt <= :cutoff", {
-          cutoff: twentyFourHoursAgo,
-        });
+        query.andWhere(
+          "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+          { cutoff },
+        );
         break;
       default:
         query.andWhere("session.status != :resolved", {
@@ -1333,18 +1345,18 @@ export class InboxService {
       });
 
     if (dateRange) {
-      // Custom date range: filter sessions whose lastMessageAt falls between start and end
+      // Custom date range: filter by last user engagement
       query.andWhere(
-        "(session.lastMessageAt IS NOT NULL AND session.lastMessageAt >= :start AND session.lastMessageAt <= :end)",
+        "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) >= :start AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :end)",
         { start: dateRange.startDate, end: dateRange.endDate },
       );
     } else {
-      // Default: sessions inactive for at least N days
+      // Default: sessions with no user engagement for at least N days
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - Math.max(1, olderThanDays));
       cutoff.setHours(0, 0, 0, 0);
       query.andWhere(
-        "(session.lastMessageAt IS NULL OR session.lastMessageAt <= :cutoff)",
+        "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff)",
         { cutoff },
       );
     }

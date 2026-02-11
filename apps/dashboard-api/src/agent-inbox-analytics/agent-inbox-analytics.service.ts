@@ -9,7 +9,7 @@
 
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, LessThan, In } from "typeorm";
+import { Repository, In } from "typeorm";
 import {
   EventRepository,
   InboxSessionEntity,
@@ -589,20 +589,27 @@ export class AgentInboxAnalyticsService {
     };
   }
 
+  /** 23h 59m expiry window - matches inbox service */
+  private static readonly SESSION_EXPIRY_MS = (24 * 60 - 1) * 60 * 1000;
+
   /**
-   * Get expired chat statistics (chats with no activity for 24+ hours).
+   * Get expired chat statistics (chats with no user engagement for 23h59m+).
    */
   async getExpiredChatsOverview(tenantId: string) {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = new Date(Date.now() - AgentInboxAnalyticsService.SESSION_EXPIRY_MS);
 
-    // Count currently expired chats
-    const expiredCount = await this.sessionRepo.count({
-      where: {
-        tenantId,
+    // Count currently expired chats (based on last user engagement)
+    const expiredCount = await this.sessionRepo
+      .createQueryBuilder("session")
+      .where("session.tenantId = :tenantId", { tenantId })
+      .andWhere("session.status = :status", {
         status: SessionStatus.ASSIGNED,
-        lastMessageAt: LessThan(twentyFourHoursAgo),
-      },
-    });
+      })
+      .andWhere(
+        "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+        { cutoff },
+      )
+      .getCount();
 
     // Count all assigned chats
     const assignedCount = await this.sessionRepo.count({
@@ -1178,7 +1185,8 @@ export class AgentInboxAnalyticsService {
       `SELECT COUNT(*)::int AS cnt FROM inbox_sessions
        WHERE "tenantId" = $1 AND status = $2 AND "assignedAt" IS NOT NULL
          AND "assignedAt" >= $3 AND "assignedAt" < $4
-         AND ("lastMessageAt" IS NULL OR "lastMessageAt" < $5)`,
+         AND COALESCE("lastInboundMessageAt", "lastMessageAt") IS NOT NULL
+         AND COALESCE("lastInboundMessageAt", "lastMessageAt") < $5`,
       [tenantId, SessionStatus.ASSIGNED, startDate, endDatePlusOne, expiredThreshold],
     );
     const expired = expiredRow?.cnt ?? 0;

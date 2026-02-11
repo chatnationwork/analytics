@@ -378,14 +378,14 @@ export default function AgentInboxPage() {
     }
   };
 
-  // Check if a session is expired (no activity for 24+ hours)
+  // Check if a session is expired (no user engagement for 23h59m+)
   const isSessionExpired = (session: InboxSession) => {
-    if (!session.lastMessageAt) return false;
-    const lastMessage = new Date(session.lastMessageAt);
-    const now = new Date();
-    const hoursDiff =
-      (now.getTime() - lastMessage.getTime()) / (1000 * 60 * 60);
-    return hoursDiff >= 24 && session.status === "assigned";
+    if (session.status !== "assigned") return false;
+    const lastInbound = session.lastInboundMessageAt;
+    if (!lastInbound) return false; // No user engagement yet - not expired
+    const cutoffMs = (24 * 60 - 1) * 60 * 1000; // 23h 59m
+    const ageMs = Date.now() - new Date(lastInbound).getTime();
+    return ageMs >= cutoffMs;
   };
 
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);

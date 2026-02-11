@@ -56,6 +56,8 @@ function LoginForm() {
   const [sessionVerification, setSessionVerification] = useState<{
     method: "2fa" | "email";
     requestId: string;
+    maskedEmail?: string;
+    maskedPhone?: string;
   } | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resending, setResending] = useState(false);
@@ -106,9 +108,21 @@ function LoginForm() {
           method:
             (result.sessionVerificationMethod as "2fa" | "email") ?? "email",
           requestId: result.sessionVerificationRequestId,
+          maskedEmail: result.sessionVerificationMaskedEmail,
+          maskedPhone: result.sessionVerificationMaskedPhone,
         });
         if (result.sessionVerificationMethod === "email") {
-          toast.info("Check your email for a link to sign in here.");
+          const parts: string[] = [];
+          if (result.sessionVerificationMaskedEmail) {
+            parts.push(result.sessionVerificationMaskedEmail);
+          }
+          if (result.sessionVerificationMaskedPhone) {
+            const last3 = result.sessionVerificationMaskedPhone.slice(-3);
+            parts.push(`number ending ***${last3}`);
+          }
+          const dest =
+            parts.length > 0 ? ` sent to ${parts.join(" and ")}` : "";
+          toast.info(`Verification link${dest}. Check your inbox.`);
         } else {
           toast.info("Enter the code sent to your WhatsApp to sign in here.");
         }
@@ -264,14 +278,25 @@ function LoginForm() {
   }
 
   if (sessionVerification?.method === "email") {
+    const destParts: string[] = [];
+    if (sessionVerification.maskedEmail) {
+      destParts.push(sessionVerification.maskedEmail);
+    }
+    if (sessionVerification.maskedPhone) {
+      const last3 = sessionVerification.maskedPhone.slice(-3);
+      destParts.push(`number ending ***${last3}`);
+    }
+    const destStr =
+      destParts.length > 0 ? ` to ${destParts.join(" and ")}` : "";
+
     return (
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
           Check your email
         </h2>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          You're signed in elsewhere. We sent a link to your email. Click it to
-          sign in here—your other session will be signed out.
+          You're signed in elsewhere. We sent a verification link{destStr}.
+          Click it to sign in here—your other session will be signed out.
         </p>
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-500">
           The link expires in 15 minutes. Didn't get it? Check spam or try

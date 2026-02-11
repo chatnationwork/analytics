@@ -45,6 +45,10 @@ export async function loginAction(email: string, password: string) {
         sessionVerificationMethod:
           responseData.sessionVerificationMethod ?? "email",
         sessionVerificationRequestId: responseData.sessionVerificationRequestId,
+        sessionVerificationMaskedEmail:
+          responseData.sessionVerificationMaskedEmail,
+        sessionVerificationMaskedPhone:
+          responseData.sessionVerificationMaskedPhone,
       };
     }
 

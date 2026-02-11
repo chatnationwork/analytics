@@ -1,7 +1,8 @@
 import { InboxSession, Message } from "@/lib/api/agent";
 
 export const SESSION_EXPIRY_HOURS = 24;
-export const SESSION_EXPIRY_MS = SESSION_EXPIRY_HOURS * 60 * 60 * 1000;
+/** 23h 59m window so timer starts at 23:59 instead of 24:00 */
+export const SESSION_EXPIRY_MS = (24 * 60 - 1) * 60 * 1000;
 
 export type SessionExpiryStatus = "valid" | "expired" | "resolved";
 
@@ -16,7 +17,8 @@ export interface SessionExpiryInfo {
 
 /**
  * Calculates expiry information for a session.
- * Uses session.lastMessageAt if available, otherwise falls back to messages array.
+ * Uses lastInboundMessageAt (user engagement only) - timer resets when customer messages, not when agent messages.
+ * Falls back to last inbound from messages array if lastInboundMessageAt is missing.
  */
 export function getSessionExpiryInfo(
   session: InboxSession | undefined | null,
@@ -35,24 +37,24 @@ export function getSessionExpiryInfo(
   }
 
   let expiryAt: Date | null = null;
-
-  if (session.lastMessageAt) {
-    const lastAt = new Date(session.lastMessageAt).getTime();
-    expiryAt = new Date(lastAt + SESSION_EXPIRY_MS);
-  } else {
-    // Fallback if lastMessageAt is missing (rare for established sessions)
-    const inbound = messages.filter((m) => m.direction === "inbound");
-    if (inbound.length > 0) {
-      const lastAt = inbound.reduce(
+  const lastInboundAt =
+    session.lastInboundMessageAt ?? (() => {
+      const inbound = messages.filter((m) => m.direction === "inbound");
+      if (inbound.length === 0) return null;
+      const last = inbound.reduce(
         (max, m) => (m.createdAt > max ? m.createdAt : max),
         inbound[0].createdAt
       );
-      expiryAt = new Date(new Date(lastAt).getTime() + SESSION_EXPIRY_MS);
-    }
+      return last;
+    })();
+
+  if (lastInboundAt) {
+    const lastAt = new Date(lastInboundAt).getTime();
+    expiryAt = new Date(lastAt + SESSION_EXPIRY_MS);
   }
 
   if (!expiryAt) {
-    // No inbound messages yet
+    // No user engagement yet - 24h window hasn't started
     return {
       expiryAt: null,
       hoursRemaining: 24,

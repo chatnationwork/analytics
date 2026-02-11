@@ -380,10 +380,17 @@ export class AuthService {
       this.logger.log(
         `Session verification (email) required for ${user.email}; email sent`,
       );
+      const maskedEmail = this.maskEmail(user.email);
+      const maskedPhone =
+        user.phone && user.phone.trim()
+          ? this.maskPhone(user.phone)
+          : undefined;
       return {
         requiresSessionVerification: true,
         sessionVerificationMethod: "email",
         sessionVerificationRequestId: request.id,
+        sessionVerificationMaskedEmail: maskedEmail,
+        sessionVerificationMaskedPhone: maskedPhone,
       };
     }
 
@@ -717,6 +724,16 @@ export class AuthService {
     const digits = phone.replace(/\D/g, "");
     if (digits.length <= 4) return "****";
     return "*".repeat(digits.length - 4) + digits.slice(-4);
+  }
+
+  /** Mask email: first char + *** + @domain (e.g. j***@example.com) */
+  private maskEmail(email: string): string {
+    const at = email.indexOf("@");
+    if (at <= 0) return "***@***";
+    const local = email.slice(0, at);
+    const domain = email.slice(at);
+    if (local.length <= 1) return "*" + domain;
+    return local[0] + "***" + domain;
   }
 
   private normalizePhone(phone: string): string {

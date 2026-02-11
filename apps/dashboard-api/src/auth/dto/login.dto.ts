@@ -83,6 +83,12 @@ export class LoginResponseDto {
 
   /** Opaque id for POST /auth/verify-session-takeover (with code for 2fa) */
   sessionVerificationRequestId?: string;
+
+  /** Masked email when sessionVerificationMethod is 'email' (e.g. j***@example.com) */
+  sessionVerificationMaskedEmail?: string;
+
+  /** Masked phone when WhatsApp link was also sent (e.g. ********5678) */
+  sessionVerificationMaskedPhone?: string;
 }
 
 /** Body for POST /auth/verify-session-takeover: 2FA path (requestId + code) or email path (token from link). */
