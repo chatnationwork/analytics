@@ -373,11 +373,11 @@ export default function JourneyPage() {
                                 <span className="text-xs text-muted-foreground">
                                   {formatTime(event.timestamp)}
                                 </span>
-                                <span
+                                {/* <span
                                   className={`text-xs px-2 py-0.5 rounded ${channelColor}`}
                                 >
                                   {event.channelType || "Whatsapp WebView"}
-                                </span>
+                                </span> */}
                               </div>
                               {details && (
                                 <div className="text-sm text-muted-foreground truncate max-w-md">

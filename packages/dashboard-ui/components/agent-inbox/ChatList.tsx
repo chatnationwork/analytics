@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Circle,
 } from "lucide-react";
+import { getSessionExpiryInfo } from "@/lib/session-utils";
 
 interface ChatListProps {
   sessions: InboxSession[];
@@ -95,6 +96,9 @@ export function ChatList({
           onBulkToggle &&
           bulkSelectedIds !== undefined;
         const isBulkSelected = canSelectBulk && bulkSelectedIds.has(session.id);
+        
+        // Calculate urgency border color
+        const { borderColorClass } = getSessionExpiryInfo(session);
 
         return (
           <div
@@ -106,7 +110,8 @@ export function ChatList({
                 : unread
                   ? "bg-primary/10 border-l-primary"
                   : "bg-transparent border-l-transparent hover:bg-accent/50",
-              expired && !unread && "border-l-orange-500", // Expired warning only if read
+              // Use urgency border if not unread and not selected (and not overridden by unread in cn)
+              !unread && selectedSessionId !== session.id && borderColorClass,
               unread && "border-l-primary", // Ensure unread overrides if both
             )}
           >
