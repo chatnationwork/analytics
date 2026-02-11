@@ -483,6 +483,89 @@ export class WhatsappService {
   }
 
   /**
+   * Send login alert (session takeover) via WhatsApp template "login_alert".
+   * Template has body (name) and button url (verify link).
+   * Used when user tries to log in from another session – sends verify link to their WhatsApp.
+   */
+  async sendLoginAlertTemplate(
+    tenantId: string,
+    to: string,
+    userName: string,
+    verifyUrl: string,
+    options?: { account?: string },
+  ): Promise<{ success: boolean; error?: string; payload?: any }> {
+    const integration = await this.crmService.getActiveIntegration(
+      tenantId,
+      options?.account,
+    );
+
+    if (!integration || !integration.config?.phoneNumberId) {
+      return {
+        success: false,
+        error: "WhatsApp not configured for this tenant",
+      };
+    }
+
+    const { phoneNumberId } = integration.config;
+    const token = integration.apiKey;
+    const baseUrl = (integration.apiUrl || "").replace(/\/$/, "");
+    const url = `${baseUrl}${WHATSAPP_MESSAGES_PATH}/${phoneNumberId}/messages`;
+    const finalNumber = to.replace(/[^\d]/g, "");
+    const nameText = (userName || "there").trim() || "there";
+
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: finalNumber,
+      type: "template",
+      template: {
+        language: { policy: "deterministic", code: "en" },
+        name: "login_alert",
+        components: [
+          {
+            type: "body",
+            parameters: [{ type: "text", text: nameText }],
+          },
+          {
+            type: "button",
+            sub_type: "url",
+            index: 0,
+            parameters: [{ type: "text", text: verifyUrl }],
+          },
+        ],
+      },
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Error sending login alert template:", data);
+        return {
+          success: false,
+          error:
+            data.error?.message ||
+            "Failed to send login alert via WhatsApp",
+        };
+      }
+
+      return { success: true, payload };
+    } catch (error: any) {
+      console.error("Network Error sending login alert template:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Send 2FA code via WhatsApp template "2fa".
    * Template has body (one text param = code) and optional button (one text param).
    * Uses the tenant's first/active CRM integration credentials.

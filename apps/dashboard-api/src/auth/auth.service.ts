@@ -352,6 +352,31 @@ export class AuthService {
         subject: loginVerifySubject,
         body: loginVerifyBody,
       });
+      if (user.phone && user.phone.trim()) {
+        this.whatsappService
+          .sendLoginAlertTemplate(
+            activeTenant.id,
+            user.phone,
+            user.name ?? "",
+            verifyUrl,
+          )
+          .then((result) => {
+            if (result.success) {
+              this.logger.log(
+                `Session verification (WhatsApp) sent to ${user.email}`,
+              );
+            } else {
+              this.logger.warn(
+                `Failed to send session takeover WhatsApp to ${user.email}: ${result.error}`,
+              );
+            }
+          })
+          .catch((err) =>
+            this.logger.warn(
+              `Failed to send session takeover WhatsApp to ${user.email}: ${err?.message}`,
+            ),
+          );
+      }
       this.logger.log(
         `Session verification (email) required for ${user.email}; email sent`,
       );
