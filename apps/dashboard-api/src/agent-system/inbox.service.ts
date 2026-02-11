@@ -964,7 +964,7 @@ export class InboxService {
           contactId: savedSession.contactId,
           direction: MessageDirection.OUTBOUND,
           type: MessageType.TEXT,
-          content: "Sent CSAT survey",
+          content: result.payload?.interactive?.body?.text,
           metadata: {
             interactive: result.payload?.interactive,
             sent_by_system: true,
