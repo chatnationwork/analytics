@@ -733,11 +733,7 @@ export function ManageTeamDialog({
                 </div>
               )}
             </div>
-
-            <div
-              className={`space-y-4 ${!scheduleConfig.enabled ? "opacity-50 pointer-events-none" : ""}`}
-            >
-               <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
               <Checkbox
                 id="schedule-enabled"
                 checked={scheduleConfig.enabled}
@@ -752,6 +748,11 @@ export function ManageTeamDialog({
                 Enable Working Hours & OOO Auto-Reply
               </label>
             </div>
+
+            <div
+              className={`space-y-4 ${!scheduleConfig.enabled ? "opacity-50 pointer-events-none" : ""}`}
+            >
+             
               <div className="grid gap-2">
                 <Label htmlFor="timezone">Timezone</Label>
                 <Select
