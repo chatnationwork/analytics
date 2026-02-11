@@ -4,7 +4,7 @@
  * Ensures consistent normalization and dedup across all session creation paths.
  */
 
-import { Repository, In } from "typeorm";
+import { Repository, In, Not } from "typeorm";
 import {
   InboxSessionEntity,
   SessionStatus,
@@ -70,6 +70,7 @@ export class InboxSessionHelper {
       where: {
         tenantId,
         contactId: normalizedContactId,
+        status: Not(SessionStatus.RESOLVED),
       },
       order: { createdAt: "DESC" },
     });
