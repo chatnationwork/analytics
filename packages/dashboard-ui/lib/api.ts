@@ -118,13 +118,18 @@ export async function fetchWithAuth<T = any>(
   url: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const headers = { ...getHeaders(), ...options.headers };
+
+  // If using FormData, let the browser set Content-Type (multipart/form-data + boundary)
+  if (options.body instanceof FormData) {
+    // @ts-ignore
+    delete headers["Content-Type"];
+  }
+
   const res = await fetch(`${getApiBaseUrl()}/api/dashboard${url}`, {
     ...options,
     credentials: "include",
-    headers: {
-      ...getHeaders(),
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!res.ok) {
@@ -167,13 +172,18 @@ export async function fetchWithAuthFull<T = unknown>(
   url: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const headers = { ...getHeaders(), ...options.headers };
+
+  // If using FormData, let the browser set Content-Type (multipart/form-data + boundary)
+  if (options.body instanceof FormData) {
+    // @ts-ignore
+    delete headers["Content-Type"];
+  }
+
   const res = await fetch(`${getApiBaseUrl()}/api/dashboard${url}`, {
     ...options,
     credentials: "include",
-    headers: {
-      ...getHeaders(),
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!res.ok) {
