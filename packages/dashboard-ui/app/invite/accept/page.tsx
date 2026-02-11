@@ -44,7 +44,8 @@ function AcceptInviteContent() {
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -77,9 +78,7 @@ function AcceptInviteContent() {
       } else {
         setStatus("ready");
         // Pre-fill name from email
-        if (info.email) {
-          setName(info.email.split("@")[0]);
-        }
+        // No pre-fill — we want real first + last name
       }
     } catch (e) {
       setStatus("error");
@@ -112,6 +111,11 @@ function AcceptInviteContent() {
   };
 
   const claimInvitation = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      setMessage("First name and last name are required.");
+      return;
+    }
+
     if (!password) {
       setMessage("Please enter a password.");
       return;
@@ -135,7 +139,7 @@ function AcceptInviteContent() {
       const res = await fetch("/api/dashboard/invitations/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password, name: name || undefined }),
+        body: JSON.stringify({ token, password, name: `${firstName.trim()} ${lastName.trim()}` }),
       });
 
       const response = await res.json();
@@ -206,15 +210,27 @@ function AcceptInviteContent() {
               </div>
 
               <div className="w-full space-y-3">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Your Name
-                  </label>
-                  <Input
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="John"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Doe"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                    />
+                  </div>
                 </div>
 
                 <div>

@@ -87,6 +87,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
+    // Server-side inactivity timeout: reject if idle too long, refresh if active.
+    const inactivityTimeoutMinutes: number | undefined =
+      activeTenant?.settings?.session?.inactivityTimeoutMinutes;
+    await this.authService.checkAndRefreshActivity(
+      user.id,
+      inactivityTimeoutMinutes,
+    );
+
     return user;
   }
 }

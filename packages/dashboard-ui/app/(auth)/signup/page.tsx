@@ -15,7 +15,8 @@ import { PasswordInput } from "@/components/ui/password-input";
 const PASSWORD_MIN_LENGTH = 8;
 
 const signupSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email(),
   password: z
     .string()
@@ -60,7 +61,11 @@ export default function SignupPage() {
     setError(null);
     try {
       // Use Server Action to handle Signup + Cookie Logic
-      const result = await signupAction(data);
+      // Concatenate first + last name into a single name for the backend
+      const result = await signupAction({
+        ...data,
+        name: `${data.firstName.trim()} ${data.lastName.trim()}`,
+      });
 
       if (!result.success || !result.token || !result.user) {
         throw new Error(result.error || "Signup failed");
@@ -102,25 +107,48 @@ export default function SignupPage() {
         )}
 
         <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Full Name
-            </label>
-            <div className="mt-1">
-              <input
-                id="name"
-                type="text"
-                {...register("name")}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3"
-              />
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.name.message}
-                </p>
-              )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="firstName"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                First Name
+              </label>
+              <div className="mt-1">
+                <input
+                  id="firstName"
+                  type="text"
+                  {...register("firstName")}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3"
+                />
+                {errors.firstName && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.firstName.message}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div>
+              <label
+                htmlFor="lastName"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Last Name
+              </label>
+              <div className="mt-1">
+                <input
+                  id="lastName"
+                  type="text"
+                  {...register("lastName")}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] dark:bg-gray-800 dark:border-gray-700 dark:text-white py-2 px-3"
+                />
+                {errors.lastName && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.lastName.message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

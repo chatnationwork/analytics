@@ -20,6 +20,10 @@ export class UserSessionEntity {
   @Column("uuid")
   sessionId: string;
 
+  /** Refreshed on every authenticated API call; used to enforce inactivity timeout. */
+  @Column({ type: "timestamptz", default: () => "now()" })
+  lastActivityAt: Date;
+
   @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 }

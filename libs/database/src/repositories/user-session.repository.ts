@@ -33,4 +33,24 @@ export class UserSessionRepository {
   async clearSession(userId: string): Promise<void> {
     await this.repo.delete({ userId });
   }
+
+  /**
+   * Refresh lastActivityAt to now for the given user.
+   * Called on every authenticated API call to implement a sliding inactivity window.
+   */
+  async touchLastActivity(userId: string): Promise<void> {
+    await this.repo.update({ userId }, { lastActivityAt: new Date() });
+  }
+
+  /**
+   * Return the lastActivityAt timestamp for the given user, or null if no session exists.
+   * Used by JwtStrategy to enforce server-side inactivity timeout.
+   */
+  async getLastActivity(userId: string): Promise<Date | null> {
+    const row = await this.repo.findOne({
+      where: { userId },
+      select: ["lastActivityAt"],
+    });
+    return row?.lastActivityAt ?? null;
+  }
 }

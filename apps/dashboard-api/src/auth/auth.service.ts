@@ -969,6 +969,38 @@ export class AuthService {
   }
 
   /**
+   * Enforce server-side inactivity timeout.
+   * Compares lastActivityAt against the tenant's inactivityTimeoutMinutes.
+   * If the gap exceeds the timeout, throw 401. Otherwise refresh the timestamp
+   * (fire-and-forget so it doesn't slow down the request).
+   */
+  async checkAndRefreshActivity(
+    userId: string,
+    inactivityTimeoutMinutes: number | undefined,
+  ): Promise<void> {
+    // No timeout configured → skip check
+    if (!inactivityTimeoutMinutes || inactivityTimeoutMinutes <= 0) return;
+
+    const lastActivity =
+      await this.userSessionRepository.getLastActivity(userId);
+
+    if (lastActivity) {
+      const elapsedMs = Date.now() - lastActivity.getTime();
+      const timeoutMs = inactivityTimeoutMinutes * 60 * 1000;
+      if (elapsedMs > timeoutMs) {
+        throw new UnauthorizedException(
+          "Session expired due to inactivity",
+        );
+      }
+    }
+
+    // Refresh last activity timestamp (fire-and-forget for performance)
+    this.userSessionRepository.touchLastActivity(userId).catch(() => {
+      // Silently ignore — failing to update activity should not block the request
+    });
+  }
+
+  /**
    * Get user by ID (for JWT validation).
    */
   async validateUser(userId: string): Promise<AuthUser | null> {
