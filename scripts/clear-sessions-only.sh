@@ -36,16 +36,33 @@ if [ "$reply" != "wipe-inbox" ]; then
   exit 1
 fi
 
-# Order is important for Foreign Keys (Delete children first)
-# messages.sessionId has ON DELETE SET NULL, so messages are safe.
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_DATABASE" -v ON_ERROR_STOP=1 -c "
-  BEGIN;
-  -- Support Chats & Reports
-  DELETE FROM resolutions;
-  DELETE FROM inbox_sessions;
+# Check if psql is available on host
+if command -v psql &> /dev/null; then
+  # Run on host
+  psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_DATABASE" -v ON_ERROR_STOP=1 -c "
+    BEGIN;
+    -- Support Chats & Reports
+    DELETE FROM resolutions;
+    DELETE FROM inbox_sessions;
+    
+    COMMIT;
+  "
+else
+  echo "psql not found on host. Attempting to run via Docker..."
+  # If running via docker compose, we don't need PGPASSWORD as env var usually, 
+  # but here we pass it explicitly or rely on container env vars.
+  # Assuming standard docker-compose service name 'postgres'
   
-  COMMIT;
-"
+  # We use the container's internal environment variables for auth
+  docker compose exec -T postgres psql -U "$DB_USERNAME" -d "$DB_DATABASE" -v ON_ERROR_STOP=1 -c "
+    BEGIN;
+    -- Support Chats & Reports
+    DELETE FROM resolutions;
+    DELETE FROM inbox_sessions;
+    
+    COMMIT;
+  "
+fi
 
 echo "Inbox sessions cleared. Messages preserved."
 unset PGPASSWORD
