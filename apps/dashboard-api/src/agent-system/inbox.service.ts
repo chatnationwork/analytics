@@ -25,6 +25,7 @@ import {
   MessageType,
   ResolutionEntity,
   TeamEntity,
+  UserEntity,
   EventRepository,
   CreateEventDto,
   normalizeContactIdDigits,
@@ -43,6 +44,32 @@ export type InboxFilter =
   | "pending"
   | "resolved"
   | "expired";
+
+/**
+ * Inbox session with simplified agent/team info for tenant inbox (super admin).
+ * Same shape as InboxSessionEntity but assignedAgent/assignedTeam are DTOs (not full entities).
+ */
+export interface TenantInboxSession {
+  id: string;
+  tenantId: string;
+  contactId: string;
+  contactName: string | null;
+  status: SessionStatus;
+  channel: string;
+  assignedAgentId: string | null;
+  assignedAt: Date | null;
+  acceptedAt: Date | null;
+  assignedTeamId: string | null;
+  priority: number;
+  context: Record<string, unknown> | null;
+  lastMessageAt: Date | null;
+  lastReadAt: Date | null;
+  lastInboundMessageAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  assignedAgent: { id: string; name?: string } | null;
+  assignedTeam: { id: string; name: string } | null;
+}
 
 /**
  * DTO for creating a new message
@@ -436,12 +463,13 @@ export class InboxService {
    * - 'all': Excludes resolved so the same contact does not appear multiple times.
    * - 'assigned': Assigned but not yet accepted (acceptedAt IS NULL).
    * - 'pending' (active): Assigned, accepted, not expired.
+   * Returns TenantInboxSession with simplified assignedAgent/assignedTeam (id, name only).
    */
   async getTenantInbox(
     tenantId: string,
     filter?: InboxFilter,
     resolvedSince?: Date | null,
-  ): Promise<InboxSessionEntity[]> {
+  ): Promise<TenantInboxSession[]> {
     const query = this.sessionRepo
       .createQueryBuilder("session")
       .where("session.tenantId = :tenantId", { tenantId });
@@ -506,21 +534,40 @@ export class InboxService {
       .orderBy("session.lastMessageAt", "DESC");
 
     const sessions = await query.getMany();
-    const mapped = sessions.map((s) => {
-      const assignedAgent = (s as any).assignedAgent;
-      const assignedTeam = (s as any).assignedTeam;
-      const out = { ...s } as Record<string, unknown>;
-      delete out.assignedAgent;
-      delete out.assignedTeam;
-      (out as any).assignedAgent = assignedAgent
-        ? { id: assignedAgent.id, name: assignedAgent.name ?? assignedAgent.email }
-        : null;
-      (out as any).assignedTeam = assignedTeam
-        ? { id: assignedTeam.id, name: assignedTeam.name }
-        : null;
-      return out;
+
+    type SessionWithRelations = InboxSessionEntity & {
+      assignedAgent?: UserEntity | null;
+      assignedTeam?: TeamEntity | null;
+    };
+
+    return sessions.map((s): TenantInboxSession => {
+      const agent = (s as SessionWithRelations).assignedAgent ?? null;
+      const team = (s as SessionWithRelations).assignedTeam ?? null;
+
+      return {
+        id: s.id,
+        tenantId: s.tenantId,
+        contactId: s.contactId,
+        contactName: s.contactName ?? null,
+        status: s.status,
+        channel: s.channel,
+        assignedAgentId: s.assignedAgentId ?? null,
+        assignedAt: s.assignedAt ?? null,
+        acceptedAt: s.acceptedAt ?? null,
+        assignedTeamId: s.assignedTeamId ?? null,
+        priority: s.priority,
+        context: s.context ?? null,
+        lastMessageAt: s.lastMessageAt ?? null,
+        lastReadAt: s.lastReadAt ?? null,
+        lastInboundMessageAt: s.lastInboundMessageAt ?? null,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+        assignedAgent: agent
+          ? { id: agent.id, name: agent.name ?? agent.email }
+          : null,
+        assignedTeam: team ? { id: team.id, name: team.name } : null,
+      };
     });
-    return mapped as InboxSessionEntity[];
   }
 
   /**
