@@ -25,7 +25,7 @@ export class UserSessionRepository {
 
   async setCurrentSessionId(userId: string, sessionId: string): Promise<void> {
     await this.repo.upsert(
-      { userId, sessionId },
+      { userId, sessionId, lastActivityAt: new Date() },
       { conflictPaths: ["userId"] },
     );
   }
