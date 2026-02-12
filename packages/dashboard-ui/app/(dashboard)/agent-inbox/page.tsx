@@ -211,8 +211,26 @@ export default function AgentInboxPage() {
           const optimistic = prev.filter((m) =>
             String(m.id).startsWith("temp-"),
           );
-          if (optimistic.length === 0) return serverMessages;
-          return [...serverMessages, ...optimistic];
+          // Deduplicate by message id
+          const seen = new Set<string>();
+          const merged: typeof serverMessages = [];
+          for (const msg of serverMessages) {
+            const key = String(msg.id);
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(msg);
+            }
+          }
+          if (optimistic.length === 0) return merged;
+          // Append optimistic messages that aren't yet confirmed
+          for (const msg of optimistic) {
+            const key = String(msg.id);
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(msg);
+            }
+          }
+          return merged;
         });
       } catch {
         // ignore poll errors (e.g. network); next poll will retry
