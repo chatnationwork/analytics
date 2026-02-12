@@ -55,6 +55,16 @@ export enum Permission {
   DOCS_ADMIN = "docs.admin",
   /** View developer-focused documentation (SDK, API, WhatsApp, AI integration). Developers / super admins. */
   DOCS_DEVELOPER = "docs.developer",
+
+  // Danger Zone (system_admin, super_admin only)
+  /** Access the Danger Zone settings page. */
+  ADMIN_DANGER_ZONE = "admin.danger_zone",
+  /** Permanently delete users (archive + deactivate). */
+  USERS_DELETE = "users.delete",
+  /** Permanently delete teams (archive + delete). */
+  TEAMS_DELETE = "teams.delete",
+  /** Permanently delete roles (archive + delete). */
+  ROLES_DELETE = "roles.delete",
 }
 
 @Entity("roles")

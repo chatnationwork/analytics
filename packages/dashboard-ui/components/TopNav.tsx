@@ -31,6 +31,7 @@ import {
   Star,
   List,
   Lock,
+  AlertTriangle,
 } from "lucide-react";
 import { usePermission } from "@/components/auth/PermissionContext";
 import { api } from "@/lib/api";
@@ -120,6 +121,12 @@ const navGroups = [
         href: "/settings/security",
         label: "Security",
         icon: Lock,
+      },
+      {
+        href: "/settings/danger-zone",
+        label: "Danger Zone",
+        icon: AlertTriangle,
+        permission: "admin.danger_zone",
       },
     ],
   },

@@ -52,6 +52,7 @@ import { TrendsModule } from "./trends/trends.module";
 import { JourneysModule } from "./journeys/journeys.module";
 import { AgentInboxAnalyticsModule } from "./agent-inbox-analytics/agent-inbox-analytics.module";
 import { CsatAnalyticsModule } from "./csat-analytics/csat-analytics.module";
+import { DangerZoneModule } from "./danger-zone/danger-zone.module";
 import { AuditModule } from "./audit/audit.module";
 import { MediaModule } from "./media/media.module";
 import { EmailModule } from "./email/email.module";
@@ -114,6 +115,7 @@ import { EmailModule } from "./email/email.module";
     JourneysModule, // GET /api/dashboard/journeys/* (self-serve vs assisted)
     AgentInboxAnalyticsModule, // GET /api/dashboard/agent-inbox-analytics/*
     CsatAnalyticsModule, // GET /api/dashboard/csat-analytics/*
+    DangerZoneModule, // POST /api/dashboard/settings/danger-zone/*
     AuditModule, // GET /api/dashboard/audit-logs
     MediaModule, // POST /api/dashboard/media/upload, GET /api/dashboard/media/:filename
     EmailModule,

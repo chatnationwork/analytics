@@ -27,6 +27,7 @@ export const NAV_ENTRIES: { href: string; defaultLabel: string }[] = [
   { href: "/settings/navigation", defaultLabel: "Navigation labels" },
   { href: "/settings/system-messages", defaultLabel: "System messages" },
   { href: "/settings/security", defaultLabel: "Security" },
+  { href: "/settings/danger-zone", defaultLabel: "Danger Zone" },
   { href: "/docs", defaultLabel: "Docs" },
 ];
 

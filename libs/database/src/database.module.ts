@@ -62,6 +62,7 @@ import { TwoFaVerificationEntity } from "./entities/two-fa-verification.entity";
 import { PasswordResetTokenEntity } from "./entities/password-reset-token.entity";
 import { UserSessionEntity } from "./entities/user-session.entity";
 import { SessionTakeoverRequestEntity } from "./entities/session-takeover-request.entity";
+import { EntityArchiveEntity } from "./entities/entity-archive.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -107,6 +108,7 @@ const entities = [
   PasswordResetTokenEntity,
   UserSessionEntity,
   SessionTakeoverRequestEntity,
+  EntityArchiveEntity,
 ];
 
 /**
