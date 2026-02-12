@@ -841,10 +841,10 @@ export default function AgentAnalyticsPage() {
           </div>
         </div>
 
-        {/* Stats Grid - Row 1 */}
+        {/* Stats Grid - Row 1 (Volume) */}
         {loadingDashboard ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div
                 key={i}
                 className="bg-card rounded-xl border border-border p-5 animate-pulse"
@@ -856,67 +856,74 @@ export default function AgentAnalyticsPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              label="Active Agents"
-              value={dashboard?.agents.activeAgents ?? 0}
-              subValue={`${(dashboard?.agents.avgResolutionsPerAgent ?? 0).toFixed(1)} avg resolutions`}
-              icon={<Users className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Resolution Rate"
-              value={`${(dashboard?.agents.resolutionRate ?? 0).toFixed(1)}%`}
-              subValue={`${dashboard?.resolutions.total ?? 0} of ${dashboard?.agents.totalHandoffs ?? 0} chats`}
-              positive={(dashboard?.agents.resolutionRate ?? 0) >= 70}
-              icon={<Target className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Chats Resolved"
-              value={dashboard?.resolutions.total ?? 0}
-              change={dashboard?.resolutions.percentChange}
-              positive={(dashboard?.resolutions.percentChange ?? 0) >= 0}
-              icon={<CheckCircle className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Chats Transferred"
-              value={dashboard?.transfers.total ?? 0}
-              change={dashboard?.transfers.percentChange}
-              positive={(dashboard?.transfers.percentChange ?? 0) <= 0}
-              icon={<ArrowRightLeft className="w-4 h-4" />}
-            />
-          </div>
-        )}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="Assigned Chats"
+                value={performanceMetrics?.assigned ?? 0}
+                subValue="total assigned in period"
+                icon={<Inbox className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Active Chats"
+                value={dashboard?.chats.active ?? 0}
+                subValue="currently active"
+                icon={<Activity className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Unassigned Chats"
+                value={dashboard?.chats.unassigned ?? 0}
+                subValue="currently in queue"
+                icon={<AlertTriangle className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Resolved Chats"
+                value={dashboard?.resolutions.total ?? 0}
+                change={dashboard?.resolutions.percentChange}
+                positive={(dashboard?.resolutions.percentChange ?? 0) >= 0}
+                icon={<CheckCircle className="w-4 h-4" />}
+              />
+            </div>
 
-        {/* Stats Grid - Row 2 */}
-        {!loadingDashboard && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              label="Active Chats"
-              value={dashboard?.chats.active ?? 0}
-              subValue={`of ${dashboard?.chats.total ?? 0} total`}
-              icon={<Inbox className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Expired Chats"
-              value={dashboard?.chats.expired ?? 0}
-              subValue={`${(dashboard?.chats.expiredRate ?? 0).toFixed(1)}% of assigned`}
-              positive={(dashboard?.chats.expiredRate ?? 0) <= 10}
-              icon={<AlertTriangle className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Workload Balance"
-              value={`${workload?.workloadBalanceScore ?? 0}%`}
-              subValue={`${(workload?.avgChatsPerAgent ?? 0).toFixed(1)} avg chats/agent`}
-              positive={(workload?.workloadBalanceScore ?? 0) >= 70}
-              icon={<BarChart3 className="w-4 h-4" />}
-            />
-            <StatCard
-              label="Peak Active Agents"
-              value={agentActivity?.summary.peakActiveAgents ?? 0}
-              subValue={`${(agentActivity?.summary.avgActiveAgents ?? 0).toFixed(1)} avg daily`}
-              icon={<Activity className="w-4 h-4" />}
-            />
-          </div>
+            {/* Stats Grid - Row 2 (Performance) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="Avg Resolution Time"
+                value={
+                  performanceMetrics?.avgResolutionTimeMinutes != null
+                    ? `${performanceMetrics.avgResolutionTimeMinutes} min`
+                    : "—"
+                }
+                subValue="avg accept to resolve"
+                positive={(performanceMetrics?.avgResolutionTimeMinutes ?? 0) < 30}
+                icon={<Target className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Avg Wait Time"
+                value={
+                  performanceMetrics?.avgFirstResponseMinutes != null
+                    ? `${performanceMetrics.avgFirstResponseMinutes} min`
+                    : "—"
+                }
+                subValue="avg time to first response"
+                positive={(performanceMetrics?.avgFirstResponseMinutes ?? 0) < 5}
+                icon={<Activity className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Active Agents"
+                value={dashboard?.agents.activeAgents ?? 0}
+                subValue={`${(dashboard?.agents.avgResolutionsPerAgent ?? 0).toFixed(1)} avg resolutions`}
+                icon={<Users className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Resolution Rate"
+                value={`${(dashboard?.agents.resolutionRate ?? 0).toFixed(1)}%`}
+                subValue={`${dashboard?.resolutions.total ?? 0} of ${dashboard?.agents.totalHandoffs ?? 0} chats`}
+                positive={(dashboard?.agents.resolutionRate ?? 0) >= 70}
+                icon={<Target className="w-4 h-4" />}
+              />
+            </div>
+          </>
         )}
 
         {/* Charts Row 1 */}
