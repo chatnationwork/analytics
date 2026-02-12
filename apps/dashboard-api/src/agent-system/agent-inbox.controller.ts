@@ -88,13 +88,19 @@ interface TransferSessionDto {
   reason?: string;
 }
 
-/** DTO for bulk transfer (requires session.bulk_transfer permission). Exactly one of targetAgentId or targetTeamId must be set. */
+/** DTO for bulk transfer (requires session.bulk_transfer permission).
+ *  Single-target: exactly one of targetAgentId or targetTeamId.
+ *  Multi-target: agentAssignments or teamAssignments (array of { id, count }). */
 interface BulkTransferDto {
   sessionIds: string[];
-  /** Transfer to this agent (chat assigned to agent). */
+  /** Single-target: transfer to this agent (chat assigned to agent). */
   targetAgentId?: string;
-  /** Transfer to this team (chat goes to team queue, unassigned). */
+  /** Single-target: transfer to this team (chat goes to team queue, unassigned). */
   targetTeamId?: string;
+  /** Multi-target: distribute chats across multiple agents. */
+  agentAssignments?: Array<{ agentId: string; count: number }>;
+  /** Multi-target: distribute chats across multiple teams. */
+  teamAssignments?: Array<{ teamId: string; count: number }>;
   reason?: string;
 }
 
@@ -655,6 +661,62 @@ export class AgentInboxController {
       return { transferred: 0, errors: [] };
     }
 
+    // --- Multi-target path ---
+    const hasAgentAssignments =
+      Array.isArray(dto.agentAssignments) && dto.agentAssignments.length > 0;
+    const hasTeamAssignments =
+      Array.isArray(dto.teamAssignments) && dto.teamAssignments.length > 0;
+
+    if (hasAgentAssignments || hasTeamAssignments) {
+      if (hasAgentAssignments && hasTeamAssignments) {
+        throw new BadRequestException(
+          "Provide agentAssignments or teamAssignments, not both",
+        );
+      }
+
+      const assignments = hasAgentAssignments
+        ? dto.agentAssignments!.filter((a) => a.count > 0)
+        : dto.teamAssignments!.filter((a) => a.count > 0);
+      const totalRequested = assignments.reduce((s, a) => s + a.count, 0);
+      if (totalRequested > sessionIds.length) {
+        throw new BadRequestException(
+          `Total assigned (${totalRequested}) exceeds selected sessions (${sessionIds.length})`,
+        );
+      }
+
+      const result = await this.inboxService.bulkTransferDistributed(
+        req.user.tenantId,
+        sessionIds,
+        req.user.id,
+        hasAgentAssignments
+          ? { agentAssignments: dto.agentAssignments!.filter((a) => a.count > 0) }
+          : { teamAssignments: dto.teamAssignments!.filter((a) => a.count > 0) },
+        dto.reason,
+      );
+
+      // Audit each transferred session
+      for (const entry of result.auditEntries ?? []) {
+        await this.auditService.log({
+          tenantId: req.user.tenantId,
+          actorId: req.user.id,
+          actorType: "user",
+          action: AuditActions.CHAT_SESSION_TRANSFERRED,
+          resourceType: "session",
+          resourceId: entry.sessionId,
+          details: {
+            bulkTransfer: true,
+            ...(entry.toAgentId && { toAgentId: entry.toAgentId }),
+            ...(entry.toTeamId && { toTeamId: entry.toTeamId }),
+            reason: dto.reason,
+          },
+          requestContext: getRequestContext(expressReq),
+        });
+      }
+
+      return { transferred: result.transferred, errors: result.errors };
+    }
+
+    // --- Single-target path (backward compat) ---
     const hasAgent = typeof dto.targetAgentId === "string" && dto.targetAgentId.length > 0;
     const hasTeam = typeof dto.targetTeamId === "string" && dto.targetTeamId.length > 0;
     if (hasAgent === hasTeam) {

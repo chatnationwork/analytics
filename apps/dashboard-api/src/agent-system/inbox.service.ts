@@ -1323,6 +1323,87 @@ export class InboxService {
   }
 
   /**
+   * Bulk transfer sessions distributed across multiple agents or teams.
+   * Slices sessionIds and delegates each batch to the existing per-session logic.
+   */
+  async bulkTransferDistributed(
+    tenantId: string,
+    sessionIds: string[],
+    initiatorId: string,
+    targets:
+      | { agentAssignments: Array<{ agentId: string; count: number }> }
+      | { teamAssignments: Array<{ teamId: string; count: number }> },
+    reason?: string,
+  ): Promise<{
+    transferred: number;
+    errors: Array<{ sessionId: string; message: string }>;
+    auditEntries: Array<{
+      sessionId: string;
+      toAgentId?: string;
+      toTeamId?: string;
+    }>;
+  }> {
+    const errors: Array<{ sessionId: string; message: string }> = [];
+    const auditEntries: Array<{
+      sessionId: string;
+      toAgentId?: string;
+      toTeamId?: string;
+    }> = [];
+    let transferred = 0;
+    let offset = 0;
+
+    // Build ordered list of (targetAgentId | targetTeamId, count)
+    const batches: Array<{
+      toAgentId?: string;
+      toTeamId?: string;
+      count: number;
+    }> = [];
+
+    if ("agentAssignments" in targets) {
+      for (const a of targets.agentAssignments) {
+        if (a.count > 0) batches.push({ toAgentId: a.agentId, count: a.count });
+      }
+    } else {
+      for (const t of targets.teamAssignments) {
+        if (t.count > 0) batches.push({ toTeamId: t.teamId, count: t.count });
+      }
+    }
+
+    for (const batch of batches) {
+      const batchIds = sessionIds.slice(offset, offset + batch.count);
+      offset += batch.count;
+
+      const result = await this.bulkTransferSessions(
+        tenantId,
+        batchIds,
+        initiatorId,
+        batch.toAgentId,
+        batch.toTeamId,
+        reason,
+      );
+      transferred += result.transferred;
+      errors.push(...result.errors);
+
+      // Track which sessions were successfully transferred for audit
+      for (const sid of batchIds.slice(0, result.transferred)) {
+        auditEntries.push({
+          sessionId: sid,
+          toAgentId: batch.toAgentId,
+          toTeamId: batch.toTeamId,
+        });
+      }
+    }
+
+    if (transferred > 0) {
+      this.logger.log(
+        `Distributed bulk transfer: ${transferred} session(s) across ${batches.length} target(s) by ${initiatorId}`,
+      );
+    }
+
+    return { transferred, errors, auditEntries };
+  }
+
+  /**
    * Fire an analytics event when a session is transferred.
    * When reason is "takeover", properties include isTakeover: true for analytics.
    * When transferring to team, toAgentId is undefined and toTeamId is set.

@@ -7,6 +7,7 @@ export const dangerZoneApi = {
       {
         method: "POST",
         headers: { "x-tenant-id": tenantId },
+        body: JSON.stringify({}),
       },
     );
   },
@@ -14,14 +15,14 @@ export const dangerZoneApi = {
   archiveAndDeleteTeam: async (teamId: string) => {
     return fetchWithAuth<{ success: boolean }>(
       `/settings/danger-zone/archive-and-delete/team/${teamId}`,
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify({}) },
     );
   },
 
   archiveAndDeactivateUser: async (userId: string) => {
     return fetchWithAuth<{ success: boolean }>(
       `/settings/danger-zone/archive-and-delete/user/${userId}`,
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify({}) },
     );
   },
 };

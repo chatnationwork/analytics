@@ -377,21 +377,49 @@ export const agentApi = {
   },
 
   /**
-   * Bulk transfer multiple sessions to one agent or to a team queue.
-   * Provide exactly one of targetAgentId or targetTeamId. Requires session.bulk_transfer permission.
+   * Bulk transfer multiple sessions to one or more agents/teams.
+   * Single-target: provide exactly one of targetAgentId or targetTeamId.
+   * Multi-target: provide agentAssignments or teamAssignments.
+   * Requires session.bulk_transfer permission.
    */
   bulkTransferSessions: async (
     sessionIds: string[],
     options: {
       targetAgentId?: string;
       targetTeamId?: string;
+      agentAssignments?: Array<{ agentId: string; count: number }>;
+      teamAssignments?: Array<{ teamId: string; count: number }>;
       reason?: string;
     },
   ): Promise<{
     transferred: number;
     errors: Array<{ sessionId: string; message: string }>;
   }> => {
-    const { targetAgentId, targetTeamId, reason } = options;
+    const {
+      targetAgentId,
+      targetTeamId,
+      agentAssignments,
+      teamAssignments,
+      reason,
+    } = options;
+
+    // Multi-target path
+    if (
+      (agentAssignments && agentAssignments.length > 0) ||
+      (teamAssignments && teamAssignments.length > 0)
+    ) {
+      return fetchWithAuth("/agent/inbox/transfer/bulk", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionIds,
+          ...(agentAssignments ? { agentAssignments } : {}),
+          ...(teamAssignments ? { teamAssignments } : {}),
+          reason,
+        }),
+      });
+    }
+
+    // Single-target path (backward compat)
     if (
       (targetAgentId == null || targetAgentId === "") ===
       (targetTeamId == null || targetTeamId === "")
