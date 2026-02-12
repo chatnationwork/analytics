@@ -1030,9 +1030,7 @@ export class AuthService {
       const elapsedMs = Date.now() - lastActivity.getTime();
       const timeoutMs = inactivityTimeoutMinutes * 60 * 1000;
       if (elapsedMs > timeoutMs) {
-        throw new UnauthorizedException(
-          "Session expired due to inactivity",
-        );
+        throw new UnauthorizedException("Session expired due to inactivity");
       }
     }
 
