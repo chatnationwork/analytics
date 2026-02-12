@@ -165,15 +165,21 @@ export const whatsappAnalyticsApi = {
     return fetchBlobWithAuth("/whatsapp-analytics/contacts/export");
   },
 
-  importContacts: async (file: File) => {
+  importContacts: async (
+    file: File,
+    strategy: "first" | "last" | "reject" = "last",
+  ) => {
     const formData = new FormData();
     formData.append("file", file);
     // Remove Content-Type header to let browser set it with boundary
-    return fetchWithAuth("/whatsapp-analytics/contacts/import", {
-      method: "POST",
-      body: formData,
-      headers: {},
-    });
+    return fetchWithAuth(
+      `/whatsapp-analytics/contacts/import?strategy=${strategy}`,
+      {
+        method: "POST",
+        body: formData,
+        headers: {},
+      },
+    );
   },
 
   deactivateContact: async (contactId: string) => {

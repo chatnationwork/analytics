@@ -244,7 +244,10 @@ export class WhatsappAnalyticsController {
   }
 
   @Post("contacts/import")
-  async importContacts(@Request() req: FastifyRequest) {
+  async importContacts(
+    @Request() req: FastifyRequest,
+    @Query("strategy") strategy?: "first" | "last" | "reject",
+  ) {
     if (!hasPermission((req as any).user, Permission.CONTACTS_CREATE)) {
       throw new ForbiddenException("You need contacts.create permission to import contacts.");
     }
@@ -254,7 +257,11 @@ export class WhatsappAnalyticsController {
       throw new BadRequestException("No file uploaded");
     }
     const buffer = await data.toBuffer();
-    return this.service.importContacts((req as any).user.tenantId, buffer);
+    return this.service.importContacts(
+      (req as any).user.tenantId,
+      buffer,
+      strategy || "last",
+    );
   }
 
   @Patch("contacts/:contactId/deactivate")

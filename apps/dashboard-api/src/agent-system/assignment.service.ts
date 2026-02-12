@@ -369,6 +369,11 @@ export class AssignmentService {
       });
       if (memberCount > 0) return team.id;
     }
+    
+    // Fallback: Use default team even if it has no members so we have a context for OOO schedule checks.
+    // If we return null, OOO check is skipped entirely.
+    if (defaultTeam) return defaultTeam.id;
+
     return null;
   }
 

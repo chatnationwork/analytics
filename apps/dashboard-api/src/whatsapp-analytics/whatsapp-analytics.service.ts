@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { EventRepository, ContactRepository } from "@lib/database";
 
 @Injectable()
@@ -614,7 +614,11 @@ export class WhatsappAnalyticsService {
     return stringifier;
   }
 
-  async importContacts(tenantId: string, buffer: Buffer) {
+  async importContacts(
+    tenantId: string,
+    buffer: Buffer,
+    strategy: "first" | "last" | "reject" = "last",
+  ) {
     const { parse } = await import("csv-parse/sync");
     const { normalizeContactIdDigits } = await import("@lib/database");
 
@@ -624,11 +628,14 @@ export class WhatsappAnalyticsService {
       trim: true,
     });
 
-    const contactsToUpsert: Array<{
-      contactId: string;
-      name?: string;
-      metadata?: Record<string, string>;
-    }> = [];
+    const contactsMap = new Map<
+      string,
+      {
+        contactId: string;
+        name?: string;
+        metadata?: Record<string, string>;
+      }
+    >();
 
     for (const row of records as Array<Record<string, string>>) {
       // Map columns flexibly
@@ -641,15 +648,35 @@ export class WhatsappAnalyticsService {
       const normalized = normalizeContactIdDigits(phone);
       if (!normalized) continue;
 
-      contactsToUpsert.push({
+      const contactData = {
         contactId: normalized,
         name: name || undefined,
         metadata: {
           imported: "true",
           importDate: new Date().toISOString(),
         },
-      });
+      };
+
+      if (contactsMap.has(normalized)) {
+        if (strategy === "reject") {
+          throw new BadRequestException(
+            `Duplicate contact found in import: ${phone} (normalized: ${normalized}). duplicates are not allowed with 'reject' strategy.`,
+          );
+        }
+        if (strategy === "first") {
+          // Keep existing, ignore new
+          continue;
+        }
+        if (strategy === "last") {
+          // Overwrite existing with new
+          contactsMap.set(normalized, contactData);
+        }
+      } else {
+        contactsMap.set(normalized, contactData);
+      }
     }
+
+    const contactsToUpsert = Array.from(contactsMap.values());
 
     if (contactsToUpsert.length > 0) {
       // Process in chunks of 500 to avoid query param limits

@@ -143,6 +143,8 @@ function ContactProfileDialog({
   );
 }
 
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 function ImportContactsDialog({
   open,
   onOpenChange,
@@ -153,13 +155,17 @@ function ImportContactsDialog({
   onSuccess: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [strategy, setStrategy] = useState<"first" | "last" | "reject">("last");
+  
   const importMutation = useMutation({
-    mutationFn: (file: File) => whatsappAnalyticsApi.importContacts(file),
+    mutationFn: (data: { file: File; strategy: "first" | "last" | "reject" }) => 
+      whatsappAnalyticsApi.importContacts(data.file, data.strategy),
     onSuccess: () => {
       toast.success("Contacts imported successfully");
       onOpenChange(false);
       onSuccess();
       setFile(null);
+      setStrategy("last");
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to import contacts");
@@ -169,7 +175,7 @@ function ImportContactsDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-    importMutation.mutate(file);
+    importMutation.mutate({ file, strategy });
   };
 
   return (
@@ -181,8 +187,8 @@ function ImportContactsDialog({
             Upload a CSV file with "Name" and "Phone" columns.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid w-full max-w-sm items-center gap-1.5">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid w-full max-w-sm items-center gap-2">
             <Label htmlFor="csvFile">CSV File</Label>
             <Input
               id="csvFile"
@@ -191,6 +197,29 @@ function ImportContactsDialog({
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
           </div>
+
+          <div className="space-y-3">
+            <Label>Duplicate handling</Label>
+            <RadioGroup 
+              value={strategy} 
+              onValueChange={(v) => setStrategy(v as "first" | "last" | "reject")}
+              className="flex flex-col space-y-1"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="last" id="r-last" />
+                <Label htmlFor="r-last" className="font-normal">Update with last (Default)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="first" id="r-first" />
+                <Label htmlFor="r-first" className="font-normal">Keep first</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="reject" id="r-reject" />
+                <Label htmlFor="r-reject" className="font-normal">Fail on duplicates</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           <DialogFooter>
             <Button
               type="button"
