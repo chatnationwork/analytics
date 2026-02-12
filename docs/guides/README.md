@@ -33,6 +33,9 @@ These guides cover setup, integration, and operations for the **Kra Analytics Pl
 
 ## 4. Troubleshooting common issues
 
+- **"Session expired" / 401 for all users after deploying nginx**:
+  - See [nginx_proxy.md](./nginx_proxy.md).
+  - Ensure `/api/` proxies to Next.js (port 3002), not directly to the backend.
 - **Messages not showing in Inbox**:
   - Check if "Sync Logic" is active in Processor (requires rebuild).
   - Check `direction` column in `messages` table.

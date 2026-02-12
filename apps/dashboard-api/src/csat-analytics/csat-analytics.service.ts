@@ -40,7 +40,9 @@ export class CsatAnalyticsService {
     rangeStart?: Date,
     rangeEnd?: Date,
   ) {
-    const endDate = rangeEnd ?? new Date();
+    const rawEnd = rangeEnd ?? new Date();
+    const endDate = new Date(rawEnd);
+    endDate.setUTCHours(23, 59, 59, 999); // Include full day (UTC)
     const startDate =
       rangeStart ?? this.calculateStartDate(granularity, periods);
 
@@ -93,7 +95,9 @@ export class CsatAnalyticsService {
     rangeStart?: Date,
     rangeEnd?: Date,
   ) {
-    const endDate = rangeEnd ?? new Date();
+    const rawEnd = rangeEnd ?? new Date();
+    const endDate = new Date(rawEnd);
+    endDate.setUTCHours(23, 59, 59, 999); // Include full day (UTC)
     const startDate =
       rangeStart ?? this.calculateStartDate(granularity, periods);
     const byJourney = await this.eventRepository.getCsatByJourney(
