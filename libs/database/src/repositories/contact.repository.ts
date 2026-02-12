@@ -96,6 +96,32 @@ export class ContactRepository {
   }
 
   /**
+   * Search contacts by name or phone (contactId).
+   */
+  async search(
+    tenantId: string,
+    query: string,
+    limit: number = 20,
+  ): Promise<ContactEntity[]> {
+    const qb = this.repo.createQueryBuilder("c");
+    qb.where("c.tenantId = :tenantId", { tenantId })
+      .andWhere("c.deactivatedAt IS NULL");
+
+    if (query && query.trim()) {
+      const q = `%${query.trim()}%`;
+      qb.andWhere(
+        "(c.name ILIKE :q OR c.contactId ILIKE :q)",
+        { q },
+      );
+    }
+
+    return qb
+      .orderBy("c.lastSeen", "DESC")
+      .take(limit)
+      .getMany();
+  }
+
+  /**
    * List contacts for a tenant with pagination, ordered by lastSeen desc.
    */
   async getList(

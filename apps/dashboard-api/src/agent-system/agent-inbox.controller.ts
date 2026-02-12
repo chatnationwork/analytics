@@ -55,7 +55,7 @@ function getResolvedSince(periodDays: number): Date | null {
 interface SendMessageDto {
   /** Text body (type=text) or caption (image/video/document) */
   content?: string;
-  type?: "text" | "image" | "video" | "audio" | "document" | "location";
+  type?: "text" | "image" | "video" | "audio" | "document" | "location" | "contacts";
   metadata?: Record<string, unknown>;
   /** For image/video/audio/document: public URL (upload to our server, use link for WhatsApp) */
   media_url?: string;
@@ -66,6 +66,26 @@ interface SendMessageDto {
   longitude?: string | number;
   name?: string;
   address?: string;
+  /** For contacts */
+  contacts?: Array<{
+    name: {
+      formatted_name: string;
+      first_name?: string;
+      last_name?: string;
+    };
+    phones?: Array<{
+      phone?: string;
+      type?: "HOME" | "WORK" | "CELL" | "MAIN" | "IPHONE" | "HOME_FAX" | "WORK_FAX" | "PAGER";
+      wa_id?: string;
+    }>;
+    emails?: Array<{ email?: string; type?: "HOME" | "WORK" }>;
+    org?: {
+      company?: string;
+      department?: string;
+      title?: string;
+    };
+    urls?: Array<{ url?: string; type?: "HOME" | "WORK" }>;
+  }>;
 }
 
 /**
@@ -516,6 +536,12 @@ export class AgentInboxController {
         },
       };
     }
+    if (type === "contacts" && dto.contacts?.length) {
+      return {
+        type: "contacts",
+        contacts: dto.contacts,
+      };
+    }
 
     return {
       type: "text",
@@ -545,7 +571,9 @@ export class AgentInboxController {
                 ? MessageType.DOCUMENT
                 : type === "location"
                   ? MessageType.LOCATION
-                  : MessageType.TEXT;
+                  : type === "contacts"
+                    ? MessageType.CONTACTS
+                    : MessageType.TEXT;
 
     if (type === "location") {
       const name = dto.name || "Location";
@@ -553,6 +581,11 @@ export class AgentInboxController {
       metadata.latitude = dto.latitude;
       metadata.longitude = dto.longitude;
       return { type: msgType, content: `${name}${addr}`, metadata };
+    }
+    if (type === "contacts" && dto.contacts?.length) {
+      const names = dto.contacts.map((c) => c.name.formatted_name).join(", ");
+      metadata.contacts = dto.contacts;
+      return { type: msgType, content: `Contact: ${names}`, metadata };
     }
     if (
       type === "image" ||

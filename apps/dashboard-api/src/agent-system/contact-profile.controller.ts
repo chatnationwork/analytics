@@ -28,6 +28,20 @@ import { getRequestContext, type RequestLike } from "../request-context";
 export class ContactProfileController {
   constructor(private readonly contactProfileService: ContactProfileService) {}
 
+  @Get("search")
+  async search(
+    @CurrentUser() user: AuthUser,
+    @Query("q") query: string,
+    @Query("limit") limit?: string,
+  ) {
+    if (!query || query.length < 2) return [];
+    return this.contactProfileService.searchContacts(
+      user.tenantId,
+      query,
+      limit ? Math.min(parseInt(limit, 10) || 20, 50) : 20,
+    );
+  }
+
   @Get(":contactId")
   async getContact(
     @CurrentUser() user: AuthUser,

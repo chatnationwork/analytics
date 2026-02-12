@@ -79,7 +79,8 @@ export interface Message {
     | "document"
     | "location"
     | "template"
-    | "interactive";
+    | "interactive"
+    | "contacts";
   content?: string;
   /** Media ID, filename, or location coords for non-text messages */
   metadata?: Record<string, unknown>;
@@ -101,7 +102,7 @@ export interface SessionTransfer {
 export interface SendMessagePayload {
   /** Text body (type=text) or caption (image/video/document). Required for text. */
   content?: string;
-  type?: "text" | "image" | "video" | "audio" | "document" | "location";
+  type?: "text" | "image" | "video" | "audio" | "document" | "location" | "contacts";
   /** For image/video/audio/document: public URL from our media upload. */
   media_url?: string;
   /** For document: optional filename. */
@@ -111,6 +112,26 @@ export interface SendMessagePayload {
   longitude?: number | string;
   name?: string;
   address?: string;
+  /** For contacts. */
+  contacts?: Array<{
+    name: {
+      formatted_name: string;
+      first_name?: string;
+      last_name?: string;
+    };
+    phones?: Array<{
+      phone?: string;
+      type?: "HOME" | "WORK" | "CELL" | "MAIN" | "IPHONE" | "HOME_FAX" | "WORK_FAX" | "PAGER";
+      wa_id?: string;
+    }>;
+    emails?: Array<{ email?: string; type?: "HOME" | "WORK" }>;
+    org?: {
+      company?: string;
+      department?: string;
+      title?: string;
+    };
+    urls?: Array<{ url?: string; type?: "HOME" | "WORK" }>;
+  }>;
 }
 
 export interface AvailableAgent {
@@ -600,6 +621,14 @@ export const agentApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     });
+  },
+
+  searchContacts: async (
+    query: string,
+    limit?: number,
+  ): Promise<ContactProfile[]> => {
+    const q = limit != null ? `&limit=${limit}` : "";
+    return fetchWithAuth<ContactProfile[]>(`/agent/contacts/search?q=${encodeURIComponent(query)}${q}`);
   },
 
   getContactNotes: async (

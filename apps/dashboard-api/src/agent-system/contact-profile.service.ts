@@ -86,6 +86,19 @@ export class ContactProfileService {
     return this.toProfileDto(c);
   }
 
+  async searchContacts(
+    tenantId: string,
+    query: string,
+    limit = 20,
+  ): Promise<ContactProfileDto[]> {
+    const contacts = await this.contactRepository.search(
+      tenantId,
+      query,
+      limit,
+    );
+    return contacts.map((c) => this.toProfileDto(c));
+  }
+
   async updateContact(
     tenantId: string,
     contactId: string,

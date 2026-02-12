@@ -18,6 +18,42 @@ export type WhatsAppSendPayload =
       };
     }
   | {
+      type: "contacts";
+      contacts: Array<{
+        addresses?: Array<{
+          street?: string;
+          city?: string;
+          state?: string;
+          zip?: string;
+          country?: string;
+          country_code?: string;
+          type?: "HOME" | "WORK";
+        }>;
+        birthday?: string;
+        emails?: Array<{ email?: string; type?: "HOME" | "WORK" }>;
+        name: {
+          formatted_name: string;
+          first_name?: string;
+          last_name?: string;
+          middle_name?: string;
+          suffix?: string;
+          prefix?: string;
+        };
+        org?: {
+          company?: string;
+          department?: string;
+          title?: string;
+        };
+        phones?: Array<{
+          phone?: string;
+          type?: "HOME" | "WORK" | "CELL" | "MAIN" | "IPHONE" | "HOME_FAX" | "WORK_FAX" | "PAGER";
+          wa_id?: string;
+        }>;
+        urls?: Array<{ url?: string; type?: "HOME" | "WORK" }>;
+      }>;
+    }
+
+  | {
       type: "location";
       location: {
         latitude: string;

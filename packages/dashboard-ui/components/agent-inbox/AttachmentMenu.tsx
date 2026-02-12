@@ -18,16 +18,19 @@ import {
   FileText,
   MapPin,
   SendHorizontal,
+  User,
 } from "lucide-react";
 import type { SendMessagePayload } from "@/lib/api/agent";
 import { uploadMedia } from "@/lib/api/agent";
 import { cn } from "@/lib/utils";
+import { ContactPicker } from "./ContactPicker";
 
 const ATTACH_OPTIONS: {
   type: SendMessagePayload["type"];
   label: string;
   icon: React.ReactNode;
 }[] = [
+  { type: "contacts", label: "Contact", icon: <User className="h-4 w-4" /> },
   { type: "image", label: "Image", icon: <Image className="h-4 w-4" /> },
   { type: "video", label: "Video", icon: <Video className="h-4 w-4" /> },
   { type: "audio", label: "Audio", icon: <Mic className="h-4 w-4" /> },
@@ -373,7 +376,26 @@ export function AttachmentMenu({ onSend, disabled }: AttachmentMenuProps) {
             </div>
           )}
 
-          {dialogType && (
+          {dialogType === "contacts" && (
+            <ContactPicker
+              onSelect={async (contact) => {
+                const payload: SendMessagePayload = {
+                  type: "contacts",
+                  contacts: [contact],
+                };
+                setIsSending(true);
+                try {
+                  await onSend(payload);
+                  closeDialog();
+                } finally {
+                  setIsSending(false);
+                }
+              }}
+              onCancel={closeDialog}
+            />
+          )}
+
+          {dialogType && dialogType !== "contacts" && (
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={closeDialog}>
                 Cancel

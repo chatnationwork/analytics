@@ -29,6 +29,7 @@ export enum MessageType {
   AUDIO = "audio",
   DOCUMENT = "document",
   LOCATION = "location",
+  CONTACTS = "contacts",
   TEMPLATE = "template",
   INTERACTIVE = "interactive",
 }
