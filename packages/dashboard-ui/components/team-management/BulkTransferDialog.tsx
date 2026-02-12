@@ -11,10 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ArrowRightLeft, Search, User, Users } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowRightLeft, User, Users, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { agentApi } from "@/lib/api/agent";
 import { api } from "@/lib/api";
@@ -34,47 +40,49 @@ export function BulkTransferDialog({
   onOpenChange,
   onSuccess,
 }: BulkTransferDialogProps) {
-  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [destinationType, setDestinationType] = useState<"agent" | "team">(
-    "agent",
-  );
-  const [agentCounts, setAgentCounts] = useState<Record<string, number>>({});
-  const [teamCounts, setTeamCounts] = useState<Record<string, number>>({});
+  // Source State
+  const [sourceType, setSourceType] = useState<"agent" | "team">("agent");
+  const [sourceId, setSourceId] = useState<string>("");
+
+  // Destination State
+  const [destType, setDestType] = useState<"agent" | "team">("agent");
+  const [destId, setDestId] = useState<string>("");
+
+  // Options
+  const [amount, setAmount] = useState<number | "">("");
   const [reason, setReason] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch assigned sessions for selection
-  const { data: sessions = [] } = useQuery({
+  // Reset when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setSourceId("");
+      setDestId("");
+      setAmount("");
+      setReason("");
+      setIsSubmitting(false);
+    }
+  }, [open]);
+
+  // Fetch ALL active sessions (assuming permission allows viewing all)
+  const { data: allSessions = [], isLoading: isLoadingSessions } = useQuery({
     queryKey: ["agent-inbox-for-bulk-transfer", open],
     queryFn: () => agentApi.getInbox("all"),
     enabled: open,
   });
 
-  const assignableSessions = useMemo(
-    () => sessions.filter((s) => s.status === "assigned"),
-    [sessions],
-  );
-
-  // Fetch agents (online agents for manual assignment)
+  // Fetch agents (for source/dest options)
   const { data: agentList = EMPTY_LIST } = useQuery({
     queryKey: ["agent-status-list"],
     queryFn: () => agentStatusApi.getAgentStatusList(),
-    enabled: open && destinationType === "agent",
+    enabled: open,
   });
 
-  const onlineAgents = useMemo(
-    () => agentList.filter((a: any) => a.status === "online"),
-    [agentList],
-  );
-
-  // Fetch available teams
-  const { data: availableTeams = EMPTY_LIST } = useQuery({
+  // Fetch teams (for source/dest options)
+  const { data: teams = EMPTY_LIST } = useQuery({
     queryKey: ["teams-available-for-queue"],
     queryFn: () => agentApi.getTeamsAvailableForQueue(),
-    enabled: open && destinationType === "team",
+    enabled: open,
   });
 
   // Fetch tenant settings (for transferReasonRequired)
@@ -88,475 +96,302 @@ export function BulkTransferDialog({
     (tenant?.settings as { transferReasonRequired?: boolean } | undefined)
       ?.transferReasonRequired === true;
 
-  // Filter agents by search
-  const filteredAgents = useMemo(
-    () =>
-      onlineAgents.filter(
-        (a: any) =>
-          (a.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (a.email ?? "").toLowerCase().includes(searchQuery.toLowerCase()),
-      ),
-    [onlineAgents, searchQuery],
-  );
-
-  const totalSelected = selectedSessionIds.size;
-
-  // Total agent counts
-  const totalAgentRequested = useMemo(
-    () =>
-      onlineAgents.reduce(
-        (sum: number, a: any) => sum + (agentCounts[a.agentId] ?? 0),
-        0,
-      ),
-    [onlineAgents, agentCounts],
-  );
-
-  // Total team counts
-  const totalTeamRequested = useMemo(
-    () =>
-      availableTeams.reduce(
-        (sum: number, t: any) => sum + (teamCounts[t.teamId] ?? 0),
-        0,
-      ),
-    [availableTeams, teamCounts],
-  );
-
-  const totalRequested =
-    destinationType === "agent" ? totalAgentRequested : totalTeamRequested;
-  const remaining = Math.max(0, totalSelected - totalRequested);
-
-  // Init counts when agents/teams change
-  useEffect(() => {
-    if (!open) return;
-    if (destinationType === "agent") {
-      setAgentCounts((prev) => {
-        const next = { ...prev };
-        onlineAgents.forEach((a: any) => {
-          if (typeof next[a.agentId] !== "number") next[a.agentId] = 0;
-        });
-        return next;
-      });
-    }
-    if (destinationType === "team") {
-      setTeamCounts((prev) => {
-        const next = { ...prev };
-        availableTeams.forEach((t: any) => {
-          if (typeof next[t.teamId] !== "number") next[t.teamId] = 0;
-        });
-        return next;
-      });
-    }
-  }, [open, destinationType, onlineAgents, availableTeams]);
-
-  // Session selection helpers
-  const toggleSession = (sessionId: string) => {
-    setSelectedSessionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
+  // Filter sessions based on source selection
+  const sourceSessions = useMemo(() => {
+    if (!sourceId) return [];
+    return allSessions.filter((s) => {
+      if (sourceType === "agent") {
+        return s.assignedAgentId === sourceId && s.status !== "resolved";
+      } else {
+        // From Team: Unassigned in team queue
+        return (
+          s.assignedTeamId === sourceId &&
+          !s.assignedAgentId &&
+          s.status !== "resolved"
+        );
+      }
     });
+  }, [allSessions, sourceType, sourceId]);
+
+  const maxTransferable = sourceSessions.length;
+
+  // Derived options for Source Selects
+  const processedAgentList = useMemo(() => {
+    // Map available agents from agentList
+    return agentList.map((a: any) => ({
+      id: a.agentId,
+      name: a.name ?? a.email,
+      status: a.status,
+    }));
+  }, [agentList]);
+
+  // For Source Agent, we can also show only agents who actually HAVE chats?
+  // Or just show all. Showing all is safer/less confusing.
+  
+  const handleAmountChange = (val: string) => {
+    if (val === "") {
+      setAmount("");
+      return;
+    }
+    const num = parseInt(val, 10);
+    if (!isNaN(num)) {
+      setAmount(Math.min(Math.max(1, num), maxTransferable));
+    }
   };
 
-  const selectAll = () => {
-    setSelectedSessionIds(new Set(assignableSessions.map((s) => s.id)));
+  const handleTransferAll = () => {
+    setAmount(maxTransferable);
   };
 
-  const clearSelection = () => setSelectedSessionIds(new Set());
-
-  const canSubmit =
-    totalSelected > 0 &&
-    totalRequested > 0 &&
-    totalRequested <= totalSelected &&
+  const isValid =
+    sourceId &&
+    destId &&
+    (sourceType !== destType || sourceId !== destId) && // Can't transfer to self
+    (amount === "" ? false : amount > 0) &&
     (!reasonRequired || reason.trim().length > 0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit) return;
-
+  const handleSubmit = async () => {
+    if (!isValid) return;
     setIsSubmitting(true);
+
     try {
-      const ids = Array.from(selectedSessionIds);
+      // 1. Identify filtered sessions
+      // 2. Slice top N ids
+      const sessionsToTransfer = sourceSessions.slice(
+        0,
+        amount === "" ? 0 : amount,
+      );
+      const sessionIds = sessionsToTransfer.map((s) => s.id);
 
-      if (destinationType === "agent") {
-        const agentAssignments = onlineAgents
-          .filter((a: any) => (agentCounts[a.agentId] ?? 0) > 0)
-          .map((a: any) => ({
-            agentId: a.agentId as string,
-            count: agentCounts[a.agentId]!,
-          }));
+      if (sessionIds.length === 0) {
+        toast.error("No sessions selected to transfer");
+        return;
+      }
 
-        const { transferred, errors } = await agentApi.bulkTransferSessions(
-          ids,
-          { agentAssignments, reason: reason || undefined },
-        );
-        handleResult(transferred, errors);
+      // 3. Call API
+      const options: any = { reason: reason || undefined };
+      if (destType === "agent") {
+        options.targetAgentId = destId;
       } else {
-        const teamAssignments = availableTeams
-          .filter((t: any) => (teamCounts[t.teamId] ?? 0) > 0)
-          .map((t: any) => ({
-            teamId: t.teamId as string,
-            count: teamCounts[t.teamId]!,
-          }));
+        options.targetTeamId = destId;
+      }
 
-        const { transferred, errors } = await agentApi.bulkTransferSessions(
-          ids,
-          { teamAssignments, reason: reason || undefined },
+      const { transferred, errors } = await agentApi.bulkTransferSessions(
+        sessionIds,
+        options,
+      );
+
+      // 4. Handle result
+      onOpenChange(false);
+      onSuccess?.();
+
+      if (transferred > 0) {
+        toast.success(
+          `Successfully transferred ${transferred} chat${
+            transferred !== 1 ? "s" : ""
+          }`,
         );
-        handleResult(transferred, errors);
+      } else if (errors.length > 0) {
+        toast.error(`Failed to transfer: ${errors[0]?.message}`);
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to transfer");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to execute transfer",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleResult = (
-    transferred: number,
-    errors: Array<{ sessionId: string; message: string }>,
-  ) => {
-    onOpenChange(false);
-    setSelectedSessionIds(new Set());
-    setAgentCounts({});
-    setTeamCounts({});
-    setReason("");
-    setSearchQuery("");
-    onSuccess?.();
-    if (transferred > 0) {
-      toast.success(`${transferred} chat(s) transferred`);
-    }
-    if (errors.length > 0 && transferred === 0) {
-      toast.error(errors[0]?.message ?? "Failed to transfer");
-    } else if (errors.length > 0) {
-      toast.warning(`${transferred} transferred; ${errors.length} failed`);
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-muted-foreground" />
-            Bulk transfer
+            Bulk Transfer
           </DialogTitle>
           <DialogDescription>
-            Select assigned chats and distribute them across agents or teams.
-            Requires session.bulk_transfer permission.
+            Move active chats from one agent or team to another.
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden"
-        >
-          {/* Session list */}
-          <div className="space-y-2 min-h-0 flex flex-col">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">
-                Chats to transfer
+        <div className="space-y-6 py-4">
+          <div className="grid grid-cols-[1fr,auto,1fr] gap-4 items-start">
+            {/* SOURCE COLUMN */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-muted-foreground">
+                From (Source)
               </label>
-              <div className="flex gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={selectAll}
-                  className="text-primary hover:underline"
-                >
-                  Select all
-                </button>
-                <button
-                  type="button"
-                  onClick={clearSelection}
-                  className="text-muted-foreground hover:underline"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            <div className="border border-border rounded-md overflow-y-auto max-h-40 p-1">
-              {assignableSessions.length === 0 ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  No assigned chats to transfer.
-                </div>
+              <Tabs
+                value={sourceType}
+                onValueChange={(v) => {
+                  setSourceType(v as "agent" | "team");
+                  setSourceId("");
+                  setAmount("");
+                }}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="agent">Agent</TabsTrigger>
+                  <TabsTrigger value="team">Team</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              {sourceType === "agent" ? (
+                <Select value={sourceId} onValueChange={setSourceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Agent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {processedAgentList.map((agent: any) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
-                assignableSessions.map((session) => (
-                  <label
-                    key={session.id}
-                    className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer text-sm"
-                  >
-                    <Checkbox
-                      checked={selectedSessionIds.has(session.id)}
-                      onCheckedChange={() => toggleSession(session.id)}
-                    />
-                    <span className="truncate">
-                      {session.contactName || session.contactId}
-                    </span>
-                  </label>
-                ))
+                <Select value={sourceId} onValueChange={setSourceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams.map((team: any) => (
+                      <SelectItem key={team.teamId} value={team.teamId}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {sourceId && (
+                <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded flex items-center gap-2">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>
+                    {isLoadingSessions ? "Checking..." : `${maxTransferable} chats available`}
+                  </span>
+                </div>
               )}
             </div>
-            {totalSelected > 0 && (
-              <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {totalSelected}
-                </span>{" "}
-                chat{totalSelected !== 1 ? "s" : ""} selected
-              </p>
-            )}
-          </div>
 
-          {/* Destination: agent or team */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              Transfer to <span className="text-destructive">*</span>
-            </label>
-            <div className="flex rounded-lg border border-border p-1 bg-muted/30">
-              <button
-                type="button"
-                onClick={() => {
-                  setDestinationType("agent");
-                  setTeamCounts({});
-                }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
-                  destinationType === "agent"
-                    ? "bg-background shadow text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <User className="h-4 w-4" />
-                Agents
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDestinationType("team");
-                  setAgentCounts({});
-                }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${
-                  destinationType === "team"
-                    ? "bg-background shadow text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Users className="h-4 w-4" />
-                Teams
-              </button>
+            {/* ARROW */}
+            <div className="flex flex-col justify-center h-full pt-8 text-muted-foreground">
+              <ArrowRightLeft className="h-4 w-4" />
             </div>
 
-            {destinationType === "agent" ? (
-              <div className="space-y-2">
-                {/* Agent search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search agents..."
-                    className="w-full pl-9 pr-3 py-2 bg-background border border-input rounded-md text-sm"
-                  />
-                </div>
+            {/* DESTINATION COLUMN */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-muted-foreground">
+                To (Destination)
+              </label>
+              <Tabs
+                value={destType}
+                onValueChange={(v) => {
+                  setDestType(v as "agent" | "team");
+                  setDestId("");
+                }}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="agent">Agent</TabsTrigger>
+                  <TabsTrigger value="team">Team</TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-                {/* Counter */}
-                {totalSelected > 0 && onlineAgents.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {totalAgentRequested} of {totalSelected} chats assigned to
-                    agents
-                    {remaining > 0 && (
-                      <span> ({remaining} remaining)</span>
-                    )}
-                    {totalAgentRequested > totalSelected && (
-                      <span className="text-destructive">
-                        {" "}
-                        — reduce total to {totalSelected} or less
-                      </span>
-                    )}
-                  </p>
-                )}
-
-                {/* Agent list with count inputs */}
-                <div className="border border-border rounded-md overflow-y-auto max-h-40 p-1">
-                  {onlineAgents.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      No online agents available
-                    </div>
-                  ) : filteredAgents.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      No agents match your search
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {filteredAgents.map((agent: any) => {
-                        const current = agentCounts[agent.agentId] ?? 0;
-                        const othersTotal = totalAgentRequested - current;
-                        const maxForThis = Math.max(
-                          0,
-                          totalSelected - othersTotal,
-                        );
-                        return (
-                          <div
-                            key={agent.agentId}
-                            className="flex items-center gap-2 p-2 text-sm"
-                          >
-                            <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="flex-1 truncate">
-                              {agent.name ?? agent.email}
-                            </span>
-                            <Label
-                              htmlFor={`agent-count-${agent.agentId}`}
-                              className="sr-only"
-                            >
-                              Chats to transfer
-                            </Label>
-                            <Input
-                              id={`agent-count-${agent.agentId}`}
-                              type="number"
-                              min={0}
-                              max={maxForThis}
-                              value={agentCounts[agent.agentId] ?? 0}
-                              onChange={(e) => {
-                                const raw = parseInt(e.target.value, 10);
-                                const value = Number.isNaN(raw)
-                                  ? 0
-                                  : Math.max(0, raw);
-                                setAgentCounts((prev) => ({
-                                  ...prev,
-                                  [agent.agentId]: Math.min(value, maxForThis),
-                                }));
-                              }}
-                              className="w-20 h-8 text-sm"
-                            />
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                              chats
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {/* Counter */}
-                {totalSelected > 0 && availableTeams.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {totalTeamRequested} of {totalSelected} chats assigned to
-                    teams
-                    {remaining > 0 && (
-                      <span> ({remaining} remaining)</span>
-                    )}
-                    {totalTeamRequested > totalSelected && (
-                      <span className="text-destructive">
-                        {" "}
-                        — reduce total to {totalSelected} or less
-                      </span>
-                    )}
-                  </p>
-                )}
-
-                {/* Team list with count inputs */}
-                <div className="border border-border rounded-md overflow-y-auto max-h-40 p-1">
-                  {availableTeams.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      No teams available (need at least one member and an active
-                      shift)
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {availableTeams.map((team: any) => {
-                        const current = teamCounts[team.teamId] ?? 0;
-                        const othersTotal = totalTeamRequested - current;
-                        const maxForThis = Math.max(
-                          0,
-                          totalSelected - othersTotal,
-                        );
-                        return (
-                          <div
-                            key={team.teamId}
-                            className="flex items-center gap-2 p-2 text-sm"
-                          >
-                            <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <span className="truncate block">
-                                {team.name}
-                              </span>
-                              {team.memberCount != null && (
-                                <span className="text-xs text-muted-foreground">
-                                  {team.memberCount} member
-                                  {team.memberCount !== 1 ? "s" : ""}
-                                </span>
-                              )}
-                            </div>
-                            <Label
-                              htmlFor={`team-count-${team.teamId}`}
-                              className="sr-only"
-                            >
-                              Chats to transfer
-                            </Label>
-                            <Input
-                              id={`team-count-${team.teamId}`}
-                              type="number"
-                              min={0}
-                              max={maxForThis}
-                              value={teamCounts[team.teamId] ?? 0}
-                              onChange={(e) => {
-                                const raw = parseInt(e.target.value, 10);
-                                const value = Number.isNaN(raw)
-                                  ? 0
-                                  : Math.max(0, raw);
-                                setTeamCounts((prev) => ({
-                                  ...prev,
-                                  [team.teamId]: Math.min(value, maxForThis),
-                                }));
-                              }}
-                              className="w-20 h-8 text-sm"
-                            />
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                              chats
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+              {destType === "agent" ? (
+                <Select value={destId} onValueChange={setDestId}>
+                  <SelectTrigger disabled={!sourceId}>
+                    <SelectValue placeholder="Select Agent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {processedAgentList
+                      .filter((a: any) => 
+                        // Prevent selecting same agent if source is agent
+                        !(sourceType === 'agent' && sourceId === a.id)
+                      )
+                      .map((agent: any) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Select value={destId} onValueChange={setDestId}>
+                  <SelectTrigger disabled={!sourceId}>
+                    <SelectValue placeholder="Select Team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams
+                      .filter((t: any) => 
+                         // Prevent selecting same team if source is team
+                         !(sourceType === 'team' && sourceId === t.teamId)
+                      )
+                      .map((team: any) => (
+                        <SelectItem key={team.teamId} value={team.teamId}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
 
-          {/* Reason */}
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              Reason {reasonRequired ? "(required)" : "(optional)"}
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Why are you transferring these chats?"
-              rows={2}
-              required={reasonRequired}
-              className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm resize-none"
-            />
-          </div>
+          <div className="border-t pt-4 space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">
+                  Amount to Transfer
+                </label>
+                {sourceId && maxTransferable > 0 && (
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-xs"
+                    onClick={handleTransferAll}
+                  >
+                    Transfer Max ({maxTransferable})
+                  </Button>
+                )}
+              </div>
+              <Input
+                type="number"
+                value={amount}
+                onChange={(e) => handleAmountChange(e.target.value)}
+                placeholder="0"
+                min={1}
+                max={maxTransferable || undefined}
+                disabled={!sourceId || maxTransferable === 0}
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter the number of chats to move (max {maxTransferable})
+              </p>
+            </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!canSubmit || isSubmitting}>
-              {isSubmitting
-                ? "Transferring…"
-                : `Transfer ${totalRequested} chat(s)`}
-            </Button>
-          </DialogFooter>
-        </form>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Reason {reasonRequired && <span className="text-destructive">*</span>}
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Why are these chats being transferred?"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={!isValid || isSubmitting}>
+            {isSubmitting ? "Transferring..." : "Transfer Chats"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
