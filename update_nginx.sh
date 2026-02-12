@@ -55,9 +55,11 @@ server {
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     # 1. Dashboard API Proxy (UI -> API)
-    # Proxies /api/* requests to internal port 3001
+    # MUST proxy /api/ to Next.js (3002), NOT directly to backend (3001).
+    # Next.js app/api/[...path] reads the accessToken cookie and adds Authorization: Bearer.
+    # The backend only accepts Bearer token, not cookies. Direct proxy to backend = 401.
     location /api/ {
-        proxy_pass http://localhost:3001;
+        proxy_pass http://localhost:3002;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
