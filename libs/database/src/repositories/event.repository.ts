@@ -1792,6 +1792,27 @@ export class EventRepository {
   // ===========================================================================
 
   /**
+   * Get total number of CSAT sent events.
+   */
+  async getCsatSentCount(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    const result = await this.repo.query(
+      `
+      SELECT COUNT(*) as count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'csat.sent'
+        AND timestamp BETWEEN $2 AND $3
+      `,
+      [tenantId, startDate, endDate],
+    );
+    return parseInt(result[0]?.count, 10) || 0;
+  }
+
+  /**
    * CSAT summary: average score, total responses, distribution (1-5), 5-star %.
    */
   async getCsatSummary(

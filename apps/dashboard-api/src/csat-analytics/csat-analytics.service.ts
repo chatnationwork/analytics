@@ -51,6 +51,11 @@ export class CsatAnalyticsService {
       startDate,
       endDate,
     );
+    const totalSent = await this.eventRepository.getCsatSentCount(
+      tenantId,
+      startDate,
+      endDate,
+    );
     const recentFeedback = await this.eventRepository.getCsatRecentFeedback(
       tenantId,
       startDate,
@@ -76,6 +81,7 @@ export class CsatAnalyticsService {
     return {
       summary: {
         ...summary,
+        totalSent,
         percentChange,
       },
       recentFeedback,

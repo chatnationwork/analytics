@@ -200,7 +200,16 @@ export default function CsatAnalyticsPage() {
 
         {!isLoading && !error && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <StatCard
+                label="Total Sent"
+                value={
+                  summary?.totalSent?.toLocaleString() ??
+                  (summary?.totalResponses ? "—" : "0")
+                }
+                sub="Surveys sent"
+                icon={<MessageSquare className="w-4 h-4 text-primary" />}
+              />
               <StatCard
                 label="Average CSAT"
                 value={

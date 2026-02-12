@@ -1078,7 +1078,7 @@ export class InboxService {
           `CSAT CTA not sent for session ${sessionId}: ${result.error}`,
         );
       } else {
-        // Record CSAT message as sent by agent
+          // Record CSAT message as sent by agent
         await this.addMessage({
           sessionId: savedSession.id,
           tenantId: savedSession.tenantId,
@@ -1095,6 +1095,33 @@ export class InboxService {
           this.logger.warn(
             `Failed to record CSAT message for session ${sessionId}: ${err.message}`,
           ),
+        );
+
+        // Fire csat.sent event for analytics
+        const eventId = randomUUID();
+        await this.eventRepository.save({
+            eventId,
+            messageId: eventId,
+            tenantId: savedSession.tenantId,
+            projectId: "default",
+            eventName: "csat.sent",
+            eventType: "track",
+            timestamp: new Date(),
+            anonymousId: savedSession.contactId,
+            userId: savedSession.contactId,
+            sessionId: savedSession.id,
+            channelType: savedSession.channel || "whatsapp",
+            externalId: savedSession.contactId,
+            properties: {
+                inboxSessionId: savedSession.id,
+                agentId,
+                contactId: savedSession.contactId,
+                channel: savedSession.channel,
+            },
+        }).catch((err) =>
+            this.logger.warn(
+                `Failed to fire csat.sent event for session ${sessionId}: ${err.message}`,
+            ),
         );
       }
     } catch (error) {

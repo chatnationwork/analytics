@@ -10,6 +10,7 @@ export type CsatGranularity = "day" | "week" | "month";
 export interface CsatSummary {
   averageScore: number;
   totalResponses: number;
+  totalSent: number;
   distribution: Array<{ score: number; count: number; percentage: number }>;
   fiveStarPercent: number;
   percentChange?: number;
