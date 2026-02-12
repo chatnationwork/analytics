@@ -86,7 +86,7 @@ export function AssignQueueDialog({
       setManualCounts((prev) => {
         const next = { ...prev };
         onlineAgents.forEach((a) => {
-          if (typeof next[a.agentId] !== "number") next[a.agentId] = 1;
+          if (typeof next[a.agentId] !== "number") next[a.agentId] = 0;
         });
         return next;
       });
@@ -240,7 +240,7 @@ export function AssignQueueDialog({
                     {totalManualRequested > queueSize && (
                       <span className="text-destructive">
                         {" "}
-                        — reduce total to {queueSize} or less
+                        Chats assigned to agents cannot exceed {queueSize}
                       </span>
                     )}
                   </p>
