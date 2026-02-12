@@ -181,16 +181,39 @@ export function BulkTransferDialog({
         options,
       );
 
-      // 4. Handle result
+      // 4. If transferred to team, trigger assignment engine
+      let assignedCount = 0;
+      if (transferred > 0 && destType === "team") {
+        try {
+          // Trigger assignment for the destination team
+          const result = await agentApi.assignQueue({
+            mode: "teams",
+            teamIds: [destId],
+          });
+          assignedCount = result.assigned;
+        } catch (err) {
+          console.error("Failed to auto-assign after transfer:", err);
+          // Don't fail the whole operation, just warn
+          toast.error("Transfer successful, but failed to auto-assign agents.");
+        }
+      }
+
+      // 5. Handle result
       onOpenChange(false);
       onSuccess?.();
 
       if (transferred > 0) {
-        toast.success(
-          `Successfully transferred ${transferred} chat${
-            transferred !== 1 ? "s" : ""
-          }`,
-        );
+        if (destType === "team" && assignedCount > 0) {
+          toast.success(
+            `Transferred ${transferred} chat(s) to team and assigned ${assignedCount} to agents`,
+          );
+        } else {
+          toast.success(
+            `Successfully transferred ${transferred} chat${
+              transferred !== 1 ? "s" : ""
+            }`,
+          );
+        }
       } else if (errors.length > 0) {
         toast.error(`Failed to transfer: ${errors[0]?.message}`);
       }
