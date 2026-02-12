@@ -100,7 +100,7 @@ function EventRow({ event }: { event: LiveEventRow }) {
       >
         {event.sessionId}
       </span>
-      {event.pagePath && (
+      {/* {event.pagePath && (
         <span
           className="text-muted-foreground truncate max-w-[200px]"
           title={event.pagePath}
@@ -112,7 +112,7 @@ function EventRow({ event }: { event: LiveEventRow }) {
         <span className="text-muted-foreground font-mono text-xs truncate max-w-[240px]">
           {propsShort}
         </span>
-      )}
+      )} */}
     </div>
   );
 }
