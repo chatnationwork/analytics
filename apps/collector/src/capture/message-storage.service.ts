@@ -105,7 +105,22 @@ export class MessageStorageService {
         await this.sessionRepo.update(session.id, updatePayload);
       }
 
-      // 2. Create Message
+      // 2. Deduplicate: skip if a message with the same externalId already exists
+      const extId = properties.messageId as string | undefined;
+      if (extId) {
+        const existing = await this.messageRepo.findOne({
+          where: { tenantId, externalId: extId },
+          select: ["id"],
+        });
+        if (existing) {
+          this.logger.debug(
+            `Message with externalId ${extId} already exists (${existing.id}); skipping duplicate.`,
+          );
+          return;
+        }
+      }
+
+      // 3. Create Message
       const direction =
         event.event_name === "message.received"
           ? MessageDirection.INBOUND
@@ -119,7 +134,7 @@ export class MessageStorageService {
         contactId: normalizedContactId || rawContactId, // fallback to raw
         sessionId: session?.id || undefined, // Allow null/undefined for orphan messages
         tenantId,
-        externalId: properties.messageId as string,
+        externalId: extId,
         direction,
         type: Object.values(MessageType).includes(messageType)
           ? messageType

@@ -387,11 +387,27 @@ export class EventProcessorService {
       }
     }
 
+    const extId = (props.message_id as string) || event.messageId;
+
+    // Deduplicate: skip if a message with the same externalId already exists
+    if (extId) {
+      const existing = await this.messageRepo.findOne({
+        where: { tenantId: event.tenantId, externalId: extId },
+        select: ["id"],
+      });
+      if (existing) {
+        this.logger.debug(
+          `Message with externalId ${extId} already exists (${existing.id}); skipping duplicate sync.`,
+        );
+        return;
+      }
+    }
+
     const message = this.messageRepo.create({
       contactId: session.contactId,
       sessionId: session.id,
       tenantId: event.tenantId,
-      externalId: (props.message_id as string) || event.messageId,
+      externalId: extId,
       direction,
       type: messageType,
       content,
