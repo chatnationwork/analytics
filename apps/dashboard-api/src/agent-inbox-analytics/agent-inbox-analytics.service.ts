@@ -592,13 +592,16 @@ export class AgentInboxAnalyticsService {
   /** 23h 59m expiry window - matches inbox service */
   private static readonly SESSION_EXPIRY_MS = (24 * 60 - 1) * 60 * 1000;
 
+  /** Expiry = 24h from last inbound (incl. orphans); same as inbox.service */
+  private static readonly EFFECTIVE_LAST_INBOUND_SQL = `COALESCE(session."lastInboundMessageAt", (SELECT MAX(m."createdAt") FROM messages m WHERE m."tenantId" = session."tenantId" AND m."contactId" = session."contactId" AND m.direction = 'inbound'))`;
+
   /**
    * Get expired chat statistics (chats with no user engagement for 23h59m+).
    */
   async getExpiredChatsOverview(tenantId: string) {
     const cutoff = new Date(Date.now() - AgentInboxAnalyticsService.SESSION_EXPIRY_MS);
 
-    // Count currently expired chats (based on last user engagement)
+    // Count currently expired chats (based on last user engagement, incl. orphans)
     const expiredCount = await this.sessionRepo
       .createQueryBuilder("session")
       .where("session.tenantId = :tenantId", { tenantId })
@@ -606,7 +609,7 @@ export class AgentInboxAnalyticsService {
         status: SessionStatus.ASSIGNED,
       })
       .andWhere(
-        "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+        `${AgentInboxAnalyticsService.EFFECTIVE_LAST_INBOUND_SQL} IS NOT NULL AND ${AgentInboxAnalyticsService.EFFECTIVE_LAST_INBOUND_SQL} <= :cutoff`,
         { cutoff },
       )
       .getCount();
@@ -1182,11 +1185,11 @@ export class AgentInboxAnalyticsService {
     const unresolved = Math.max(0, assigned - resolved);
 
     const [expiredRow] = await this.sessionRepo.query(
-      `SELECT COUNT(*)::int AS cnt FROM inbox_sessions
-       WHERE "tenantId" = $1 AND status = $2 AND "assignedAt" IS NOT NULL
-         AND "assignedAt" >= $3 AND "assignedAt" < $4
-         AND COALESCE("lastInboundMessageAt", "lastMessageAt") IS NOT NULL
-         AND COALESCE("lastInboundMessageAt", "lastMessageAt") < $5`,
+      `SELECT COUNT(*)::int AS cnt FROM inbox_sessions s
+       WHERE s."tenantId" = $1 AND s.status = $2 AND s."assignedAt" IS NOT NULL
+         AND s."assignedAt" >= $3 AND s."assignedAt" < $4
+         AND COALESCE(s."lastInboundMessageAt", (SELECT MAX(m."createdAt") FROM messages m WHERE m."tenantId" = s."tenantId" AND m."contactId" = s."contactId" AND m.direction = 'inbound')) IS NOT NULL
+         AND COALESCE(s."lastInboundMessageAt", (SELECT MAX(m."createdAt") FROM messages m WHERE m."tenantId" = s."tenantId" AND m."contactId" = s."contactId" AND m.direction = 'inbound')) < $5`,
       [tenantId, SessionStatus.ASSIGNED, startDate, endDatePlusOne, expiredThreshold],
     );
     const expired = expiredRow?.cnt ?? 0;

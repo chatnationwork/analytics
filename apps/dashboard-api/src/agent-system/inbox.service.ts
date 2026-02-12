@@ -43,6 +43,15 @@ function getExpiredCutoff(): Date {
 }
 
 /**
+ * Subquery for last inbound message per contact (includes orphans with sessionId=null).
+ * Expiry = 24h from last message the user sent, regardless of session.
+ */
+const LAST_CONTACT_INBOUND_SQL = `(SELECT MAX(m."createdAt") FROM messages m WHERE m."tenantId" = session."tenantId" AND m."contactId" = session."contactId" AND m.direction = 'inbound')`;
+
+/** Effective last inbound for expiry: session column or fallback to messages table */
+const EFFECTIVE_LAST_INBOUND_SQL = `COALESCE(session."lastInboundMessageAt", ${LAST_CONTACT_INBOUND_SQL})`;
+
+/**
  * Filter types for inbox queries
  */
 export type InboxFilter =
@@ -254,13 +263,13 @@ export class InboxService {
         query.andWhere("session.acceptedAt IS NULL");
         break;
       case "pending":
-        // Active: assigned, accepted, not expired (expiry based on last user engagement)
+        // Active: assigned, accepted, not expired (expiry = 24h from last inbound, incl. orphans)
         query.andWhere("session.status = :status", {
           status: SessionStatus.ASSIGNED,
         });
         query.andWhere("session.acceptedAt IS NOT NULL");
         query.andWhere(
-          "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) > :cutoff)",
+          `(${EFFECTIVE_LAST_INBOUND_SQL} IS NULL OR ${EFFECTIVE_LAST_INBOUND_SQL} > :cutoff)`,
           { cutoff },
         );
         break;
@@ -279,7 +288,7 @@ export class InboxService {
           status: SessionStatus.ASSIGNED,
         });
         query.andWhere(
-          "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+          `${EFFECTIVE_LAST_INBOUND_SQL} IS NOT NULL AND ${EFFECTIVE_LAST_INBOUND_SQL} <= :cutoff`,
           { cutoff },
         );
         break;
@@ -296,8 +305,17 @@ export class InboxService {
     }
 
     query.orderBy("session.lastMessageAt", "DESC");
+    query.addSelect(EFFECTIVE_LAST_INBOUND_SQL, "effectiveLastInbound");
 
-    return query.getMany();
+    const { entities, raw } = await query.getRawAndEntities();
+    for (let i = 0; i < entities.length; i++) {
+      const row = raw[i] ?? {};
+      const val = row.effectiveLastInbound ?? row.effectivelastinbound;
+      if (val != null) {
+        entities[i].lastInboundMessageAt = val instanceof Date ? val : new Date(val);
+      }
+    }
+    return entities;
   }
 
   /**
@@ -336,7 +354,7 @@ export class InboxService {
         })
         .andWhere("session.acceptedAt IS NOT NULL")
         .andWhere(
-          "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) > :cutoff)",
+          `(${EFFECTIVE_LAST_INBOUND_SQL} IS NULL OR ${EFFECTIVE_LAST_INBOUND_SQL} > :cutoff)`,
           { cutoff },
         )
         .getCount(),
@@ -363,7 +381,7 @@ export class InboxService {
           status: SessionStatus.ASSIGNED,
         })
         .andWhere(
-          "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+          `${EFFECTIVE_LAST_INBOUND_SQL} IS NOT NULL AND ${EFFECTIVE_LAST_INBOUND_SQL} <= :cutoff`,
           { cutoff },
         )
         .getCount(),
@@ -427,7 +445,7 @@ export class InboxService {
           })
           .andWhere("session.acceptedAt IS NOT NULL")
           .andWhere(
-            "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) > :cutoff)",
+            `(${EFFECTIVE_LAST_INBOUND_SQL} IS NULL OR ${EFFECTIVE_LAST_INBOUND_SQL} > :cutoff)`,
             { cutoff },
           )
           .getCount(),
@@ -452,7 +470,7 @@ export class InboxService {
             status: SessionStatus.ASSIGNED,
           })
           .andWhere(
-            "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+            `${EFFECTIVE_LAST_INBOUND_SQL} IS NOT NULL AND ${EFFECTIVE_LAST_INBOUND_SQL} <= :cutoff`,
             { cutoff },
           )
           .getCount(),
@@ -511,7 +529,7 @@ export class InboxService {
         });
         query.andWhere("session.acceptedAt IS NOT NULL");
         query.andWhere(
-          "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) > :cutoff)",
+          `(${EFFECTIVE_LAST_INBOUND_SQL} IS NULL OR ${EFFECTIVE_LAST_INBOUND_SQL} > :cutoff)`,
           { cutoff },
         );
         break;
@@ -530,7 +548,7 @@ export class InboxService {
           status: SessionStatus.ASSIGNED,
         });
         query.andWhere(
-          "COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff",
+          `${EFFECTIVE_LAST_INBOUND_SQL} IS NOT NULL AND ${EFFECTIVE_LAST_INBOUND_SQL} <= :cutoff`,
           { cutoff },
         );
         break;
@@ -544,17 +562,26 @@ export class InboxService {
       .leftJoinAndSelect("session.assignedAgent", "assignedAgent")
       .leftJoinAndSelect("session.assignedTeam", "assignedTeam")
       .orderBy("session.lastMessageAt", "DESC");
+    query.addSelect(EFFECTIVE_LAST_INBOUND_SQL, "effectiveLastInbound");
 
-    const sessions = await query.getMany();
+    const { entities: sessions, raw } = await query.getRawAndEntities();
 
     type SessionWithRelations = InboxSessionEntity & {
       assignedAgent?: UserEntity | null;
       assignedTeam?: TeamEntity | null;
     };
 
-    return sessions.map((s): TenantInboxSession => {
+    return sessions.map((s, i): TenantInboxSession => {
       const agent = (s as SessionWithRelations).assignedAgent ?? null;
       const team = (s as SessionWithRelations).assignedTeam ?? null;
+      const row = raw[i] ?? {};
+      const effectiveLastInbound = row.effectiveLastInbound ?? row.effectivelastinbound;
+      const lastInboundMessageAt =
+        effectiveLastInbound != null
+          ? effectiveLastInbound instanceof Date
+            ? effectiveLastInbound
+            : new Date(effectiveLastInbound)
+          : s.lastInboundMessageAt ?? null;
 
       return {
         id: s.id,
@@ -571,7 +598,7 @@ export class InboxService {
         context: s.context ?? null,
         lastMessageAt: s.lastMessageAt ?? null,
         lastReadAt: s.lastReadAt ?? null,
-        lastInboundMessageAt: s.lastInboundMessageAt ?? null,
+        lastInboundMessageAt,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
         assignedAgent: agent
@@ -697,14 +724,26 @@ export class InboxService {
 
   /**
    * Get a session by ID.
+   * Enriches lastInboundMessageAt from messages table when null (incl. orphans).
    */
   async getSession(sessionId: string): Promise<InboxSessionEntity> {
-    const session = await this.sessionRepo.findOne({
-      where: { id: sessionId },
-    });
+    const qb = this.sessionRepo
+      .createQueryBuilder("session")
+      .where("session.id = :sessionId", { sessionId })
+      .addSelect(EFFECTIVE_LAST_INBOUND_SQL, "effectiveLastInbound");
+
+    const { entities, raw } = await qb.getRawAndEntities();
+    const session = entities[0];
 
     if (!session) {
       throw new NotFoundException(`Session ${sessionId} not found`);
+    }
+
+    const row = raw[0] ?? {};
+    const val = row.effectiveLastInbound ?? row.effectivelastinbound;
+    if (val != null) {
+      session.lastInboundMessageAt =
+        val instanceof Date ? val : new Date(val);
     }
 
     return session;
@@ -1345,9 +1384,9 @@ export class InboxService {
       });
 
     if (dateRange) {
-      // Custom date range: filter by last user engagement
+      // Custom date range: filter by last user engagement (incl. orphans)
       query.andWhere(
-        "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NOT NULL AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) >= :start AND COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :end)",
+        `(${EFFECTIVE_LAST_INBOUND_SQL} IS NOT NULL AND ${EFFECTIVE_LAST_INBOUND_SQL} >= :start AND ${EFFECTIVE_LAST_INBOUND_SQL} <= :end)`,
         { start: dateRange.startDate, end: dateRange.endDate },
       );
     } else {
@@ -1356,7 +1395,7 @@ export class InboxService {
       cutoff.setDate(cutoff.getDate() - Math.max(1, olderThanDays));
       cutoff.setHours(0, 0, 0, 0);
       query.andWhere(
-        "(COALESCE(session.lastInboundMessageAt, session.lastMessageAt) IS NULL OR COALESCE(session.lastInboundMessageAt, session.lastMessageAt) <= :cutoff)",
+        `(${EFFECTIVE_LAST_INBOUND_SQL} IS NULL OR ${EFFECTIVE_LAST_INBOUND_SQL} <= :cutoff)`,
         { cutoff },
       );
     }
