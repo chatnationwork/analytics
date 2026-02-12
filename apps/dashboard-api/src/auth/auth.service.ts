@@ -198,9 +198,29 @@ export class AuthService {
     const activeTenant = tenants[0];
     const singleLoginEnforced =
       activeTenant?.settings?.session?.singleLoginEnforced === true;
-    const existingSessionId = singleLoginEnforced
+    let existingSessionId = singleLoginEnforced
       ? await this.userSessionRepository.getCurrentSessionId(user.id)
       : null;
+
+    // Check for stale session (expired but not cleared)
+    if (existingSessionId) {
+      const lastActivity =
+        await this.userSessionRepository.getLastActivity(user.id);
+      const timeoutMinutes =
+        activeTenant?.settings?.session?.inactivityTimeoutMinutes;
+
+      if (lastActivity && timeoutMinutes && timeoutMinutes > 0) {
+        const elapsedMs = Date.now() - lastActivity.getTime();
+        const timeoutMs = timeoutMinutes * 60 * 1000;
+        if (elapsedMs > timeoutMs) {
+          this.logger.log(
+            `Clearing stale session for ${user.email} (inactive > ${timeoutMinutes}m during login)`,
+          );
+          await this.userSessionRepository.clearSession(user.id);
+          existingSessionId = null;
+        }
+      }
+    }
 
     if (user.twoFactorEnabled) {
       if (!user.phone || user.phone.trim() === "") {
@@ -1030,6 +1050,7 @@ export class AuthService {
       const elapsedMs = Date.now() - lastActivity.getTime();
       const timeoutMs = inactivityTimeoutMinutes * 60 * 1000;
       if (elapsedMs > timeoutMs) {
+        await this.userSessionRepository.clearSession(userId);
         throw new UnauthorizedException("Session expired due to inactivity");
       }
     }
