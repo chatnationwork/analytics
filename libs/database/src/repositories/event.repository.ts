@@ -2618,7 +2618,7 @@ export class EventRepository {
         COALESCE(h.handoffs_received, 0) as handoffs_received,
         COALESCE(to_out.transfers_out, 0) as transfers_out,
         COALESCE(ti.transfers_in, 0) as transfers_in,
-        COALESCE(r.resolved_count, 0) + COALESCE(h.handoffs_received, 0) + COALESCE(ti.transfers_in, 0) as total_chats_handled
+        COALESCE(h.handoffs_received, 0) + COALESCE(ti.transfers_in, 0) as total_chats_handled
       FROM all_agents a
       LEFT JOIN agent_resolutions r ON a.agent_id = r.agent_id
       LEFT JOIN agent_handoffs h ON a.agent_id = h.agent_id
@@ -2660,14 +2660,24 @@ export class EventRepository {
       `
       WITH agent_chats AS (
         SELECT 
-          properties->>'agentId' as agent_id,
+          agent_id,
           COUNT(*) as chat_count
-        FROM events
-        WHERE "tenantId" = $1
-          AND "eventName" = 'agent.handoff'
-          AND timestamp BETWEEN $2 AND $3
-          AND properties->>'agentId' IS NOT NULL
-        GROUP BY properties->>'agentId'
+        FROM (
+          SELECT properties->>'agentId' as agent_id
+          FROM events
+          WHERE "tenantId" = $1
+            AND "eventName" = 'agent.handoff'
+            AND timestamp BETWEEN $2 AND $3
+            AND properties->>'agentId' IS NOT NULL
+          UNION ALL
+          SELECT properties->>'toAgentId' as agent_id
+          FROM events
+          WHERE "tenantId" = $1
+            AND "eventName" = 'chat.transferred'
+            AND timestamp BETWEEN $2 AND $3
+            AND properties->>'toAgentId' IS NOT NULL
+        ) all_assignments
+        GROUP BY agent_id
       ),
       stats AS (
         SELECT 
