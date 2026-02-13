@@ -414,7 +414,7 @@ export default function WhatsAppAnalyticsPage() {
         {/* Volume by Hour */}
         <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
           <h3 className="font-medium text-foreground mb-6">
-            Message Volume by Hour
+            Incoming Message Volume by Hour
           </h3>
           <VolumeChart data={volume ?? []} />
           <div className="text-sm text-muted-foreground mt-4 text-center">
@@ -750,7 +750,9 @@ function MessageVolumeTrendChart({
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="font-medium text-foreground">Message Volume Trend</h3>
+          <h3 className="font-medium text-foreground">
+            Incoming Message Volume Trend
+          </h3>
           {summary && (
             <p className="text-sm text-muted-foreground mt-1">
               {summary.total.toLocaleString()} total messages

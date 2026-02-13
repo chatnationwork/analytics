@@ -452,7 +452,7 @@ export class WhatsappAnalyticsService {
       endDateStr,
     );
 
-    const raw = await this.contactRepository.getNewContactsTrend(
+    const raw = await this.eventRepository.getNewContactsTrend(
       tenantId,
       startDate,
       endDate,
@@ -471,7 +471,7 @@ export class WhatsappAnalyticsService {
     // Get previous period for comparison
     const previousEndDate = startDate;
     const previousStartDate = this.calculateStartDate(granularity, periods * 2);
-    const previousData = await this.contactRepository.getNewContactsTrend(
+    const previousData = await this.eventRepository.getNewContactsTrend(
       tenantId,
       previousStartDate,
       previousEndDate,

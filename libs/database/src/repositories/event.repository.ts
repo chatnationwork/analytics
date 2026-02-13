@@ -2724,4 +2724,46 @@ export class EventRepository {
           : 0,
     };
   }
+
+  /**
+   * Get new contacts trend: count of users whose first message.received was in the period.
+   * This aligns with the "New Contacts" metric in getWhatsappStats, which counts active users.
+   */
+  async getNewContactsTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    // 1. Find the first message.received timestamp for each contact
+    // 2. Filter for contacts whose first message was in the requested range
+    // 3. Group by period
+    const result = await this.repo.query(
+      `
+      WITH first_messages AS (
+        SELECT 
+          COALESCE("userId", "externalId") as contact_id,
+          MIN(timestamp) as first_seen
+        FROM events
+        WHERE "tenantId" = $1
+          AND "eventName" = 'message.received'
+          AND (COALESCE("userId", "externalId")) IS NOT NULL
+        GROUP BY COALESCE("userId", "externalId")
+      )
+      SELECT 
+        DATE_TRUNC($4, first_seen) as period,
+        COUNT(*) as new_contacts
+      FROM first_messages
+      WHERE first_seen BETWEEN $2 AND $3
+      GROUP BY DATE_TRUNC($4, first_seen)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      newContacts: parseInt(r.new_contacts, 10) || 0,
+    }));
+  }
 }
