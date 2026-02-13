@@ -470,51 +470,6 @@ function JourneyBreakdownTable({
   );
 }
 
-// Agent performance table
-function AgentPerformanceTable({ data }: { data: AgentPerformanceItem[] }) {
-  if (!data?.length) {
-    return (
-      <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-        No agent handoff data for this period
-      </div>
-    );
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="text-left py-3 font-medium text-foreground">
-              Agent
-            </th>
-            <th className="text-right py-3 font-medium text-foreground">
-              Handoffs
-            </th>
-            <th className="text-right py-3 font-medium text-foreground">
-              Unique sessions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={row.agentId || i} className="border-b border-border/50">
-              <td className="py-2.5 font-medium text-foreground">
-                {row.agentId || "—"}
-              </td>
-              <td className="py-2.5 text-right text-muted-foreground">
-                {row.totalHandoffs.toLocaleString()}
-              </td>
-              <td className="py-2.5 text-right text-muted-foreground">
-                {row.uniqueSessions.toLocaleString()}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // =============================================================================
 // MAIN PAGE COMPONENT
 // =============================================================================
@@ -891,38 +846,7 @@ export default function JourneysPage() {
               </div>
             </div>
 
-            {/* Agent performance */}
-            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-foreground">
-                Agent performance
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5 mb-4">
-                Handoffs and unique sessions per agent in this period
-              </p>
-              {agentPerformance?.summary && (
-                <div className="flex gap-4 mb-4 text-sm text-muted-foreground">
-                  <span>
-                    Total handoffs:{" "}
-                    <strong className="text-foreground">
-                      {agentPerformance.summary.totalHandoffs.toLocaleString()}
-                    </strong>
-                  </span>
-                  <span>
-                    Agents:{" "}
-                    <strong className="text-foreground">
-                      {agentPerformance.summary.totalAgents}
-                    </strong>
-                  </span>
-                  <span>
-                    Avg per agent:{" "}
-                    <strong className="text-foreground">
-                      {agentPerformance.summary.avgHandoffsPerAgent.toLocaleString()}
-                    </strong>
-                  </span>
-                </div>
-              )}
-              <AgentPerformanceTable data={agentPerformance?.data ?? []} />
-            </div>
+          
           </>
         )}
       </div>

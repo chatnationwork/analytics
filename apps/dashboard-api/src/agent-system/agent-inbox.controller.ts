@@ -727,6 +727,22 @@ export class AgentInboxController {
         dto.reason,
       );
 
+      // Trigger assignment for teams if any transfers occurred
+      if (hasTeamAssignments && result.transferred > 0) {
+        const teamIds = [
+          ...new Set(
+            dto.teamAssignments!.filter((a) => a.count > 0).map((a) => a.teamId),
+          ),
+        ];
+        // Fire and forget assignment to not block response too long, or await?
+        // Await is safer to ensure it starts, but users might wait.
+        // Given we are already awaiting bulkTransfer, adding assignment check is fine.
+        await this.assignmentService.assignQueuedSessionsToTeams(
+          req.user.tenantId,
+          teamIds,
+        );
+      }
+
       // Audit each transferred session
       for (const entry of result.auditEntries ?? []) {
         await this.auditService.log({
@@ -766,6 +782,13 @@ export class AgentInboxController {
       hasTeam ? dto.targetTeamId! : undefined,
       dto.reason,
     );
+
+    if (hasTeam && result.transferred > 0) {
+      await this.assignmentService.assignQueuedSessionsToTeams(
+        req.user.tenantId,
+        [dto.targetTeamId!],
+      );
+    }
 
     for (const sessionId of sessionIds.slice(0, result.transferred)) {
       await this.auditService.log({

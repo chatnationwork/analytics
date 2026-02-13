@@ -30,6 +30,8 @@ import {
   CreateEventDto,
   normalizeContactIdDigits,
   InboxSessionHelper,
+  AgentProfileEntity,
+  AgentStatus,
 } from "@lib/database";
 import { randomUUID } from "crypto";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
@@ -125,6 +127,8 @@ export class InboxService {
     private readonly resolutionRepo: Repository<ResolutionEntity>,
     @InjectRepository(TeamEntity)
     private readonly teamRepo: Repository<TeamEntity>,
+    @InjectRepository(AgentProfileEntity)
+    private readonly agentRepo: Repository<AgentProfileEntity>,
     private readonly eventRepository: EventRepository,
     private readonly whatsappService: WhatsappService,
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -1272,6 +1276,16 @@ export class InboxService {
         return {
           transferred: 0,
           errors: [{ sessionId: "", message: "Target team not found" }],
+        };
+      }
+    } else if (toAgentId) {
+      const agent = await this.agentRepo.findOne({
+        where: { userId: toAgentId },
+      });
+      if (!agent || agent.status !== AgentStatus.ONLINE) {
+        return {
+          transferred: 0,
+          errors: [{ sessionId: "", message: "Target agent is not online" }],
         };
       }
     }
