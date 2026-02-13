@@ -7,7 +7,7 @@
  * Provides resolution, transfer, agent performance, and team metrics.
  */
 
-import { Controller, Get, Query, Request, UseGuards } from "@nestjs/common";
+import { Controller, Get, Query, Request, UseGuards, Header } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { AgentInboxAnalyticsService } from "./agent-inbox-analytics.service";
 
@@ -120,6 +120,28 @@ export class AgentInboxAnalyticsController {
       parseInt(periods, 10) || 30,
       p,
       l,
+      startDate,
+      endDate,
+    );
+  }
+
+  /**
+   * Export resolution submissions as CSV.
+   */
+  @Get("resolutions/export")
+  @Header("Content-Type", "text/csv")
+  @Header("Content-Disposition", 'attachment; filename="resolutions.csv"')
+  async exportResolutionSubmissions(
+    @Request() req: { user: { tenantId: string } },
+    @Query("granularity") granularity: Granularity = "day",
+    @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.analyticsService.exportResolutionSubmissions(
+      req.user.tenantId,
+      granularity,
+      parseInt(periods, 10) || 30,
       startDate,
       endDate,
     );

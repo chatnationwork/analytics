@@ -430,6 +430,92 @@ export class AgentInboxAnalyticsService {
   }
 
   /**
+   * Export resolutions as CSV.
+   */
+  async exportResolutionSubmissions(
+    tenantId: string,
+    granularity: Granularity = "day",
+    periods: number = 30,
+    startDateStr?: string,
+    endDateStr?: string,
+  ): Promise<string> {
+    const { startDate, endDate } = this.resolveDateRange(
+      granularity,
+      periods,
+      startDateStr,
+      endDateStr,
+    );
+
+    // Fetch ALL records for export (no pagination)
+    const qb = this.resolutionRepo
+      .createQueryBuilder("r")
+      .innerJoinAndSelect("r.session", "s")
+      .where("s.tenantId = :tenantId", { tenantId })
+      .andWhere("r.createdAt BETWEEN :start AND :end", {
+        start: startDate,
+        end: endDate,
+      })
+      .orderBy("r.createdAt", "DESC");
+    
+    // Cap at 10000 to prevent memory issues
+    qb.take(10000);
+
+    const rows = await qb.getMany();
+
+    const agentIds = [
+      ...new Set(rows.map((r) => r.resolvedByAgentId).filter(Boolean)),
+    ];
+    const users =
+      agentIds.length > 0
+        ? await this.userRepo.find({ where: { id: In(agentIds) } })
+        : [];
+    const nameMap = new Map(users.map((u) => [u.id, u.name ?? "Unknown"]));
+
+    const escapeCsv = (val: string | null | undefined) => {
+      if (val == null) return "";
+      const s = String(val).replace(/"/g, '""');
+      if (s.includes(",") || s.includes("\n") || s.includes('"')) {
+        return `"${s}"`;
+      }
+      return s;
+    };
+
+    // CSV Header
+    const header = [
+      "Date",
+      "Session ID",
+      "Contact ID",
+      "Contact Name",
+      "Agent Name",
+      "Agent ID",
+      "Outcome",
+      "Category",
+      "Notes",
+      "Form Data",
+    ].join(",");
+
+    const lines = rows.map((r) => {
+      const agentName = nameMap.get(r.resolvedByAgentId) ?? "Unknown";
+      const formDataStr = r.formData ? JSON.stringify(r.formData) : "";
+      
+      return [
+        escapeCsv(r.createdAt.toISOString()),
+        escapeCsv(r.sessionId),
+        escapeCsv(r.session?.contactId),
+        escapeCsv(r.session?.contactName),
+        escapeCsv(agentName),
+        escapeCsv(r.resolvedByAgentId),
+        escapeCsv(r.outcome),
+        escapeCsv(r.category),
+        escapeCsv(r.notes),
+        escapeCsv(formDataStr),
+      ].join(",");
+    });
+
+    return [header, ...lines].join("\n");
+  }
+
+  /**
    * Get transfer analytics overview.
    */
   async getTransferOverview(

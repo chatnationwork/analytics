@@ -12,12 +12,13 @@ import {
   getResolutionTrend,
   getResolutionByCategory,
   getResolutionSubmissions,
+  exportResolutionSubmissions,
   type Granularity,
   type ResolutionTrendDataPoint,
   type ResolutionCategoryItem,
   type ResolutionSubmissionItem,
 } from "@/lib/agent-inbox-analytics-api";
-import { CheckCircle, TrendingUp, FileText } from "lucide-react";
+import { CheckCircle, TrendingUp, FileText, Download } from "lucide-react";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -305,6 +306,34 @@ export default function WrapUpAnalyticsPage() {
     );
   }, [selected?.formData]);
 
+  const handleExport = async () => {
+    try {
+      const blob = await exportResolutionSubmissions(
+        granularity,
+        periods,
+        dateStart,
+        dateEnd,
+      );
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `resolutions-${dateStart}-${dateEnd}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Export downloaded successfully");
+    } catch (e) {
+      toast.error("Failed to export resolutions");
+    }
+  };
+
+  const formatKey = (key: string) => {
+    return key
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
   const loadChat = async (sessionId: string) => {
     setChatLoading(true);
     try {
@@ -426,6 +455,15 @@ export default function WrapUpAnalyticsPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                className="mr-2"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -609,7 +647,7 @@ export default function WrapUpAnalyticsPage() {
                               className="rounded-md border border-border bg-muted/20 p-2"
                             >
                               <div className="text-xs text-muted-foreground font-mono">
-                                {k}
+                                {formatKey(k)}
                               </div>
                               <div className="text-sm text-foreground break-words">
                                 {String(v)}

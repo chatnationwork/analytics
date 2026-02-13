@@ -263,6 +263,28 @@ export async function getResolutionSubmissions(
   );
 }
 
+export async function exportResolutionSubmissions(
+  granularity: Granularity = "day",
+  periods: number = 30,
+  startDate?: string,
+  endDate?: string,
+): Promise<Blob> {
+  const token = localStorage.getItem("auth_token");
+  const url = `${process.env.NEXT_PUBLIC_API_URL || "/api/dashboard"}/agent-inbox-analytics/resolutions/export?${buildParams(granularity, periods, startDate, endDate)}`;
+  
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to export resolutions");
+  }
+
+  return res.blob();
+}
+
 export async function getTransferOverview(
   granularity: Granularity = "day",
   periods: number = 30,
