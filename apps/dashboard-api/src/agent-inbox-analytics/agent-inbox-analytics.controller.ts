@@ -7,7 +7,8 @@
  * Provides resolution, transfer, agent performance, and team metrics.
  */
 
-import { Controller, Get, Query, Request, UseGuards, Header } from "@nestjs/common";
+import { Controller, Get, Query, Request, UseGuards, Res } from "@nestjs/common";
+import { FastifyReply } from "fastify";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { AgentInboxAnalyticsService } from "./agent-inbox-analytics.service";
 
@@ -127,24 +128,28 @@ export class AgentInboxAnalyticsController {
 
   /**
    * Export resolution submissions as CSV.
+   * Uses @Res() to bypass global ResponseInterceptor which wraps output in JSON.
    */
   @Get("resolutions/export")
-  @Header("Content-Type", "text/csv")
-  @Header("Content-Disposition", 'attachment; filename="resolutions.csv"')
   async exportResolutionSubmissions(
     @Request() req: { user: { tenantId: string } },
+    @Res() res: FastifyReply,
     @Query("granularity") granularity: Granularity = "day",
     @Query("periods") periods: string = "30",
     @Query("startDate") startDate?: string,
     @Query("endDate") endDate?: string,
   ) {
-    return this.analyticsService.exportResolutionSubmissions(
+    const csv = await this.analyticsService.exportResolutionSubmissions(
       req.user.tenantId,
       granularity,
       parseInt(periods, 10) || 30,
       startDate,
       endDate,
     );
+
+    res.header("Content-Type", "text/csv");
+    res.header("Content-Disposition", 'attachment; filename="resolutions.csv"');
+    res.send(csv);
   }
 
   /**
