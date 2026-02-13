@@ -11,8 +11,35 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api, type LiveEventRow } from "@/lib/api";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {Input} from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { RouteGuard } from "@/components/auth/RouteGuard";
-import { Activity, RefreshCw } from "lucide-react";
+import {
+  Activity,
+  RefreshCw,
+  Search,
+  MessageCircle,
+  Brain,
+  AlertTriangle,
+  Eye,
+  User,
+  MousePointer2,
+  FileText,
+  Terminal,
+} from "lucide-react";
 
 const SINCE_OPTIONS = [
   { value: "5", label: "Last 5 minutes" },
@@ -117,9 +144,22 @@ function EventRow({ event }: { event: LiveEventRow }) {
   );
 }
 
+function getEventIcon(name: string) {
+  if (name.startsWith("message.")) return <MessageCircle className="h-4 w-4 text-blue-500" />;
+  if (name.startsWith("ai.")) return <Brain className="h-4 w-4 text-purple-500" />;
+  if (name === "app_error") return <AlertTriangle className="h-4 w-4 text-red-500" />;
+  if (name === "page_view") return <Eye className="h-4 w-4 text-gray-500" />;
+  if (name === "identify") return <User className="h-4 w-4 text-green-500" />;
+  if (name === "button_click") return <MousePointer2 className="h-4 w-4 text-orange-500" />;
+  if (name === "form_submit") return <FileText className="h-4 w-4 text-indigo-500" />;
+  return <Activity className="h-4 w-4 text-muted-foreground" />;
+}
+
 export default function EventsPage() {
   const [sinceMinutes, setSinceMinutes] = useState(60);
   const [eventName, setEventName] = useState<string | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<LiveEventRow | null>(null);
   const limit = 200;
 
   const { data: tenant } = useQuery({
@@ -147,8 +187,20 @@ export default function EventsPage() {
   });
 
   const events: LiveEventRow[] = data?.events ?? [];
+  
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery) return events;
+    const q = searchQuery.toLowerCase();
+    return events.filter(e => 
+      e.sessionId.toLowerCase().includes(q) || 
+      e.eventName.toLowerCase().includes(q) ||
+      (e.pagePath && e.pagePath.toLowerCase().includes(q)) ||
+      (e.userId && e.userId.toLowerCase().includes(q))
+    );
+  }, [events, searchQuery]);
+
   const activeCount =
-    events.length > 0 ? new Set(events.map((e) => e.sessionId)).size : 0;
+    filteredEvents.length > 0 ? new Set(filteredEvents.map((e) => e.sessionId)).size : 0;
 
   return (
     <RouteGuard permission="analytics.view">
@@ -189,6 +241,18 @@ export default function EventsPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-3 items-center pt-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">Search</label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search session, user, path..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-[240px] pl-8"
+                  />
+                </div>
+              </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-muted-foreground">
                   Time window
@@ -240,44 +304,142 @@ export default function EventsPage() {
                 {error instanceof Error
                   ? error.message
                   : "Failed to load events"}
-                {error instanceof Error &&
-                  (error.message.toLowerCase().includes("fetch") ||
-                    error.message.toLowerCase().includes("network")) && (
-                    <p className="mt-2 text-muted-foreground">
-                      If the dashboard and API are on the same domain, leave{" "}
-                      <code className="text-foreground">
-                        NEXT_PUBLIC_API_URL
-                      </code>{" "}
-                      unset so requests use same origin. Otherwise ensure the
-                      API at{" "}
-                      {typeof window !== "undefined" &&
-                        (process.env.NEXT_PUBLIC_API_URL || "same origin")}{" "}
-                      is reachable and CORS allows your origin.
-                    </p>
-                  )}
               </div>
             )}
-            {isLoading && (
+            {!isLoading && !error && filteredEvents.length === 0 && (
               <div className="p-8 text-center text-muted-foreground text-sm">
-                Loading events…
+                No events found matching your criteria.
               </div>
             )}
-            {!isLoading && !error && events.length === 0 && (
-              <div className="p-8 text-center text-muted-foreground text-sm">
-                No events in the last {sinceMinutes} minute
-                {sinceMinutes !== 1 ? "s" : ""}. Try a longer time window or
-                ensure events are being sent.
-              </div>
-            )}
-            {!isLoading && !error && events.length > 0 && (
-              <div className="max-h-[60vh] overflow-y-auto rounded-b-lg">
-                {events.map((event) => (
-                  <EventRow key={event.eventId} event={event} />
-                ))}
+            {!isLoading && !error && filteredEvents.length > 0 && (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Event Name</TableHead>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Session / User</TableHead>
+                      <TableHead>Properties</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEvents.map((event) => {
+                       const propsStr =
+                        event.properties && Object.keys(event.properties).length > 0
+                          ? JSON.stringify(event.properties)
+                          : "";
+                      const propsShort =
+                        propsStr.length > 60 ? propsStr.slice(0, 60) + "…" : propsStr;
+
+                      return (
+                        <TableRow 
+                          key={event.eventId} 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setSelectedEvent(event)}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {getEventIcon(event.eventName)}
+                              <span>{getEventTypeLabel(event.eventName)}</span>
+                              {event.eventName === "app_error" && (
+                                <span className="rounded bg-destructive/10 text-destructive px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                                  Error
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span>{formatTime(event.timestamp)}</span>
+                              <span className="text-[10px]">
+                                {new Date(event.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5 max-w-[180px]">
+                              <span className="font-mono text-xs truncate" title={event.sessionId}>
+                                {event.sessionId}
+                              </span>
+                              {event.userId && (
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <User className="w-3 h-3" /> {event.userId}
+                                </span>
+                              )}
+                              {event.pagePath && (
+                                <span className="text-xs text-muted-foreground truncate" title={event.pagePath}>
+                                  {event.pagePath}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-xs max-w-[300px] truncate" title={propsStr}>
+                            {propsShort}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {selectedEvent && getEventIcon(selectedEvent.eventName)}
+                {selectedEvent ? getEventTypeLabel(selectedEvent.eventName) : "Event Details"}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedEvent && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <h4 className="font-semibold text-muted-foreground">Timestamp</h4>
+                    <p>{new Date(selectedEvent.timestamp).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-muted-foreground">Session ID</h4>
+                    <p className="font-mono text-xs">{selectedEvent.sessionId}</p>
+                  </div>
+                  {selectedEvent.userId && (
+                    <div>
+                      <h4 className="font-semibold text-muted-foreground">User ID</h4>
+                      <p>{selectedEvent.userId}</p>
+                    </div>
+                  )}
+                  {selectedEvent.pagePath && (
+                    <div>
+                      <h4 className="font-semibold text-muted-foreground">Page Path</h4>
+                      <p>{selectedEvent.pagePath}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-muted-foreground text-sm">Properties</h4>
+                  <div className="bg-muted p-4 rounded-md overflow-x-auto">
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                      {JSON.stringify(selectedEvent.properties, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-muted-foreground text-sm">Raw Event Data</h4>
+                   <div className="bg-muted p-4 rounded-md overflow-x-auto">
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+                      {JSON.stringify(selectedEvent, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </RouteGuard>
   );
