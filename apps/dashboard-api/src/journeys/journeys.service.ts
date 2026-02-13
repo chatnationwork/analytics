@@ -143,24 +143,59 @@ export class JourneysService {
     );
 
     // Calculate changes
-    const selfServeChange =
-      prevStats.selfServeSessions > 0
-        ? ((stats.selfServeSessions - prevStats.selfServeSessions) /
-            prevStats.selfServeSessions) *
-          100
-        : 0;
+    const calculateChange = (current: number, previous: number) => {
+      if (previous === 0) return 0;
+      return ((current - previous) / previous) * 100;
+    };
 
-    const assistedChange =
-      prevStats.assistedSessions > 0
-        ? ((stats.assistedSessions - prevStats.assistedSessions) /
-            prevStats.assistedSessions) *
-          100
+    const selfServeSessions = stats.completedSelfServe + stats.abandonedSessions; // Total non-assisted
+    const prevSelfServeSessions =
+      prevStats.completedSelfServe + prevStats.abandonedSessions;
+
+    // Rates
+    const selfServeRate =
+      stats.totalSessions > 0
+        ? (selfServeSessions / stats.totalSessions) * 100
+        : 0;
+    const assistedRate =
+      stats.totalSessions > 0
+        ? (stats.assistedSessions / stats.totalSessions) * 100
+        : 0;
+    const completionRate =
+      stats.totalSessions > 0
+        ? (stats.completedSelfServe / stats.totalSessions) * 100
+        : 0;
+    const abandonmentRate =
+      stats.totalSessions > 0
+        ? (stats.abandonedSessions / stats.totalSessions) * 100
         : 0;
 
     return {
-      ...stats,
-      selfServeChange,
-      assistedChange,
+      totalSessions: stats.totalSessions,
+      selfServeSessions,
+      assistedSessions: stats.assistedSessions,
+      completedSessions: stats.completedSelfServe,
+      abandonedSessions: stats.abandonedSessions,
+
+      selfServeRate,
+      assistedRate,
+      completionRate,
+      abandonmentRate,
+
+      selfServeChange: calculateChange(selfServeSessions, prevSelfServeSessions),
+      assistedChange: calculateChange(
+        stats.assistedSessions,
+        prevStats.assistedSessions,
+      ),
+      completionChange: calculateChange(
+        stats.completedSelfServe,
+        prevStats.completedSelfServe,
+      ),
+      abandonmentChange: calculateChange(
+        stats.abandonedSessions,
+        prevStats.abandonedSessions,
+      ),
+
       startDate,
       endDate,
       granularity,

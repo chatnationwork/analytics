@@ -121,24 +121,34 @@ function StatCard({
   );
 }
 
-// Donut Chart for Self-Serve vs Assisted
-function JourneyDonutChart({
-  selfServe,
+// Donut Chart for Journey Outcome Breakdown
+function JourneyOutcomeDonutChart({
   assisted,
+  completed,
+  abandoned,
   total,
 }: {
-  selfServe: number;
   assisted: number;
+  completed: number;
+  abandoned: number;
   total: number;
 }) {
-  const selfServePercent = total > 0 ? (selfServe / total) * 100 : 0;
   const assistedPercent = total > 0 ? (assisted / total) * 100 : 0;
+  const completedPercent = total > 0 ? (completed / total) * 100 : 0;
+  const abandonedPercent = total > 0 ? (abandoned / total) * 100 : 0;
 
   // SVG Donut calculations
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
-  const selfServeArc = (selfServePercent / 100) * circumference;
+  
   const assistedArc = (assistedPercent / 100) * circumference;
+  const completedArc = (completedPercent / 100) * circumference;
+  const abandonedArc = (abandonedPercent / 100) * circumference;
+
+  // Offsets (cumulative)
+  const assistedOffset = 0; // Starts at top
+  const completedOffset = -assistedArc; // Starts after assisted
+  const abandonedOffset = -(assistedArc + completedArc); // Starts after completed
 
   return (
     <div className="flex items-center gap-8">
@@ -153,20 +163,7 @@ function JourneyDonutChart({
             className="stroke-muted"
             strokeWidth="20"
           />
-          {/* Self-serve arc (green) */}
-          <circle
-            cx="80"
-            cy="80"
-            r={radius}
-            fill="none"
-            stroke="#10b981"
-            strokeWidth="20"
-            strokeDasharray={`${selfServeArc} ${circumference}`}
-            strokeDashoffset="0"
-            transform="rotate(-90 80 80)"
-            className="transition-all duration-500"
-          />
-          {/* Assisted arc (blue) */}
+          {/* Assisted arc (Blue) */}
           <circle
             cx="80"
             cy="80"
@@ -175,7 +172,33 @@ function JourneyDonutChart({
             stroke="#3b82f6"
             strokeWidth="20"
             strokeDasharray={`${assistedArc} ${circumference}`}
-            strokeDashoffset={-selfServeArc}
+            strokeDashoffset={assistedOffset}
+            transform="rotate(-90 80 80)"
+            className="transition-all duration-500"
+          />
+          {/* Completed arc (Green) */}
+          <circle
+            cx="80"
+            cy="80"
+            r={radius}
+            fill="none"
+            stroke="#10b981"
+            strokeWidth="20"
+            strokeDasharray={`${completedArc} ${circumference}`}
+            strokeDashoffset={completedOffset}
+            transform="rotate(-90 80 80)"
+            className="transition-all duration-500"
+          />
+          {/* Abandoned arc (Amber/Red) */}
+          <circle
+            cx="80"
+            cy="80"
+            r={radius}
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth="20"
+            strokeDasharray={`${abandonedArc} ${circumference}`}
+            strokeDashoffset={abandonedOffset}
             transform="rotate(-90 80 80)"
             className="transition-all duration-500"
           />
@@ -189,17 +212,6 @@ function JourneyDonutChart({
       </div>
       <div className="space-y-3">
         <div className="flex items-center gap-3">
-          <div className="h-4 w-4 rounded-full bg-emerald-500" />
-          <div>
-            <div className="text-sm font-medium text-foreground">
-              Self-Serve ({selfServePercent.toFixed(1)}%)
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {selfServe.toLocaleString()} sessions
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
           <div className="h-4 w-4 rounded-full bg-blue-500" />
           <div>
             <div className="text-sm font-medium text-foreground">
@@ -207,6 +219,28 @@ function JourneyDonutChart({
             </div>
             <div className="text-xs text-muted-foreground">
               {assisted.toLocaleString()} sessions
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-4 w-4 rounded-full bg-emerald-500" />
+          <div>
+            <div className="text-sm font-medium text-foreground">
+              Completed ({completedPercent.toFixed(1)}%)
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {completed.toLocaleString()} sessions
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-4 w-4 rounded-full bg-amber-500" />
+          <div>
+            <div className="text-sm font-medium text-foreground">
+              Abandoned ({abandonedPercent.toFixed(1)}%)
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {abandoned.toLocaleString()} sessions
             </div>
           </div>
         </div>
@@ -695,18 +729,6 @@ export default function JourneysPage() {
                 icon={<Users className="w-4 h-4" />}
               />
               <StatCard
-                label="Self-Serve Rate"
-                value={`${overview?.selfServeRate.toFixed(1) || "0"}%`}
-                subValue={`${overview?.selfServeSessions.toLocaleString() || "0"} sessions`}
-                change={overview?.selfServeChange}
-                positive={
-                  overview?.selfServeChange
-                    ? overview.selfServeChange >= 0
-                    : undefined
-                }
-                icon={<Bot className="w-4 h-4" />}
-              />
-              <StatCard
                 label="Assisted Rate"
                 value={`${overview?.assistedRate.toFixed(1) || "0"}%`}
                 subValue={`${overview?.assistedSessions.toLocaleString() || "0"} sessions`}
@@ -719,10 +741,28 @@ export default function JourneysPage() {
                 icon={<UserCheck className="w-4 h-4" />}
               />
               <StatCard
-                label="Avg Time to Handoff"
-                value={timeToHandoff?.medianFormatted || "-"}
-                subValue={`P95: ${timeToHandoff?.p95Formatted || "-"}`}
-                icon={<Clock className="w-4 h-4" />}
+                label="Completion Rate"
+                value={`${overview?.completionRate.toFixed(1) || "0"}%`}
+                subValue={`${overview?.completedSessions.toLocaleString() || "0"} sessions`}
+                change={overview?.completionChange}
+                positive={
+                  overview?.completionChange
+                    ? overview.completionChange >= 0
+                    : undefined
+                }
+                icon={<Bot className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Abandonment Rate"
+                value={`${overview?.abandonmentRate.toFixed(1) || "0"}%`}
+                subValue={`${overview?.abandonedSessions.toLocaleString() || "0"} sessions`}
+                change={overview?.abandonmentChange}
+                positive={
+                  overview?.abandonmentChange
+                    ? overview.abandonmentChange <= 0
+                    : undefined
+                }
+                icon={<TrendingDown className="w-4 h-4" />}
               />
             </div>
 
@@ -731,15 +771,16 @@ export default function JourneysPage() {
               {/* Donut Chart */}
               <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
                 <h2 className="text-base font-semibold text-foreground">
-                  Journey Breakdown
+                  Journey Outcome Breakdown
                 </h2>
                 <p className="text-sm text-muted-foreground mt-0.5 mb-4">
-                  Self-serve vs assisted sessions
+                  Assisted vs Completed vs Abandoned
                 </p>
                 <div className="flex justify-center">
-                  <JourneyDonutChart
-                    selfServe={overview?.selfServeSessions || 0}
+                  <JourneyOutcomeDonutChart
                     assisted={overview?.assistedSessions || 0}
+                    completed={overview?.completedSessions || 0}
+                    abandoned={overview?.abandonedSessions || 0}
                     total={overview?.totalSessions || 0}
                   />
                 </div>

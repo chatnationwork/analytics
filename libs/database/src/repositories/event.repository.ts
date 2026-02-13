@@ -1367,7 +1367,7 @@ export class EventRepository {
     startDate: Date,
     endDate: Date,
   ) {
-    // First, get all unique sessions in the period
+    // 1. Total Sessions
     const totalSessionsResult = await this.repo.query(
       `
       SELECT COUNT(DISTINCT "sessionId") as total_sessions
@@ -1379,7 +1379,7 @@ export class EventRepository {
       [tenantId, startDate, endDate],
     );
 
-    // Then, get sessions that had a handoff
+    // 2. Assisted Sessions (Any session with agent.handoff)
     const assistedSessionsResult = await this.repo.query(
       `
       SELECT COUNT(DISTINCT "sessionId") as assisted_sessions
@@ -1392,20 +1392,44 @@ export class EventRepository {
       [tenantId, startDate, endDate],
     );
 
+    // 3. Completed Self-Serve (journeyEnd=true OR bot.resolution, and NO agent.handoff)
+    // Note: checking NOT EXISTS for agent.handoff to ensure it was truly self-serve
+    const completedSelfServeResult = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT e."sessionId") as completed_sessions
+      FROM events e
+      WHERE e."tenantId" = $1
+        AND e.timestamp BETWEEN $2 AND $3
+        AND e."sessionId" IS NOT NULL
+        AND (e."eventName" = 'bot.resolution' OR (e.properties->>'journeyEnd')::text = 'true')
+        AND NOT EXISTS (
+          SELECT 1 FROM events h
+          WHERE h."tenantId" = e."tenantId"
+            AND h."sessionId" = e."sessionId"
+            AND h."eventName" = 'agent.handoff'
+            AND h.timestamp BETWEEN $2 AND $3
+        )
+      `,
+      [tenantId, startDate, endDate],
+    );
+
     const totalSessions =
       parseInt(totalSessionsResult[0]?.total_sessions, 10) || 0;
     const assistedSessions =
       parseInt(assistedSessionsResult[0]?.assisted_sessions, 10) || 0;
-    const selfServeSessions = totalSessions - assistedSessions;
+    const completedSelfServe =
+      parseInt(completedSelfServeResult[0]?.completed_sessions, 10) || 0;
+
+    // 4. Abandoned = Total - Assisted - Completed
+    // Ensure we don't go below zero if data is slighty out of sync (unlikely with same-transaction snapshot, but safe)
+    const nonAssisted = Math.max(0, totalSessions - assistedSessions);
+    const abandonedSessions = Math.max(0, nonAssisted - completedSelfServe);
 
     return {
       totalSessions,
-      selfServeSessions,
       assistedSessions,
-      selfServeRate:
-        totalSessions > 0 ? (selfServeSessions / totalSessions) * 100 : 0,
-      assistedRate:
-        totalSessions > 0 ? (assistedSessions / totalSessions) * 100 : 0,
+      completedSelfServe,
+      abandonedSessions,
     };
   }
 

@@ -14,10 +14,19 @@ export interface JourneyOverviewResponse {
   totalSessions: number;
   selfServeSessions: number;
   assistedSessions: number;
+  completedSessions: number;
+  abandonedSessions: number;
+
   selfServeRate: number;
   assistedRate: number;
+  completionRate: number;
+  abandonmentRate: number;
+
   selfServeChange: number;
   assistedChange: number;
+  completionChange: number;
+  abandonmentChange: number;
+
   startDate: string;
   endDate: string;
   granularity: string;

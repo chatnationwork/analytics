@@ -50,7 +50,7 @@ export class MessageEntity {
    * Contact ID (normalized phone number, digits only).
    * This is the primary relationship - messages belong to the contact.
    */
-  @Column({ length: 50 })
+  @Column({ length: 50, nullable: true })
   contactId: string;
 
   /**
