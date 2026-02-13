@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRightLeft, User, Users, AlertCircle } from "lucide-react";
+import { ArrowRightLeft, User, Users, AlertCircle, AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { agentApi } from "@/lib/api/agent";
 import { api } from "@/lib/api";
@@ -51,6 +52,7 @@ export function BulkTransferDialog({
   // Options
   const [amount, setAmount] = useState<number | "">("");
   const [reason, setReason] = useState("");
+  const [forceOverride, setForceOverride] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset when dialog opens/closes
@@ -60,6 +62,7 @@ export function BulkTransferDialog({
       setDestId("");
       setAmount("");
       setReason("");
+      setForceOverride(false);
       setIsSubmitting(false);
     }
   }, [open]);
@@ -103,12 +106,8 @@ export function BulkTransferDialog({
       if (sourceType === "agent") {
         return s.assignedAgentId === sourceId && s.status !== "resolved";
       } else {
-        // From Team: Unassigned in team queue
-        return (
-          s.assignedTeamId === sourceId &&
-          !s.assignedAgentId &&
-          s.status !== "resolved"
-        );
+        // From Team: all non-resolved chats in this team (assigned to agents or in queue)
+        return s.assignedTeamId === sourceId && s.status !== "resolved";
       }
     });
   }, [allSessions, sourceType, sourceId]);
@@ -127,7 +126,7 @@ export function BulkTransferDialog({
 
   // For Source Agent, we can also show only agents who actually HAVE chats?
   // Or just show all. Showing all is safer/less confusing.
-  
+
   const handleAmountChange = (val: string) => {
     if (val === "") {
       setAmount("");
@@ -174,6 +173,7 @@ export function BulkTransferDialog({
         options.targetAgentId = destId;
       } else {
         options.targetTeamId = destId;
+        if (forceOverride) options.forceOverride = true;
       }
 
       const { transferred, errors } = await agentApi.bulkTransferSessions(
@@ -293,7 +293,9 @@ export function BulkTransferDialog({
                 <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded flex items-center gap-2">
                   <AlertCircle className="h-3 w-3" />
                   <span>
-                    {isLoadingSessions ? "Checking..." : `${maxTransferable} chats available`}
+                    {isLoadingSessions
+                      ? "Checking..."
+                      : `${maxTransferable} chats available`}
                   </span>
                 </div>
               )}
@@ -330,9 +332,10 @@ export function BulkTransferDialog({
                   </SelectTrigger>
                   <SelectContent>
                     {processedAgentList
-                      .filter((a: any) => 
-                        // Prevent selecting same agent if source is agent
-                        !(sourceType === 'agent' && sourceId === a.id)
+                      .filter(
+                        (a: any) =>
+                          // Prevent selecting same agent if source is agent
+                          !(sourceType === "agent" && sourceId === a.id),
                       )
                       .map((agent: any) => (
                         <SelectItem key={agent.id} value={agent.id}>
@@ -348,9 +351,10 @@ export function BulkTransferDialog({
                   </SelectTrigger>
                   <SelectContent>
                     {teams
-                      .filter((t: any) => 
-                         // Prevent selecting same team if source is team
-                         !(sourceType === 'team' && sourceId === t.teamId)
+                      .filter(
+                        (t: any) =>
+                          // Prevent selecting same team if source is team
+                          !(sourceType === "team" && sourceId === t.teamId),
                       )
                       .map((team: any) => (
                         <SelectItem key={team.teamId} value={team.teamId}>
@@ -395,7 +399,8 @@ export function BulkTransferDialog({
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Reason {reasonRequired && <span className="text-destructive">*</span>}
+                Reason{" "}
+                {reasonRequired && <span className="text-destructive">*</span>}
               </label>
               <textarea
                 value={reason}
@@ -404,6 +409,33 @@ export function BulkTransferDialog({
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
+
+            {/* Override toggle -- only shown when destination is a team */}
+            {destType === "team" && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={forceOverride}
+                    onCheckedChange={(checked) =>
+                      setForceOverride(checked === true)
+                    }
+                  />
+                  <span className="text-sm font-medium">
+                    Override scheduling and availability rules
+                  </span>
+                </label>
+                {forceOverride && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-400" />
+                    <span>
+                      Chats will be assigned even if agents are offline or
+                      outside shift hours. This action is recorded in audit
+                      logs.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -122,6 +122,8 @@ interface BulkTransferDto {
   /** Multi-target: distribute chats across multiple teams. */
   teamAssignments?: Array<{ teamId: string; count: number }>;
   reason?: string;
+  /** When true, bypass schedule and agent availability checks for team assignment. */
+  forceOverride?: boolean;
 }
 
 /** DTO for presence (go online/offline). reason = display label (e.g. available, busy, off_shift). */
@@ -740,6 +742,7 @@ export class AgentInboxController {
         await this.assignmentService.assignQueuedSessionsToTeams(
           req.user.tenantId,
           teamIds,
+          dto.forceOverride,
         );
       }
 
@@ -757,6 +760,7 @@ export class AgentInboxController {
             ...(entry.toAgentId && { toAgentId: entry.toAgentId }),
             ...(entry.toTeamId && { toTeamId: entry.toTeamId }),
             reason: dto.reason,
+            ...(dto.forceOverride && { overrideRules: true }),
           },
           requestContext: getRequestContext(expressReq),
         });
@@ -787,6 +791,7 @@ export class AgentInboxController {
       await this.assignmentService.assignQueuedSessionsToTeams(
         req.user.tenantId,
         [dto.targetTeamId!],
+        dto.forceOverride,
       );
     }
 
@@ -803,6 +808,7 @@ export class AgentInboxController {
           ...(hasAgent && { toAgentId: dto.targetAgentId }),
           ...(hasTeam && { toTeamId: dto.targetTeamId }),
           reason: dto.reason,
+          ...(dto.forceOverride && { overrideRules: true }),
         },
         requestContext: getRequestContext(expressReq),
       });

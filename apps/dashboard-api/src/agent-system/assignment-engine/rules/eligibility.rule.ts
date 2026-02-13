@@ -22,6 +22,7 @@ export async function eligibilityRule(
   const agentIds = await getAgents(
     session.tenantId,
     session.assignedTeamId ?? undefined,
+    request.forceOverride ?? false,
   );
 
   if (agentIds.length === 0) {

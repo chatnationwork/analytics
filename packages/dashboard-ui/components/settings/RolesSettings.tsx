@@ -136,13 +136,13 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     }
     setIsSavingName(true);
     try {
-      await roleApi.updateRole(editingRole.id, { name: renameValue }, tenantId);
+      const updatedRole = await roleApi.updateRole(editingRole.id, { name: renameValue }, tenantId);
       toast.success("Role renamed");
       
       // Update local state to reflect change instantly in UI without full reload if needed
       // But query invalidation handles the list. We need to update the form value though.
       setValue("name", renameValue);
-      setEditingRole({ ...editingRole, name: renameValue });
+      setEditingRole(updatedRole); // Update ID in case a new role was created (system override)
       
       queryClient.invalidateQueries({ queryKey: ["roles"] });
       setIsRenaming(false);

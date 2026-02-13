@@ -411,6 +411,7 @@ export const agentApi = {
       agentAssignments?: Array<{ agentId: string; count: number }>;
       teamAssignments?: Array<{ teamId: string; count: number }>;
       reason?: string;
+      forceOverride?: boolean;
     },
   ): Promise<{
     transferred: number;
@@ -422,6 +423,7 @@ export const agentApi = {
       agentAssignments,
       teamAssignments,
       reason,
+      forceOverride,
     } = options;
 
     // Multi-target path
@@ -436,6 +438,7 @@ export const agentApi = {
           ...(agentAssignments ? { agentAssignments } : {}),
           ...(teamAssignments ? { teamAssignments } : {}),
           reason,
+          ...(forceOverride ? { forceOverride: true } : {}),
         }),
       });
     }
@@ -454,6 +457,7 @@ export const agentApi = {
         ...(targetAgentId ? { targetAgentId } : {}),
         ...(targetTeamId ? { targetTeamId } : {}),
         reason,
+        ...(forceOverride ? { forceOverride: true } : {}),
       }),
     });
   },

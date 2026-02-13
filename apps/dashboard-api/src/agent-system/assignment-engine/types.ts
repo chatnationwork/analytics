@@ -14,6 +14,8 @@ export interface AssignmentRequest {
   session: InboxSessionEntity;
   /** Source of the request; can drive conditional behaviour (e.g. no-agent fallback in queue). */
   source: AssignmentSource;
+  /** When true, bypass schedule and availability checks (bulk transfer override). */
+  forceOverride?: boolean;
 }
 
 /** Mutable context for the pipeline (strategy, config, agents, selected agent). */
@@ -66,7 +68,7 @@ export interface AssignmentEngineDeps {
     teamId?: string,
   ) => Promise<StrategyWithType>;
   /** Get eligible agent IDs (online, under maxLoad); used by EligibilityRule. */
-  getAvailableAgents?: (tenantId: string, teamId?: string) => Promise<string[]>;
+  getAvailableAgents?: (tenantId: string, teamId?: string, includeOffline?: boolean) => Promise<string[]>;
   /** Pick one agent by strategy; used by SelectorRule. Returns null if none. */
   pickAgentForSession?: (
     session: InboxSessionEntity,

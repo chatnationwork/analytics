@@ -30,6 +30,10 @@ export async function scheduleRule(
   deps: AssignmentEngineDeps,
 ): Promise<RuleResult> {
   const { session } = request;
+
+  // Force override: skip schedule check entirely
+  if (request.forceOverride) return { outcome: "continue" };
+
   const teamId = session.assignedTeamId;
   if (!teamId) return { outcome: "continue" };
 

@@ -184,14 +184,14 @@ export default function Setup2FaPage() {
             </div>
           </div>
 
-          <button
+          <Button
             type="button"
             onClick={handleSendCode}
             disabled={isLoading || phone.replace(/\D/g, "").length < 10}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+            className="w-full"
           >
             {isLoading ? "Sending code..." : "Send verification code"}
-          </button>
+          </Button>
         </div>
       </div>
     );

@@ -193,7 +193,7 @@ export class RoleController {
 
       // Create override
       const newRole = this.roleRepo.create({
-        name: role.name, // Keep name to maintain "override" status
+        name: body.name ?? role.name, // Allow rename from system default
         description: body.description || role.description,
         permissions: body.permissions || role.permissions,
         tenantId,

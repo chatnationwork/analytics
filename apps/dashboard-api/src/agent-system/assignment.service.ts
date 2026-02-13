@@ -91,8 +91,8 @@ export class AssignmentService {
         this.checkScheduleAvailability(teamId),
       getStrategyWithType: (tenantId, teamId) =>
         this.getStrategyWithType(tenantId, teamId),
-      getAvailableAgents: (tenantId, teamId) =>
-        this.getAvailableAgents(tenantId, teamId),
+      getAvailableAgents: (tenantId, teamId, includeOffline) =>
+        this.getAvailableAgents(tenantId, teamId, includeOffline),
       pickAgentForSession: (session, strategy, config, agentIds) =>
         this.pickAgentForSession(session, strategy, config, agentIds),
       runNoAgentFallback: (session) => this.runNoAgentFallback(session),
@@ -381,13 +381,14 @@ export class AssignmentService {
    * Gets available agents for assignment (online and under max load).
    * - When teamId is provided: use that team's members and its routingConfig.maxLoad.
    * - When no teamId: use default team with members, else first team with members.
-   * - Only returns agents who are online (agent_profiles.status = ONLINE).
+   * - Only returns agents who are online (agent_profiles.status = ONLINE) unless includeOffline is true.
    * - If team has routingConfig.maxLoad set, excludes agents with current assigned chat count >= maxLoad.
    * Public for use by assignment engine rules.
    */
   async getAvailableAgents(
     tenantId: string,
     teamId?: string,
+    includeOffline?: boolean,
   ): Promise<string[]> {
     let ids: string[] = [];
     let effectiveTeam: TeamEntity | null = null;
@@ -456,11 +457,21 @@ export class AssignmentService {
       return [];
     }
 
-    let onlineIds = await this.filterToOnlineAgents(ids);
-    if (onlineIds.length < ids.length) {
+    let eligibleIds: string[];
+
+    if (includeOffline) {
+      // Force override: include all team members regardless of online status
       this.logger.log(
-        `${onlineIds.length} of ${ids.length} team members are online and eligible for assignment`,
+        `Force override: including all ${ids.length} team member(s) regardless of online status`,
       );
+      eligibleIds = ids;
+    } else {
+      eligibleIds = await this.filterToOnlineAgents(ids);
+      if (eligibleIds.length < ids.length) {
+        this.logger.log(
+          `${eligibleIds.length} of ${ids.length} team members are online and eligible for assignment`,
+        );
+      }
     }
 
     const maxLoad =
@@ -469,25 +480,25 @@ export class AssignmentService {
       effectiveTeam.routingConfig.maxLoad > 0
         ? effectiveTeam.routingConfig.maxLoad
         : undefined;
-    if (maxLoad != null && onlineIds.length > 0) {
-      const metrics = await this.getAgentMetrics(onlineIds);
-      const underLoad = onlineIds.filter(
+    if (maxLoad != null && eligibleIds.length > 0) {
+      const metrics = await this.getAgentMetrics(eligibleIds);
+      const underLoad = eligibleIds.filter(
         (id) => (metrics.get(id)?.activeCount ?? 0) < maxLoad,
       );
-      if (underLoad.length < onlineIds.length) {
+      if (underLoad.length < eligibleIds.length) {
         this.logger.log(
-          `${underLoad.length} of ${onlineIds.length} online agents are under max load (${maxLoad})`,
+          `${underLoad.length} of ${eligibleIds.length} eligible agents are under max load (${maxLoad})`,
         );
       }
-      onlineIds = underLoad;
+      eligibleIds = underLoad;
     }
 
-    if (onlineIds.length === 0) {
+    if (eligibleIds.length === 0) {
       this.logger.warn(
-        "No online agents in team; session left unassigned. Agents must be online (and under max load if set) to receive assignments.",
+        "No eligible agents in team; session left unassigned. Agents must be online (and under max load if set) to receive assignments.",
       );
     }
-    return onlineIds;
+    return eligibleIds;
   }
 
   /**
@@ -1036,10 +1047,12 @@ export class AssignmentService {
   /**
    * Assign queued sessions to one or more teams; engine picks the agent within each team.
    * Sessions are distributed round-robin across the given teamIds.
+   * When forceOverride is true, schedule and availability checks are bypassed.
    */
   async assignQueuedSessionsToTeams(
     tenantId: string,
     teamIds: string[],
+    forceOverride?: boolean,
   ): Promise<{ assigned: number }> {
     if (teamIds.length === 0) return { assigned: 0 };
     const limit = 50;
@@ -1058,6 +1071,7 @@ export class AssignmentService {
       const result = await this.engine.run({
         session,
         source: "queue",
+        forceOverride,
       });
       if (result.outcome === "assign") {
         session.assignedAgentId = result.agentId;

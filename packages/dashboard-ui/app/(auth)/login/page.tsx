@@ -254,13 +254,13 @@ function LoginForm() {
             </div>
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+            className="w-full"
           >
             {isLoading ? "Verifying..." : "Verify"}
-          </button>
+          </Button>
 
           <button
             type="button"
@@ -362,13 +362,13 @@ function LoginForm() {
             </div>
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary)] disabled:opacity-50 transition-colors"
+            className="w-full"
           >
             {isLoading ? "Verifying..." : "Verify"}
-          </button>
+          </Button>
 
           <div className="flex flex-col items-center gap-2">
             <button
