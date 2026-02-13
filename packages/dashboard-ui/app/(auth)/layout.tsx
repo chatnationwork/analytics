@@ -23,8 +23,8 @@ export default function AuthLayout({
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--primary-dark)] to-transparent opacity-90" />
         <div className="absolute inset-0 flex items-center justify-center p-20 text-white">
           <div>
-            <h2 className="text-4xl font-bold mb-6">Insightful Analytics for Modern Apps</h2>
-            <p className="text-lg text-gray-200">Track user journeys, monitor conversions, and integrate with your CRM seamlessly.</p>
+            <h2 className="text-4xl font-bold mb-6">Insightful Analytics for Shuru Connect</h2>
+            <p className="text-lg text-gray-200">Track user journeys, monitor conversions seamlessly.</p>
           </div>
         </div>
       </div>

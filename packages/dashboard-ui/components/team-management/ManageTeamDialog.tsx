@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { agentApi, TeamMember, Team, WrapUpField } from "@/lib/api/agent";
+import { agentApi, TeamMember, Team, WrapUpField, uploadMedia } from "@/lib/api/agent";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -27,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -722,17 +723,10 @@ export function ManageTeamDialog({
                             const file = e.target.files?.[0];
                             if (!file) return;
                             try {
-                              const formData = new FormData();
-                              formData.append("file", file);
-                              const res = await fetch("/api/dashboard/media/upload", {
-                                method: "POST",
-                                body: formData,
-                              });
-                              if (!res.ok) throw new Error("Upload failed");
-                              const data = await res.json();
+                              const { url } = await uploadMedia(file);
                               setScheduleConfig((prev) => ({
                                 ...prev,
-                                outOfOfficeImage: data.url,
+                                outOfOfficeImage: url,
                               }));
                             } catch (error) {
                               toast.error("Failed to upload image");
@@ -1051,162 +1045,7 @@ export function ManageTeamDialog({
                 </div>
               )}
             </div>
-              <div className="flex items-center space-x-2">
-              <Checkbox
-                id="schedule-enabled"
-                checked={scheduleConfig.enabled}
-                onCheckedChange={(checked: boolean | string) =>
-                  setScheduleConfig((prev) => ({ ...prev, enabled: !!checked }))
-                }
-              />
-              <label
-                htmlFor="schedule-enabled"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Enable Working Hours & OOO Auto-Reply
-              </label>
-            </div>
 
-            <div
-              className={`space-y-4 ${!scheduleConfig.enabled ? "opacity-50 pointer-events-none" : ""}`}
-            >
-             
-              <div className="grid gap-2">
-                <Label htmlFor="timezone">Timezone</Label>
-                <Select
-                  value={scheduleConfig.timezone}
-                  onValueChange={(val) =>
-                    setScheduleConfig((prev) => ({ ...prev, timezone: val }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Timezone" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px]">
-                    {SUPPORTED_TIMEZONES.map((tz) => (
-                      <SelectItem key={tz} value={tz}>
-                        {tz.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="ooo">Out of Office Message</Label>
-                <Input
-                  id="ooo"
-                  value={scheduleConfig.outOfOfficeMessage}
-                  onChange={(e) =>
-                    setScheduleConfig((prev) => ({
-                      ...prev,
-                      outOfOfficeMessage: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="border rounded-md p-4 space-y-4">
-                <Label className="mb-2 block">Weekly Schedule</Label>
-                {DAYS.map((day) => (
-                  <div
-                    key={day}
-                    className="flex flex-col gap-2 pb-2 border-b last:border-0"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-24 capitalize text-sm font-medium shrink-0">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`day-${day}`}
-                            checked={scheduleConfig.days[day]?.enabled}
-                            onCheckedChange={(checked: boolean | string) => {
-                              setScheduleConfig((prev) => ({
-                                ...prev,
-                                days: {
-                                  ...prev.days,
-                                  [day]: {
-                                    ...prev.days[day],
-                                    enabled: !!checked,
-                                  },
-                                },
-                              }));
-                            }}
-                          />
-                          <label htmlFor={`day-${day}`}>{day}</label>
-                        </div>
-                      </div>
-
-                      {/* Shifts */}
-                      {scheduleConfig.days[day]?.enabled && (
-                        <div className="flex-1 space-y-2">
-                          {scheduleConfig.days[day].shifts.map((shift, idx) => (
-                            <div key={idx} className="flex items-center gap-2">
-                              <Input
-                                type="time"
-                                className="w-28 h-8 text-xs"
-                                value={shift.start}
-                                onChange={(e) =>
-                                  updateShift(day, idx, "start", e.target.value)
-                                }
-                              />
-                              <span className="text-xs text-muted-foreground">
-                                -
-                              </span>
-                              <Input
-                                type="time"
-                                className="w-28 h-8 text-xs"
-                                value={shift.end}
-                                onChange={(e) =>
-                                  updateShift(day, idx, "end", e.target.value)
-                                }
-                              />
-                              {scheduleConfig.days[day].shifts.length > 1 && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-red-500"
-                                  onClick={() => removeShift(day, idx)}
-                                >
-                                  <X size={14} />
-                                </Button>
-                              )}
-                              {idx ===
-                                scheduleConfig.days[day].shifts.length - 1 && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-green-500"
-                                  onClick={() => addShift(day)}
-                                  title="Add Shift"
-                                >
-                                  <Plus size={14} />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                          {scheduleConfig.days[day].shifts.length === 0 && (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              onClick={() => addShift(day)}
-                              className="h-6 p-0 text-xs"
-                            >
-                              + Add Hours
-                            </Button>
-                          )}
-                        </div>
-                      )}
-
-                      {!scheduleConfig.days[day]?.enabled && (
-                        <span className="text-xs text-muted-foreground italic">
-                          Closed
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
 
             <Button
               onClick={handleSaveSchedule}
