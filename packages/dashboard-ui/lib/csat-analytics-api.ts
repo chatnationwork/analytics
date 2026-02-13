@@ -81,3 +81,27 @@ export async function getCsatByJourney(
     `/csat-analytics/by-journey?${buildParams(granularity, periods, startDate, endDate)}`,
   );
 }
+
+export interface CsatTrendItem {
+  period: string;
+  averageScore: number;
+  responseCount: number;
+}
+
+export interface CsatTrendResponse {
+  data: CsatTrendItem[];
+  startDate: string;
+  endDate: string;
+  granularity: string;
+}
+
+export async function getCsatTrend(
+  granularity: CsatGranularity = "day",
+  periods: number = 30,
+  startDate?: string,
+  endDate?: string,
+): Promise<CsatTrendResponse> {
+  return fetchWithAuth<CsatTrendResponse>(
+    `/csat-analytics/trend?${buildParams(granularity, periods, startDate, endDate)}`,
+  );
+}

@@ -47,4 +47,21 @@ export class CsatAnalyticsController {
       endDate ? new Date(endDate) : undefined,
     );
   }
+
+  @Get("trend")
+  async getTrend(
+    @Request() req: { user: { tenantId: string } },
+    @Query("granularity") granularity: Granularity = "day",
+    @Query("periods") periods: string = "30",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.csatAnalyticsService.getCsatTrend(
+      req.user.tenantId,
+      granularity,
+      parseInt(periods, 10) || 30,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+    );
+  }
 }

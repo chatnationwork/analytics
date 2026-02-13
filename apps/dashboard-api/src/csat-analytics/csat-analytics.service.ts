@@ -118,4 +118,35 @@ export class CsatAnalyticsService {
       granularity,
     };
   }
+
+  /**
+   * CSAT trend over time.
+   */
+  async getCsatTrend(
+    tenantId: string,
+    granularity: Granularity = "day",
+    periods: number = 30,
+    rangeStart?: Date,
+    rangeEnd?: Date,
+  ) {
+    const rawEnd = rangeEnd ?? new Date();
+    const endDate = new Date(rawEnd);
+    endDate.setUTCHours(23, 59, 59, 999);
+    const startDate =
+      rangeStart ?? this.calculateStartDate(granularity, periods);
+
+    const trend = await this.eventRepository.getCsatTrend(
+      tenantId,
+      startDate,
+      endDate,
+      granularity,
+    );
+
+    return {
+      data: trend,
+      startDate,
+      endDate,
+      granularity,
+    };
+  }
 }

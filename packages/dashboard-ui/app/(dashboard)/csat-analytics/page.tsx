@@ -12,9 +12,22 @@ import { RouteGuard } from "@/components/auth/RouteGuard";
 import {
   getCsatDashboard,
   getCsatByJourney,
+  getCsatTrend,
   type CsatGranularity,
   type CsatByJourneyItem,
 } from "@/lib/csat-analytics-api";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  ComposedChart
+} from "recharts";
 
 function getJourneyLabel(journey: string): string {
   if (journey === "Unknown" || !journey) return "Other";
@@ -114,6 +127,11 @@ export default function CsatAnalyticsPage() {
     queryFn: () => getCsatByJourney(granularity, periods, dateStart, dateEnd),
   });
 
+  const { data: trendData } = useQuery({
+    queryKey: ["csat-trend", granularity, periods, dateStart, dateEnd],
+    queryFn: () => getCsatTrend(granularity, periods, dateStart, dateEnd),
+  });
+
   const summary = data?.summary;
   const recentFeedback = data?.recentFeedback ?? [];
   const distribution = summary?.distribution ?? [];
@@ -211,6 +229,24 @@ export default function CsatAnalyticsPage() {
                 icon={<MessageSquare className="w-4 h-4 text-primary" />}
               />
               <StatCard
+                label="Total responses"
+                value={summary?.totalResponses?.toLocaleString() ?? "0"}
+                sub="Surveys completed"
+                icon={
+                  <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                }
+              />
+              <StatCard
+                label="Response Rate"
+                value={
+                   summary?.totalSent && summary.totalSent > 0
+                    ? `${((summary.totalResponses / summary.totalSent) * 100).toFixed(1)}%`
+                    : "0%"
+                }
+                sub="Completion rate"
+                icon={<TrendingUp className="w-4 h-4 text-green-500" />}
+              />
+              <StatCard
                 label="Average CSAT"
                 value={
                   summary?.totalResponses
@@ -221,14 +257,6 @@ export default function CsatAnalyticsPage() {
                 icon={<Star className="w-4 h-4 text-amber-500" />}
               />
               <StatCard
-                label="Total responses"
-                value={summary?.totalResponses?.toLocaleString() ?? "0"}
-                sub="Surveys completed"
-                icon={
-                  <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                }
-              />
-              <StatCard
                 label="5-Star %"
                 value={
                   summary?.totalResponses ? `${summary.fiveStarPercent}%` : "—"
@@ -236,16 +264,63 @@ export default function CsatAnalyticsPage() {
                 sub="Top rating"
                 icon={<ThumbsUp className="w-4 h-4 text-muted-foreground" />}
               />
-              <StatCard
-                label="Trend"
-                value={
-                  summary?.percentChange != null
-                    ? `${summary.percentChange >= 0 ? "+" : ""}${summary.percentChange.toFixed(1)}%`
-                    : "—"
-                }
-                sub="vs previous period"
-                icon={<TrendingUp className="w-4 h-4 text-muted-foreground" />}
-              />
+            </div>
+
+            {/* CSAT Trend Chart */}
+            <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+              <h3 className="font-medium text-foreground mb-6">
+                CSAT Trend
+              </h3>
+              {trendData?.data?.length === 0 ? (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+                  No trend data available for this period
+                </div>
+              ) : (
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={trendData?.data}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis 
+                        dataKey="period" 
+                        fontSize={12} 
+                        tickLine={false} 
+                        axisLine={false}
+                        tickFormatter={(v) => v.slice(5)} // Show MM-DD
+                      />
+                      <YAxis 
+                        yAxisId="left"
+                        domain={[0, 5]} 
+                        fontSize={12} 
+                        tickLine={false} 
+                        axisLine={false}
+                        label={{ value: 'Score', angle: -90, position: 'insideLeft' }}
+                      />
+                      <YAxis 
+                        yAxisId="right"
+                        orientation="right"
+                        fontSize={12} 
+                        tickLine={false} 
+                        axisLine={false}
+                        label={{ value: 'Responses', angle: 90, position: 'insideRight' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                      />
+                      <Bar yAxisId="right" dataKey="responseCount" fill="hsl(var(--primary) / 0.2)" radius={[4, 4, 0, 0]} name="Responses" />
+                      <Line 
+                        yAxisId="left"
+                        type="monotone" 
+                        dataKey="averageScore" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        dot={{ r: 4, fill: "hsl(var(--primary))" }}
+                        name="Avg Score"
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">

@@ -2079,6 +2079,49 @@ export class EventRepository {
       .sort((a, b) => b.totalResponses - a.totalResponses);
   }
 
+  /**
+   * CSAT trend over time (daily/weekly/monthly).
+   * Returns average score and response count per period.
+   */
+  async getCsatTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month",
+  ): Promise<
+    Array<{ period: string; averageScore: number; responseCount: number }>
+  > {
+    const periodFormat =
+      granularity === "day"
+        ? "YYYY-MM-DD"
+        : granularity === "week"
+        ? "IYYY-IW"
+        : "YYYY-MM";
+
+    const result = await this.repo.query(
+      `
+      SELECT 
+        TO_CHAR(timestamp, $4) as period,
+        COUNT(*)::int as count,
+        AVG((properties->>'rating')::numeric) as avg_score
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'csat_submitted'
+        AND timestamp BETWEEN $2 AND $3
+        AND (properties->>'rating')::text ~ '^[1-5]$'
+      GROUP BY period
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, periodFormat],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      averageScore: parseFloat(r.avg_score) || 0,
+      responseCount: parseInt(r.count, 10) || 0,
+    }));
+  }
+
   // ===========================================================================
   // AI ANALYTICS TRENDS
   // ===========================================================================
