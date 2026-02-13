@@ -76,6 +76,11 @@ const navGroups = [
     title: "Settings",
     items: [
       {
+        href: "/settings/profile",
+        label: "Profile",
+        icon: UserCircle,
+      },
+      {
         href: "/settings/api-keys",
         label: "API Keys",
         icon: Key,
@@ -90,7 +95,7 @@ const navGroups = [
       {
         href: "/settings/people",
         label: "Users",
-        icon: UserCircle,
+        icon: Users,
         permission: "teams.manage",
       },
       {

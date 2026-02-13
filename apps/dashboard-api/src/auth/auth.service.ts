@@ -630,6 +630,20 @@ export class AuthService {
   }
 
   /**
+   * Update user profile (name).
+   */
+  async updateProfile(userId: string, dto: { name?: string }): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    if (dto.name !== undefined) {
+      await this.userRepository.update(userId, { name: dto.name });
+    }
+  }
+
+  /**
    * Send a verification code to a phone number during 2FA setup (post-signup).
    * Creates a TwoFaVerification row and sends the code via WhatsApp.
    * Reuses existing OTP infrastructure (TwoFaVerificationEntity + WhatsappService).

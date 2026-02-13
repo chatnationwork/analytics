@@ -72,6 +72,23 @@ export const authClient = {
     return data.data;
   },
 
+  async updateProfile(data: { name: string }): Promise<User> {
+    const res = await fetch(`${API_URL}/api/dashboard/auth/me`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.message || "Failed to update profile");
+    }
+    const responseData = await res.json();
+    return responseData.data ?? responseData;
+  },
+
   // Helper to remove any stale local state if needed
   async logout() {
     await logoutAction();

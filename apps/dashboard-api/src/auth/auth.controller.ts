@@ -35,6 +35,7 @@ import {
   VerifySessionTakeoverDto,
   SendSetupCodeDto,
   VerifySetupCodeDto,
+  UpdateProfileDto,
 } from "./dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { ChangePasswordTokenGuard } from "./change-password-token.guard";
@@ -145,6 +146,23 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   getMe(@CurrentUser() user: AuthUser): AuthUser {
     return user;
+  }
+
+  /**
+   * Update current user profile.
+   */
+  @Patch("me")
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateProfileDto,
+  ): Promise<AuthUser> {
+    await this.authService.updateProfile(user.id, dto);
+    return {
+      ...user,
+      name: dto.name ?? user.name,
+    };
   }
 
   /**

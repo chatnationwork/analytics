@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
 import { roleApi, Role } from "@/lib/api/agent";
-import { Trash2, Plus, Edit2, Shield, Loader2 } from "lucide-react";
+import { Trash2, Plus, Edit2, Shield, Loader2, Pencil, Check, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -111,8 +111,16 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     }
   };
 
+  // Rename state
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  // Sync renameValue when editing starts
   const handleEdit = (role: Role) => {
     setEditingRole(role);
+    setRenameValue(role.name);
+    setIsRenaming(false);
     reset({
       name: role.name,
       description: role.description || "",
@@ -121,9 +129,34 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     setIsDialogOpen(true);
   };
 
+  const handleSaveName = async () => {
+    if (!editingRole || !renameValue.trim() || renameValue === editingRole.name) {
+      setIsRenaming(false);
+      return;
+    }
+    setIsSavingName(true);
+    try {
+      await roleApi.updateRole(editingRole.id, { name: renameValue });
+      toast.success("Role renamed");
+      
+      // Update local state to reflect change instantly in UI without full reload if needed
+      // But query invalidation handles the list. We need to update the form value though.
+      setValue("name", renameValue);
+      setEditingRole({ ...editingRole, name: renameValue });
+      
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      setIsRenaming(false);
+    } catch (error) {
+      toast.error("Failed to rename role");
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
   const handleClose = () => {
     setIsDialogOpen(false);
     setEditingRole(null);
+    setIsRenaming(false);
     reset({
       name: "",
       description: "",
@@ -289,8 +322,60 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
       <Dialog open={isDialogOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingRole ? "Edit Role" : "Create Role"}
+            <DialogTitle className="flex items-center gap-2 h-9">
+              {editingRole ? (
+                isRenaming ? (
+                  <div className="flex items-center gap-1 w-full max-w-sm">
+                    <input
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      className="flex h-8 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName();
+                        if (e.key === "Escape") setIsRenaming(false);
+                      }}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                      onClick={handleSaveName}
+                      disabled={isSavingName}
+                    >
+                      {isSavingName ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => setIsRenaming(false)}
+                      disabled={isSavingName}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    Edit Role: {editingRole.name}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground ml-2"
+                      onClick={() => setIsRenaming(true)}
+                      title="Rename role"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )
+              ) : (
+                "Create Role"
+              )}
             </DialogTitle>
             <DialogDescription>
               define the role details and assign permissions.
@@ -298,24 +383,19 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
           </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Role Name</label>
-              <input
-                {...register("name")}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md"
-                placeholder="e.g. Content Moderator"
-                disabled={!!editingRole && editingRole.isSystem}
-              />
-              {editingRole?.isSystem && (
-                <p className="text-xs text-blue-500 mt-1">
-                  Editing a system role will create a custom override for your
-                  organization.
-                </p>
-              )}
-              {errors.name && (
-                <p className="text-red-500 text-xs">{errors.name.message}</p>
-              )}
-            </div>
+            {!editingRole && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Role Name</label>
+                <input
+                  {...register("name")}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md"
+                  placeholder="e.g. Content Moderator"
+                />
+                {errors.name && (
+                  <p className="text-red-500 text-xs">{errors.name.message}</p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Description</label>

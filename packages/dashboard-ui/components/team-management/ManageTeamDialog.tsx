@@ -21,6 +21,8 @@ import {
   Calendar,
   Plus,
   X,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -118,6 +120,36 @@ export function ManageTeamDialog({
   const [savingWrapUp, setSavingWrapUp] = useState(false);
 
   const newFieldId = () => crypto.randomUUID();
+
+  // Rename state
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [editingName, setEditingName] = useState(teamName);
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setEditingName(teamName);
+      setIsRenaming(false);
+    }
+  }, [open, teamName]);
+
+  const handleSaveName = async () => {
+    if (!editingName.trim() || editingName === teamName) {
+      setIsRenaming(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      await agentApi.updateTeam(teamId, { name: editingName });
+      toast.success("Team renamed");
+      onSuccess();
+      setIsRenaming(false);
+    } catch (error) {
+      toast.error("Failed to rename team");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -432,7 +464,57 @@ export function ManageTeamDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Manage Team: {teamName}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {isRenaming ? (
+              <div className="flex items-center gap-1 w-full max-w-sm">
+                <Input
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  className="h-8"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveName();
+                    if (e.key === "Escape") setIsRenaming(false);
+                  }}
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                  onClick={handleSaveName}
+                  disabled={savingName}
+                >
+                  {savingName ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => setIsRenaming(false)}
+                  disabled={savingName}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                Manage Team: {teamName}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground ml-2"
+                  onClick={() => setIsRenaming(true)}
+                  title="Rename team"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+          </DialogTitle>
           <DialogDescription>
             Manage members, team status, and working schedule.
           </DialogDescription>
