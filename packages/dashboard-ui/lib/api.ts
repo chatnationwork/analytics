@@ -267,6 +267,7 @@ export const api = {
     endDate: string,
     tenantId?: string,
     useJourneyFlags?: boolean,
+    strict?: boolean,
   ): Promise<FunnelResponse> {
     return fetchWithAuth<FunnelResponse>("/funnel", {
       method: "POST",
@@ -276,6 +277,7 @@ export const api = {
         endDate,
         tenantId,
         useJourneyFlags: useJourneyFlags === true,
+        strict: strict === true,
       }),
     });
   },

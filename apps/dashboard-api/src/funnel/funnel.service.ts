@@ -80,11 +80,53 @@ export class FunnelService {
     startDate: Date,
     endDate: Date,
     useJourneyFlags?: boolean,
+    strict: boolean = false,
   ) {
     if (!steps || steps.length === 0) {
       return { steps: [] };
     }
 
+    // STRICT MODE: Enforce sequential order
+    if (strict) {
+      const strictCounts = await this.eventRepository.getStrictFunnel(
+        tenantId,
+        steps.map((s) => ({ eventName: s.eventName })),
+        startDate,
+        endDate,
+      );
+
+      const countMap = new Map(strictCounts.map((c) => [c.eventName, c.count]));
+      // In strict mode, the countMap needs to match exact steps.
+      // Since strict funnel returns counts aligned with steps, we can just map directly by index if we wanted,
+      // but map by eventName is safer if duplicates exist?
+      // Strict funnel query essentially returns count for Step N.
+      // However, if we have same eventName multiple times (Step A -> Step B -> Step A),
+      // getStrictFunnel logic (as implemented) maps unique eventNames or uses generated aliases?
+      // My implementation of getStrictFunnel currently returns { eventName, count } but calculates purely by Step Index in CTE.
+      // The return mapping in getStrictFunnel re-attaches 'eventName' from the input step.
+      // So if we have duplicates, it works fine.
+      
+      // CAUTION: Map<eventName, count> will overwrite if same event appears twice.
+      // BETTER: The getStrictFunnel returns an array ordered by steps. Use that.
+      
+      // Let's refine getStrictFunnel usage or just use the ordered result.
+      const firstStepCount = strictCounts[0]?.count || 1;
+      
+      return {
+        steps: steps.map((step, index) => {
+          // strictCounts is ordered by input steps
+          const count = strictCounts[index]?.count || 0;
+          return {
+            name: step.name,
+            eventName: step.eventName,
+            count,
+            percent: firstStepCount > 0 ? Math.round((count / firstStepCount) * 100) : 0,
+          };
+        }),
+      };
+    }
+
+    // LOOSE MODE (Existing Logic)
     const counts =
       useJourneyFlags === true
         ? await this.eventRepository.countByEventNameWithJourneyFlags(

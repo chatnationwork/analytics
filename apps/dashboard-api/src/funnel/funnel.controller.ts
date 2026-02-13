@@ -50,6 +50,7 @@ export class FunnelController {
       new Date(body.startDate),
       new Date(body.endDate),
       body.useJourneyFlags,
+      body.strict,
     );
   }
 }

@@ -351,6 +351,97 @@ export class EventRepository {
   }
 
   /**
+   * strict sequential funnel analysis.
+   * Enforces that Step N must happen AFTER Step N-1 for the same session.
+   *
+   * Logic:
+   * 1. Get sessions that did Step 1 in the time range.
+   * 2. From those sessions, find ones that did Step 2 AFTER Step 1.
+   * 3. From those sessions, find ones that did Step 3 AFTER Step 2.
+   * ...and so on.
+   */
+  async getStrictFunnel(
+    tenantId: string,
+    steps: { eventName: string }[],
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{ eventName: string; count: number }[]> {
+    if (!steps || steps.length === 0) return [];
+
+    // If only 1 step, standard count is sufficient (and cheaper)
+    if (steps.length === 1) {
+      const counts = await this.countByEventName(
+        tenantId,
+        [steps[0].eventName],
+        startDate,
+        endDate,
+      );
+      return [
+        { eventName: steps[0].eventName, count: counts[0]?.count || 0 },
+      ];
+    }
+
+    // Build recursive CTEs for steps 2..N
+    // Step 1 is the anchor
+    // Query structure:
+    // WITH step0 AS (SELECT "sessionId", MIN("timestamp") as t FROM events WHERE ... GROUP BY "sessionId"),
+    //      step1 AS (SELECT e."sessionId", MIN(e."timestamp") as t FROM events e JOIN step0 s ON e."sessionId" = s."sessionId" WHERE ... AND e."timestamp" > s.t GROUP BY e."sessionId"),
+    //      ...
+    // SELECT (SELECT COUNT(*) FROM step0) as count0, (SELECT COUNT(*) FROM step1) as count1, ...
+
+    let cteSql = "";
+    const params: any[] = [tenantId, startDate, endDate];
+    let paramIdx = 4; // Start after fixed params
+
+    // Step 0 (Anchor)
+    const step0Event = steps[0].eventName;
+    params.push(step0Event); // $4
+    cteSql += `
+      WITH step0 AS (
+        SELECT "sessionId", MIN("timestamp") as t
+        FROM events
+        WHERE "tenantId" = $1 
+          AND "timestamp" BETWEEN $2 AND $3
+          AND "eventName" = $${paramIdx}
+        GROUP BY "sessionId"
+      )
+    `;
+    paramIdx++;
+
+    // Subsequent steps
+    for (let i = 1; i < steps.length; i++) {
+      const eventName = steps[i].eventName;
+      params.push(eventName); // $Example: 5
+      cteSql += `,
+        step${i} AS (
+          SELECT e."sessionId", MIN(e."timestamp") as t
+          FROM events e
+          JOIN step${i - 1} s ON e."sessionId" = s."sessionId"
+          WHERE e."tenantId" = $1
+            AND e."eventName" = $${paramIdx}
+            AND e."timestamp" > s.t
+          GROUP BY e."sessionId"
+        )
+      `;
+      paramIdx++;
+    }
+
+    // Final SELECT
+    const selectParts = steps.map(
+      (_, i) => `(SELECT COUNT(*)::int FROM step${i}) as count${i}`,
+    );
+    const finalSql = `${cteSql} SELECT ${selectParts.join(", ")}`;
+
+    const result = await this.repo.query(finalSql, params);
+    const row = result[0]; // { count0: 100, count1: 50, ... }
+
+    return steps.map((step, i) => ({
+      eventName: step.eventName,
+      count: parseInt(row[`count${i}`], 10) || 0,
+    }));
+  }
+
+  /**
    * Check if a message ID already exists (for deduplication).
    *
    * More efficient than findByMessageId when you only need to know

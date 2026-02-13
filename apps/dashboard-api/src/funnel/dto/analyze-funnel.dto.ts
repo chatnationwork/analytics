@@ -38,4 +38,8 @@ export class AnalyzeFunnelDto {
   @ValidateNested({ each: true })
   @Type(() => FunnelStepDto)
   steps: FunnelStepDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  strict?: boolean;
 }
