@@ -112,6 +112,42 @@ describe("AssignmentEngine", () => {
       const result = await scheduleRule(mockRequest(), context, deps);
       expect(result.outcome).toBe("stop");
     });
+    it("sends image message when mediaUrl is present", async () => {
+      const context: AssignmentContext = {};
+      const sendMessage = jest.fn().mockResolvedValue(undefined);
+      const addMessage = jest.fn().mockResolvedValue(undefined);
+      
+      const deps: AssignmentEngineDeps = {
+        checkScheduleAvailability: jest.fn().mockResolvedValue({
+          isOpen: false,
+          nextOpen: new Date(Date.now() + 25 * 60 * 60 * 1000), // > 24h to trigger OOO
+          message: "Closed with image",
+          mediaUrl: "http://example.com/image.jpg",
+        }),
+        whatsappService: { sendMessage },
+        inboxService: { addMessage },
+        sessionRepo: { update: jest.fn().mockResolvedValue(undefined) },
+      } as unknown as AssignmentEngineDeps;
+      
+      const result = await scheduleRule(mockRequest(), context, deps);
+      
+      expect(result.outcome).toBe("stop");
+      expect(sendMessage).toHaveBeenCalledWith(
+        "tenant-1",
+        "contact-1",
+        {
+          type: "image",
+          image: { link: "http://example.com/image.jpg", caption: "Closed with image" },
+        },
+        expect.anything(),
+      );
+      expect(addMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: "Closed with image",
+          attachment: { type: "image", url: "http://example.com/image.jpg" },
+        }),
+      );
+    });
   });
 
   describe("T3: ContactAlreadyAssignedRule", () => {

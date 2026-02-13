@@ -132,8 +132,8 @@ export class SessionRepository {
       .createQueryBuilder("session")
       // COUNT(*) counts all sessions
       .select("COUNT(*)", "totalSessions")
-      // COUNT(DISTINCT user_id) counts unique users
-      .addSelect("COUNT(DISTINCT session.userId)", "totalUsers")
+      // COUNT(DISTINCT anonymousId) counts unique visitors (Total Users)
+      .addSelect("COUNT(DISTINCT session.anonymousId)", "totalUsers")
       // Conversion rate: sessions with converted=true / total sessions
       .addSelect(
         "CAST(SUM(CASE WHEN session.converted THEN 1 ELSE 0 END) AS FLOAT) / NULLIF(COUNT(*), 0)",
@@ -435,7 +435,9 @@ export class SessionRepository {
 
   /**
    * Get user growth trend (new vs returning users by period).
-   * New = first session for that anonymousId falls within the period.
+   * New = first session for that userId (registered/identified user) falls within the period.
+   * Total = unique identified users in the period.
+   * Returning = Total - New.
    */
   async getUserGrowthTrend(
     tenantId: string,
@@ -443,32 +445,33 @@ export class SessionRepository {
     endDate: Date,
     granularity: "day" | "week" | "month" = "day",
   ) {
-    // This query identifies the first session date for each user
+    // This query identifies the first session date for each user (based on userId)
     // and counts how many users had their first session in each period
     const result = await this.repo.query(
       `
       WITH user_first_session AS (
         SELECT 
-          "anonymousId",
+          "userId",
           MIN("startedAt") as first_session_date
         FROM sessions
         WHERE "tenantId" = $1
-        GROUP BY "anonymousId"
+          AND "userId" IS NOT NULL
+        GROUP BY "userId"
       ),
       period_users AS (
         SELECT 
           DATE_TRUNC($4, s."startedAt") as period,
-          COUNT(DISTINCT s."anonymousId") as total_users,
+          COUNT(DISTINCT s."userId") as total_users,
           COUNT(DISTINCT CASE 
             WHEN DATE_TRUNC($4, ufs.first_session_date) = DATE_TRUNC($4, s."startedAt") 
-            THEN s."anonymousId" 
+            THEN s."userId" 
           END) as new_users
         FROM sessions s
-        LEFT JOIN user_first_session ufs ON s."anonymousId" = ufs."anonymousId"
+        JOIN user_first_session ufs ON s."userId" = ufs."userId"
         WHERE s."tenantId" = $1
           AND s."startedAt" BETWEEN $2 AND $3
+          AND s."userId" IS NOT NULL
         GROUP BY DATE_TRUNC($4, s."startedAt")
-        ORDER BY period ASC
       )
       SELECT 
         period,
@@ -476,6 +479,7 @@ export class SessionRepository {
         new_users,
         total_users - new_users as returning_users
       FROM period_users
+      ORDER BY period ASC
       `,
       [tenantId, startDate, endDate, granularity],
     );

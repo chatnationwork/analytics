@@ -40,7 +40,7 @@ export async function scheduleRule(
   const check = deps.checkScheduleAvailability;
   if (!check) return { outcome: "continue" };
 
-  const { isOpen, nextOpen, message } = await check(teamId);
+  const { isOpen, nextOpen, message, mediaUrl } = await check(teamId);
   if (isOpen) return { outcome: "continue" };
 
   const oooMsg = message || "We are currently closed.";
@@ -60,7 +60,7 @@ export async function scheduleRule(
       sendMessage: (
         tenantId: string,
         contactId: string,
-        text: string,
+        text: string | { type: "image"; image: { link: string; caption?: string } },
         options?: { account?: string },
       ) => Promise<unknown>;
     };
@@ -72,23 +72,46 @@ export async function scheduleRule(
         direction: string;
         content: string;
         senderId?: string;
+        attachment?: { type: "image"; url: string };
       }) => Promise<unknown>;
     };
     const account = (session.context as Record<string, unknown>)?.account as
       | string
       | undefined;
+    
     try {
-      await ws.sendMessage(session.tenantId, session.contactId, oooMsg, {
-        account,
-      });
-      await inbox.addMessage({
-        tenantId: session.tenantId,
-        sessionId: session.id,
-        contactId: session.contactId,
-        direction: MessageDirection.OUTBOUND,
-        content: oooMsg,
-        senderId: undefined,
-      });
+      if (mediaUrl) {
+        await ws.sendMessage(
+          session.tenantId,
+          session.contactId,
+          {
+            type: "image",
+            image: { link: mediaUrl, caption: oooMsg },
+          },
+          { account },
+        );
+        await inbox.addMessage({
+          tenantId: session.tenantId,
+          sessionId: session.id,
+          contactId: session.contactId,
+          direction: MessageDirection.OUTBOUND,
+          content: oooMsg,
+          attachment: { type: "image", url: mediaUrl },
+          senderId: undefined,
+        });
+      } else {
+        await ws.sendMessage(session.tenantId, session.contactId, oooMsg, {
+          account,
+        });
+        await inbox.addMessage({
+          tenantId: session.tenantId,
+          sessionId: session.id,
+          contactId: session.contactId,
+          direction: MessageDirection.OUTBOUND,
+          content: oooMsg,
+          senderId: undefined,
+        });
+      }
       const repo = deps.sessionRepo as Repository<InboxSessionEntity>;
       const mergedContext: Record<string, any> = {
         ...((session.context as Record<string, any>) || {}),

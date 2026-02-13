@@ -31,6 +31,7 @@ export class TeamEntity {
     timezone: string;
     enabled: boolean;
     outOfOfficeMessage?: string;
+    outOfOfficeImage?: string;
     days: Record<string, Array<{ start: string; end: string }>>;
   } | null;
 

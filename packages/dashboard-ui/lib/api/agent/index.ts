@@ -28,6 +28,7 @@ export interface Team {
     timezone: string;
     enabled: boolean;
     outOfOfficeMessage?: string;
+    outOfOfficeImage?: string;
     days: Record<string, Array<{ start: string; end: string }>>;
   };
   routingStrategy?: string; // 'round_robin' | 'least_active' | 'least_assigned' | 'hybrid'

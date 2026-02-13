@@ -76,7 +76,7 @@ export default function TeamManagementPage() {
     if (assigned > 0) {
       toast.success(`${assigned} chat(s) assigned from queue`);
     } else {
-      toast.info("No queued chats to assign or no agents/teams available");
+      toast.info("All agents are currently at full capacity. Please wait for an available agent or try again shortly.");
     }
   };
 

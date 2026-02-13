@@ -14,6 +14,7 @@ import { MessageSquare, Mail, Shield, Star, Clock } from "lucide-react";
 export type SystemMessagesForm = {
   handoverMessage?: string;
   outOfOfficeMessage?: string;
+  outOfOfficeImage?: string;
   inviteEmailSubject?: string;
   inviteEmailBody?: string;
   loginVerifySubject?: string;
@@ -28,6 +29,7 @@ export type SystemMessagesForm = {
 const DEFAULT_SYSTEM_MESSAGES: Required<SystemMessagesForm> = {
   handoverMessage: "Connecting you to an agent...",
   outOfOfficeMessage: "We are currently closed.",
+  outOfOfficeImage: "",
   inviteEmailSubject:
     "You've been invited to join {{workspaceName}} on ChatNation",
   inviteEmailBody:
@@ -78,6 +80,7 @@ function SystemMessagesContent() {
     ...DEFAULT_SYSTEM_MESSAGES,
   }));
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const lastFocusedInviteRef = useRef<"inviteEmailSubject" | "inviteEmailBody">("inviteEmailBody");
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -109,6 +112,7 @@ function SystemMessagesContent() {
         systemMessages: {
           handoverMessage: form.handoverMessage?.trim() || undefined,
           outOfOfficeMessage: form.outOfOfficeMessage?.trim() || undefined,
+          outOfOfficeImage: form.outOfOfficeImage?.trim() || undefined,
           inviteEmailSubject: form.inviteEmailSubject?.trim() || undefined,
           inviteEmailBody: form.inviteEmailBody?.trim() || undefined,
           loginVerifySubject: form.loginVerifySubject?.trim() || undefined,
@@ -131,6 +135,35 @@ function SystemMessagesContent() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const res = await fetch("/api/dashboard/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      setForm((prev) => ({ ...prev, outOfOfficeImage: data.url }));
+    } catch (err) {
+      console.error(err);
+      setMessage({ type: "error", text: "Failed to upload image" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = () => {
+    setForm((prev) => ({ ...prev, outOfOfficeImage: "" }));
   };
 
   const insertVariable = useCallback(
@@ -230,20 +263,67 @@ function SystemMessagesContent() {
         </p>
         <div className="space-y-2">
           <Label htmlFor="outOfOfficeMessage">Message text</Label>
-          <Input
+          <textarea
             id="outOfOfficeMessage"
             value={form.outOfOfficeMessage ?? ""}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, outOfOfficeMessage: e.target.value }))
             }
             placeholder={DEFAULT_SYSTEM_MESSAGES.outOfOfficeMessage}
-            className={inputClass}
+            rows={3}
+            className={textareaClass}
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="outOfOfficeImage">Image (optional)</Label>
+          <div className="flex items-start gap-4">
+            {form.outOfOfficeImage ? (
+              <div className="relative group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.outOfOfficeImage}
+                  alt="Out of office"
+                  className="h-24 w-24 rounded-md object-cover border border-border"
+                />
+                <button
+                  onClick={removeImage}
+                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+              </div>
+            ) : (
+              <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-input bg-transparent hover:bg-accent hover:text-accent-foreground">
+                <span className="text-xs text-muted-foreground">Upload</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                  disabled={uploading}
+                />
+              </label>
+            )}
+            <div className="text-sm text-muted-foreground pt-2">
+              <p>Upload an image to send along with your out of office message.</p>
+              {uploading && <p className="text-xs text-primary animate-pulse">Uploading...</p>}
+            </div>
+          </div>
+        </div>
         <PreviewBox title="Preview — what the contact sees">
-          <p className="text-sm text-foreground">
-            {(form.outOfOfficeMessage?.trim() || DEFAULT_SYSTEM_MESSAGES.outOfOfficeMessage)}
-          </p>
+          <div className="space-y-2">
+            {form.outOfOfficeImage && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={form.outOfOfficeImage}
+                alt="Out of office preview"
+                className="max-h-48 rounded-md object-cover"
+              />
+            )}
+            <p className="text-sm text-foreground whitespace-pre-wrap">
+              {(form.outOfOfficeMessage?.trim() || DEFAULT_SYSTEM_MESSAGES.outOfOfficeMessage)}
+            </p>
+          </div>
         </PreviewBox>
       </section>
 

@@ -1132,18 +1132,19 @@ export class AssignmentService {
    */
   async checkScheduleAvailability(
     teamId: string,
-  ): Promise<{ isOpen: boolean; nextOpen?: Date; message?: string }> {
+  ): Promise<{ isOpen: boolean; nextOpen?: Date; message?: string; mediaUrl?: string }> {
     const team = await this.teamRepo.findOne({ where: { id: teamId } });
     if (!team || !team.schedule || !team.schedule.enabled) {
       return { isOpen: true }; // Default to open if no schedule
     }
 
-    const { timezone, days, outOfOfficeMessage: teamOoo } = team.schedule;
-    const defaultOoo = await this.systemMessages.get(
-      team.tenantId,
-      "outOfOfficeMessage",
-    );
+    const { timezone, days, outOfOfficeMessage: teamOoo, outOfOfficeImage: teamImg } = team.schedule;
+    const [defaultOoo, defaultImg] = await Promise.all([
+      this.systemMessages.get(team.tenantId, "outOfOfficeMessage"),
+      this.systemMessages.get(team.tenantId, "outOfOfficeImage"),
+    ]);
     const outOfOfficeMessage = teamOoo ?? defaultOoo ?? "We are currently closed.";
+    const outOfOfficeImage = teamImg ?? defaultImg;
 
     if (!timezone || typeof timezone !== "string" || timezone.trim() === "") {
       this.logger.warn(
@@ -1152,6 +1153,7 @@ export class AssignmentService {
       return {
         isOpen: false,
         message: outOfOfficeMessage,
+        mediaUrl: outOfOfficeImage,
       };
     }
 
@@ -1184,6 +1186,7 @@ export class AssignmentService {
       return {
         isOpen: false,
         message: outOfOfficeMessage,
+        mediaUrl: outOfOfficeImage,
       };
     }
 
@@ -1227,10 +1230,11 @@ export class AssignmentService {
           isOpen: false,
           nextOpen: nextOpenDate,
           message: outOfOfficeMessage,
+          mediaUrl: outOfOfficeImage,
         };
       }
     }
 
-    return { isOpen: false, message: outOfOfficeMessage };
+    return { isOpen: false, message: outOfOfficeMessage, mediaUrl: outOfOfficeImage };
   }
 }

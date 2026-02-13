@@ -6,6 +6,7 @@ import { SystemMessagesConfig } from "@lib/database";
 export const DEFAULT_SYSTEM_MESSAGES: Required<SystemMessagesConfig> = {
   handoverMessage: "Connecting you to an agent...",
   outOfOfficeMessage: "We are currently closed.",
+  outOfOfficeImage: "",
   inviteEmailSubject: "You've been invited to join {{workspaceName}} on ChatNation",
   inviteEmailBody:
     "{{inviterName}} has invited you to join their workspace on ChatNation. Click the button below to accept the invitation and set up your account.",

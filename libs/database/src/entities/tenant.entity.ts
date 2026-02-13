@@ -66,6 +66,8 @@ export interface SystemMessagesConfig {
   handoverMessage?: string;
   /** Default out-of-office message when team schedule is closed (used if team has no custom message). */
   outOfOfficeMessage?: string;
+  /** Optional image URL to send with the out-of-office message. */
+  outOfOfficeImage?: string;
   /** Invite email subject line. */
   inviteEmailSubject?: string;
   /** Invite email body (main paragraph). InviteUrl and inviter/workspace are inserted by the app. */

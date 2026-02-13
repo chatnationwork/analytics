@@ -43,6 +43,7 @@ export interface ScheduleAvailability {
   isOpen: boolean;
   nextOpen?: Date;
   message?: string;
+  mediaUrl?: string;
 }
 
 /** Strategy resolution (from getStrategyWithType). */

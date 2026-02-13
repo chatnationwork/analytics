@@ -85,6 +85,7 @@ export function ManageTeamDialog({
     timezone: string;
     enabled: boolean;
     outOfOfficeMessage: string;
+    outOfOfficeImage?: string;
     routingStrategy: string;
     routingPriority: string[];
     routingSortBy: string;
@@ -98,6 +99,7 @@ export function ManageTeamDialog({
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     enabled: false,
     outOfOfficeMessage: "We are currently closed.",
+    outOfOfficeImage: "",
     routingStrategy: "round_robin",
     routingPriority: ["least_active", "least_assigned"],
     routingSortBy: "name",
@@ -186,6 +188,7 @@ export function ManageTeamDialog({
           outOfOfficeMessage:
             team.schedule.outOfOfficeMessage ||
             scheduleConfig.outOfOfficeMessage,
+          outOfOfficeImage: team.schedule.outOfOfficeImage || "",
           routingStrategy: team.routingStrategy || "round_robin",
           routingPriority: team.routingConfig?.priority || [
             "least_active",
@@ -296,6 +299,7 @@ export function ManageTeamDialog({
           timezone: scheduleConfig.timezone,
           enabled: scheduleConfig.enabled,
           outOfOfficeMessage: scheduleConfig.outOfOfficeMessage,
+          outOfOfficeImage: scheduleConfig.outOfOfficeImage,
           days: daysApi,
         },
         routingStrategy: scheduleConfig.routingStrategy,
@@ -620,9 +624,241 @@ export function ManageTeamDialog({
 
           <TabsContent value="schedule" className="space-y-4 py-4">
             {/* --- Schedule Toggle --- */}
-           
+            <div className="flex items-center justify-between border rounded-md p-4 bg-slate-50 dark:bg-slate-900/20">
+              <div className="space-y-0.5">
+                <Label className="text-base">Enable Schedule</Label>
+                <div className="text-sm text-muted-foreground">
+                  When enabled, chats outside working hours receive an away
+                  message.
+                </div>
+              </div>
+              <Checkbox
+                checked={scheduleConfig.enabled}
+                onCheckedChange={(checked) =>
+                  setScheduleConfig((prev) => ({
+                    ...prev,
+                    enabled: !!checked,
+                  }))
+                }
+              />
+            </div>
 
-            {/* --- Routing Strategy Section --- */}
+            {scheduleConfig.enabled && (
+              <div className="space-y-4 border rounded-md p-4 animate-in fade-in slide-in-from-top-2">
+                <div className="grid gap-2">
+                  <Label>Timezone</Label>
+                  <Select
+                    value={scheduleConfig.timezone}
+                    onValueChange={(val) =>
+                      setScheduleConfig((prev) => ({
+                        ...prev,
+                        timezone: val,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_TIMEZONES.map((tz) => (
+                        <SelectItem key={tz} value={tz}>
+                          {tz}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Away Message</Label>
+                  <textarea
+                    value={scheduleConfig.outOfOfficeMessage || ""}
+                    onChange={(e) =>
+                      setScheduleConfig((prev) => ({
+                        ...prev,
+                        outOfOfficeMessage: e.target.value,
+                      }))
+                    }
+                    placeholder="We are currently closed."
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Sent to customers who message outside of working hours (if
+                    tenant default isn&apos;t used).
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Away Message Image (Optional)</Label>
+                  <div className="flex items-start gap-4">
+                    {scheduleConfig.outOfOfficeImage ? (
+                      <div className="relative group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={scheduleConfig.outOfOfficeImage}
+                          alt="Out of office"
+                          className="h-24 w-24 rounded-md object-cover border border-border"
+                        />
+                        <button
+                          onClick={() =>
+                            setScheduleConfig((prev) => ({
+                              ...prev,
+                              outOfOfficeImage: "",
+                            }))
+                          }
+                          className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-input bg-transparent hover:bg-accent hover:text-accent-foreground">
+                        <span className="text-xs text-muted-foreground">Upload</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const formData = new FormData();
+                              formData.append("file", file);
+                              const res = await fetch("/api/dashboard/media/upload", {
+                                method: "POST",
+                                body: formData,
+                              });
+                              if (!res.ok) throw new Error("Upload failed");
+                              const data = await res.json();
+                              setScheduleConfig((prev) => ({
+                                ...prev,
+                                outOfOfficeImage: data.url,
+                              }));
+                            } catch (error) {
+                              toast.error("Failed to upload image");
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <Label>Working Hours</Label>
+                  <div className="space-y-3">
+                    {DAYS.map((day) => {
+                      const dayConfig = scheduleConfig.days[day];
+                      return (
+                        <div
+                          key={day}
+                          className="flex items-start gap-4 border-b pb-3 last:border-0"
+                        >
+                          <div className="w-32 pt-2">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={dayConfig.enabled}
+                                onCheckedChange={(checked) =>
+                                  setScheduleConfig((prev) => ({
+                                    ...prev,
+                                    days: {
+                                      ...prev.days,
+                                      [day]: {
+                                        ...prev.days[day],
+                                        enabled: !!checked,
+                                      },
+                                    },
+                                  }))
+                                }
+                              />
+                              <span className="capitalize text-sm font-medium">
+                                {day}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            {dayConfig.enabled ? (
+                              <>
+                                {dayConfig.shifts.map((shift, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Input
+                                      type="time"
+                                      value={shift.start}
+                                      onChange={(e) =>
+                                        updateShift(
+                                          day,
+                                          idx,
+                                          "start",
+                                          e.target.value,
+                                        )
+                                      }
+                                      className="w-24 h-8 text-xs"
+                                    />
+                                    <span className="text-muted-foreground">
+                                      -
+                                    </span>
+                                    <Input
+                                      type="time"
+                                      value={shift.end}
+                                      onChange={(e) =>
+                                        updateShift(
+                                          day,
+                                          idx,
+                                          "end",
+                                          e.target.value,
+                                        )
+                                      }
+                                      className="w-24 h-8 text-xs"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                      onClick={() => removeShift(day, idx)}
+                                      disabled={dayConfig.shifts.length <= 1}
+                                    >
+                                      <Trash2 size={14} />
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => addShift(day)}
+                                >
+                                  <Plus size={12} className="mr-1" /> Add Shift
+                                </Button>
+                              </>
+                            ) : (
+                              <div className="py-2 text-sm text-muted-foreground italic">
+                                Closed
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <Button
+                onClick={handleSaveSchedule}
+                disabled={savingSchedule}
+                size="sm"
+              >
+                {savingSchedule ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Save Schedule & Routing
+              </Button>
+            </div>
             <div className="border rounded-md p-4 space-y-4 bg-slate-50 dark:bg-slate-900/20">
               <h4 className="text-sm font-medium flex items-center gap-2">
                 <Shield size={14} className="text-primary" />
