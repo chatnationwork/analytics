@@ -121,6 +121,48 @@ function IntentBreakdown({
   );
 }
 
+function AiErrorBreakdown({
+  data,
+}: {
+  data: { errorType: string; count: number; recoveredCount: number }[];
+}) {
+  if (!data.length) {
+    return (
+      <div className="text-muted-foreground text-sm text-center py-8">
+        No AI errors recorded
+      </div>
+    );
+  }
+  const max = Math.max(...data.map((d) => d.count), 1);
+  return (
+    <div className="space-y-2 max-h-64 overflow-y-auto">
+      {data.map((item) => (
+        <div key={item.errorType} className="flex items-center gap-3">
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-foreground">
+                {item.errorType.replace(/_/g, " ")}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {item.count}{" "}
+                <span className="text-green-500">
+                  ({((item.recoveredCount / item.count) * 100).toFixed(0)}% recovered)
+                </span>
+              </span>
+            </div>
+            <div className="h-2 bg-muted rounded overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-red-500 to-red-400 rounded"
+                style={{ width: `${(item.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AiLatencyChart({
   data,
 }: {
@@ -300,6 +342,16 @@ export default function AiAnalyticsPage() {
     queryFn: () => aiTrendsApi.getLatencyTrend("day", 30, dateStart, dateEnd),
   });
 
+  const { data: aiContainment } = useQuery({
+    queryKey: ["ai-containment", dateStart, dateEnd],
+    queryFn: () => aiAnalyticsApi.getContainment(dateStart, dateEnd),
+  });
+
+  const { data: aiErrors } = useQuery({
+    queryKey: ["ai-errors", dateStart, dateEnd],
+    queryFn: () => aiAnalyticsApi.getErrors(dateStart, dateEnd),
+  });
+
   return (
     <RouteGuard permission="analytics.view">
       <div className="space-y-6">
@@ -365,10 +417,10 @@ export default function AiAnalyticsPage() {
             icon={<Brain className="w-4 h-4" />}
           />
           <StatCard
-            label="AI Accuracy"
-            value={`${((aiStats?.avgConfidence ?? 0) * 100).toFixed(0)}%`}
-            change="Avg confidence"
-            positive={(aiStats?.avgConfidence ?? 0) > 0.8}
+            label="Bot Containment"
+            value={`${((aiContainment?.containmentRate ?? 0)).toFixed(0)}%`}
+            change="Automated Resolution"
+            positive={(aiContainment?.containmentRate ?? 0) > 50}
             icon={<Target className="w-4 h-4" />}
           />
           {/* <StatCard
@@ -394,12 +446,12 @@ export default function AiAnalyticsPage() {
             </h3>
             <IntentBreakdown data={aiIntents ?? []} />
           </div>
-          {/* <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
-            <h3 className="font-medium text-foreground mb-6">
-              AI Latency Distribution
+          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+             <h3 className="font-medium text-foreground mb-6">
+              Top AI Errors
             </h3>
-            <AiLatencyChart data={aiLatency ?? []} />
-          </div> */}
+            <AiErrorBreakdown data={aiErrors ?? []} />
+          </div>
         </div>
 
         <h2 className="text-lg font-semibold text-foreground">Trends</h2>

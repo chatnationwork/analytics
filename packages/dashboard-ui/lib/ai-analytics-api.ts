@@ -25,6 +25,13 @@ export interface AiError {
   recoveredCount: number;
 }
 
+export interface AiContainment {
+  totalAiSessions: number;
+  handedOffSessions: number;
+  containedSessions: number;
+  containmentRate: number;
+}
+
 export const aiAnalyticsApi = {
   getStats: async (startDate?: string, endDate?: string): Promise<AiStats> => {
     const params = new URLSearchParams();
@@ -57,4 +64,13 @@ export const aiAnalyticsApi = {
 
     return fetchWithAuth(`/ai-analytics/errors?${params}`);
   },
+
+  getContainment: async (startDate?: string, endDate?: string): Promise<AiContainment> => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+
+    return fetchWithAuth(`/ai-analytics/containment?${params}`);
+  },
 };
+

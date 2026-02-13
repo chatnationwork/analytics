@@ -69,6 +69,17 @@ export class AiAnalyticsService {
     return this.eventRepository.getAiErrorBreakdown(tenantId, start, end);
   }
 
+  async getContainmentStats(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    const end = endDate || new Date();
+    const start =
+      startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return this.eventRepository.getAiContainmentStats(tenantId, start, end);
+  }
+
   // ===========================================================================
   // AI TRENDS
   // ===========================================================================

@@ -1353,6 +1353,61 @@ export class EventRepository {
     });
   }
 
+  /**
+   * Get AI Bot Containment Stats.
+   * Containment = Sessions handled by AI without human intervention.
+   *
+   * Logic:
+   * 1. Total AI Sessions: Sessions with at least one 'ai.classification' event.
+   * 2. Handed Off: Subset of (1) that ALSO has an 'agent.handoff' event.
+   * 3. Containment Rate: (Total - HandedOff) / Total
+   */
+  async getAiContainmentStats(tenantId: string, startDate: Date, endDate: Date) {
+    // 1. Total sessions with any AI activity
+    const totalAiSessionsResult = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT "sessionId") as count
+      FROM events
+      WHERE "tenantId" = $1
+        AND "eventName" = 'ai.classification'
+        AND timestamp BETWEEN $2 AND $3
+      `,
+      [tenantId, startDate, endDate],
+    );
+    const totalAiSessions = parseInt(totalAiSessionsResult[0]?.count, 10) || 0;
+
+    // 2. Sessions with AI activity AND agent handoff
+    const handedOffSessionsResult = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT e."sessionId") as count
+      FROM events e
+      WHERE e."tenantId" = $1
+        AND e."eventName" = 'ai.classification'
+        AND e.timestamp BETWEEN $2 AND $3
+        AND EXISTS (
+          SELECT 1 FROM events h
+          WHERE h."tenantId" = e."tenantId"
+            AND h."sessionId" = e."sessionId"
+            AND h."eventName" = 'agent.handoff'
+            AND h.timestamp BETWEEN $2 AND $3
+        )
+      `,
+      [tenantId, startDate, endDate],
+    );
+    const handedOffSessions =
+      parseInt(handedOffSessionsResult[0]?.count, 10) || 0;
+
+    const containedSessions = Math.max(0, totalAiSessions - handedOffSessions);
+
+    return {
+      totalAiSessions,
+      handedOffSessions,
+      containedSessions,
+      containmentRate:
+        totalAiSessions > 0 ? (containedSessions / totalAiSessions) * 100 : 0,
+    };
+  }
+
   // ===========================================================================
   // SELF-SERVE VS ASSISTED JOURNEY ANALYTICS
   // ===========================================================================

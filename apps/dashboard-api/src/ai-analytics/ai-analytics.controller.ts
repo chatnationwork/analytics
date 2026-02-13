@@ -61,6 +61,19 @@ export class AiAnalyticsController {
     );
   }
 
+  @Get("containment")
+  async getContainment(
+    @Request() req: any,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.aiAnalyticsService.getContainmentStats(
+      req.user.tenantId,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+    );
+  }
+
   // ===========================================================================
   // AI TRENDS
   // ===========================================================================
