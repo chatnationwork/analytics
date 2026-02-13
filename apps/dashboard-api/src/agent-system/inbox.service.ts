@@ -1311,6 +1311,8 @@ export class InboxService {
         if (toTeam && toTeamId) {
           session.assignedTeamId = toTeamId;
           session.assignedAgentId = null;
+          // Mark as unassigned so the assignment engine can pick an agent
+          session.status = SessionStatus.UNASSIGNED;
         } else if (toAgentId) {
           session.assignedAgentId = toAgentId;
           // Keep assignedTeamId as-is; agent belongs to a team

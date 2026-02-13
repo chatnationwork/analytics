@@ -547,19 +547,17 @@ export default function WrapUpAnalyticsPage() {
             {selected && (
               <Tabs
                 value={detailsTab}
-                onValueChange={(v) => setDetailsTab(v as "report" | "chat")}
+                onValueChange={(v) => {
+                  const tab = v as "report" | "chat";
+                  setDetailsTab(tab);
+                  if (tab === "chat" && selected && chatMessages.length === 0 && !chatLoading) {
+                    loadChat(selected.sessionId);
+                  }
+                }}
               >
                 <TabsList>
                   <TabsTrigger value="report">Report</TabsTrigger>
-                  <TabsTrigger
-                    value="chat"
-                    onClick={() => {
-                      if (selected && chatMessages.length === 0 && !chatLoading)
-                        loadChat(selected.sessionId);
-                    }}
-                  >
-                    Chat
-                  </TabsTrigger>
+                  <TabsTrigger value="chat">Chat</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="report" className="mt-4">

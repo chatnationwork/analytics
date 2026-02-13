@@ -136,7 +136,7 @@ export function RolesSettings({ tenantId }: RolesSettingsProps) {
     }
     setIsSavingName(true);
     try {
-      await roleApi.updateRole(editingRole.id, { name: renameValue });
+      await roleApi.updateRole(editingRole.id, { name: renameValue }, tenantId);
       toast.success("Role renamed");
       
       // Update local state to reflect change instantly in UI without full reload if needed
