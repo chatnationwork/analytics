@@ -21,16 +21,6 @@ export interface CrmIntegration {
   createdAt: string;
 }
 
-export interface ApiKey {
-  id: string;
-  name: string;
-  keyPrefix: string;
-  type: "write" | "read";
-  isActive: boolean;
-  lastUsedAt: string | null;
-  createdAt: string;
-}
-
 export const settingsApi = {
   // CRM Integrations (use fetchWithAuth so cookies are sent and 401 is handled)
   async getCrmIntegrations(): Promise<CrmIntegration[]> {
@@ -44,7 +34,7 @@ export const settingsApi = {
     apiKey: string;
     webLink?: string;
     csatLink?: string;
-    config?: Record<string, any>;
+    config?: Record<string, unknown>;
   }): Promise<CrmIntegration> {
     const { fetchWithAuth } = await import("@/lib/api");
     return fetchWithAuth<CrmIntegration>("/crm-integrations", {
@@ -80,28 +70,5 @@ export const settingsApi = {
       `/crm-integrations/${id}/test`,
     );
   },
-
-  // API Keys (use fetchWithAuth for cookie auth)
-  async getApiKeys(): Promise<ApiKey[]> {
-    const { fetchWithAuth } = await import("@/lib/api");
-    return fetchWithAuth<ApiKey[]>("/api-keys");
-  },
-
-  async generateApiKey(data: {
-    name: string;
-    type: "write" | "read";
-  }): Promise<{ id: string; key: string }> {
-    const { fetchWithAuth } = await import("@/lib/api");
-    return fetchWithAuth<{ id: string; key: string }>("/api-keys", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  },
-
-  async deactivateApiKey(id: string): Promise<{ success: boolean }> {
-    const { fetchWithAuth } = await import("@/lib/api");
-    return fetchWithAuth<{ success: boolean }>(`/api-keys/${id}/deactivate`, {
-      method: "PATCH",
-    });
-  },
 };
+

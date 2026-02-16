@@ -81,12 +81,6 @@ const navGroups = [
         icon: UserCircle,
       },
       {
-        href: "/settings/api-keys",
-        label: "API Keys",
-        icon: Key,
-        permission: "settings.manage",
-      },
-      {
         href: "/settings/crm",
         label: "CRM Integrations",
         icon: Building2,

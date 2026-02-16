@@ -123,6 +123,8 @@ services:
       - EMAIL_FROM=${EMAIL_FROM}
       - FRONTEND_URL=${FRONTEND_URL}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - ADMIN_API_SECRET=W-bjvfrgeruijhvbcryg743trufygeu6WWWDCRTTY
+      - DEPLOYMENT_MODE=whitelabel
 
     volumes:
       # Persist uploaded media (agent inbox images/docs) across container rebuilds
@@ -146,6 +148,7 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - SERVER_API_URL=${SERVER_API_URL}
+      - DEPLOYMENT_MODE=whitelabel
     depends_on:
       - dashboard-api
 

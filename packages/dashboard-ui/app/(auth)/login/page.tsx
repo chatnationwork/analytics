@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 import {
   loginAction,
   verify2FaAction,
@@ -51,6 +52,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [signupAvailable, setSignupAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
   const [sessionVerification, setSessionVerification] = useState<{
@@ -78,6 +80,16 @@ function LoginForm() {
     }, 1000);
     return () => clearInterval(t);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    // Check if signup is allowed
+    api
+      .checkSignupAvailability()
+      .then((data: { available: boolean }) => setSignupAvailable(data.available))
+      .catch((err: unknown) =>
+        console.error("Failed to check signup availability", err),
+      );
+  }, []);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),

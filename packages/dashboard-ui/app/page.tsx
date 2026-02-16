@@ -13,7 +13,18 @@ import {
   Globe,
 } from "lucide-react";
 
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+
 export default function LandingPage() {
+  const [signupAvailable, setSignupAvailable] = useState(false);
+
+  useEffect(() => {
+    api.checkSignupAvailability().then((data) => {
+      setSignupAvailable(data.available);
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white">
       {/* Hero Section */}
@@ -72,17 +83,19 @@ export default function LandingPage() {
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <Link
               href="/login"
-              className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl transition-all text-lg font-medium flex items-center gap-2"
+              className="group px-8 py-4 bg-white/10 hover:bg-white/20 rounded-xl transition-all text-lg font-medium flex items-center gap-2"
             >
               Dashboard
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link
-              href="/showcase"
-              className="px-8 py-4 bg-white/10 hover:bg-white/20 rounded-xl transition-all text-lg font-medium"
-            >
-              See It In Action
-            </Link>
+            {signupAvailable && (
+              <Link
+                href="/signup"
+                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl transition-all text-lg font-medium"
+              >
+                Get Started
+              </Link>
+            )}
           </div>
         </div>
       </header>

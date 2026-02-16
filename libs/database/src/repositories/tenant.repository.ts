@@ -160,6 +160,20 @@ export class TenantRepository {
     });
   }
 
+  /**
+   * Find the single tenant in a single-tenant deployment.
+   * Throws if no tenant exists — the app must be bootstrapped first.
+   */
+  async findSingleTenant(): Promise<TenantEntity> {
+    const tenant = await this.tenantRepo.findOne({ where: {} });
+    if (!tenant) {
+      throw new Error(
+        'No tenant found. The application must have at least one tenant.',
+      );
+    }
+    return tenant;
+  }
+
   /** Update tenant */
   async update(
     id: string,
@@ -167,5 +181,10 @@ export class TenantRepository {
   ): Promise<TenantEntity | null> {
     await this.tenantRepo.update(id, data);
     return this.findById(id);
+  }
+
+  /** Count total tenants */
+  async count(): Promise<number> {
+    return this.tenantRepo.count();
   }
 }

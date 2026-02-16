@@ -116,6 +116,23 @@ export class AuthService {
   ) {}
 
   /**
+   * Check if signup is available based on deployment mode and tenant existence.
+   * - saas: Always true
+   * - whitelabel: True only if NO tenants exist (first-time bootstrap)
+   */
+  async isSignupAvailable(): Promise<{ available: boolean }> {
+    const deploymentMode = this.configService.get("DEPLOYMENT_MODE", "saas");
+
+    if (deploymentMode === "saas") {
+      return { available: true };
+    }
+
+    // Whitelabel mode: allow signup only if no tenants exist
+    const tenantCount = await this.tenantRepository.count();
+    return { available: tenantCount === 0 };
+  }
+
+  /**
    * Register a new user with their organization.
    * Creates both the user and a default tenant.
    */

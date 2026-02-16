@@ -60,6 +60,16 @@ export class AuthController {
   }
 
   /**
+   * Check if signup is available (public).
+   * Used by frontend to show/hide signup buttons.
+   */
+  @Get("signup-available")
+  @HttpCode(HttpStatus.OK)
+  async checkSignupAvailability(): Promise<{ available: boolean }> {
+    return this.authService.isSignupAvailable();
+  }
+
+  /**
    * Request a password reset. Sends an email with a reset link if the email exists.
    * Always returns { ok: true } to avoid email enumeration.
    */

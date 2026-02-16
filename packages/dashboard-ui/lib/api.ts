@@ -242,6 +242,15 @@ export async function fetchBlobWithAuth(
 
 export const api = {
   /**
+   * Check if signup is available.
+   */
+  async checkSignupAvailability(): Promise<{ available: boolean }> {
+    return fetch(`${getApiBaseUrl()}/api/dashboard/auth/signup-available`)
+      .then((res) => res.json())
+      .then((json) => json.data);
+  },
+
+  /**
    * Fetch overview KPIs
    */
   async getOverview(

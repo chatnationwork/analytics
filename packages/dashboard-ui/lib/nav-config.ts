@@ -19,7 +19,6 @@ export const NAV_ENTRIES: { href: string; defaultLabel: string }[] = [
   { href: "/csat-analytics", defaultLabel: "CSAT" },
   { href: "/events", defaultLabel: "Live Events" },
   { href: "/audit-logs", defaultLabel: "Audit logs" },
-  { href: "/settings/api-keys", defaultLabel: "API Keys" },
   { href: "/settings/crm", defaultLabel: "CRM Integrations" },
   { href: "/settings/people", defaultLabel: "Users" },
   { href: "/settings/session", defaultLabel: "Session Management" },
