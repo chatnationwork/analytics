@@ -227,7 +227,8 @@ function LoginForm() {
         </h2>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           You're signed in elsewhere. Enter the 6-digit code sent to your
-          WhatsApp to sign in here. Your other session will be signed out.
+          WhatsApp number {sessionVerification?.maskedPhone} to sign in here.
+          Your other session will be signed out.
         </p>
 
         <form
@@ -335,7 +336,7 @@ function LoginForm() {
           Two-factor authentication
         </h2>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Enter the 6-digit code sent to your WhatsApp.
+          Enter the 6-digit code sent to your WhatsApp number ending in {sessionVerification?.maskedPhone}
         </p>
 
         <form

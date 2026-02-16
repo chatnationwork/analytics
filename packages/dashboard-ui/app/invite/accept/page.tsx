@@ -32,6 +32,19 @@ interface InviteInfo {
   passwordRequirements?: PasswordRequirements;
 }
 
+function RequirementItem({ met, text }: { met: boolean; text: string }) {
+  return (
+    <div className={`flex items-center gap-1.5 ${met ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400"}`}>
+      {met ? (
+        <CheckCircle className="h-3.5 w-3.5" />
+      ) : (
+        <div className="h-3.5 w-3.5 rounded-full border border-gray-400 dark:border-gray-500" />
+      )}
+      <span>{text}</span>
+    </div>
+  );
+}
+
 function AcceptInviteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -238,19 +251,41 @@ function AcceptInviteContent() {
                     Create Password
                   </label>
                   {inviteInfo.passwordRequirements && (
-                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                      Minimum {inviteInfo.passwordRequirements.minLength}{" "}
-                      characters
-                      {inviteInfo.passwordRequirements.requireUppercase &&
-                        ", uppercase letter"}
-                      {inviteInfo.passwordRequirements.requireLowercase &&
-                        ", lowercase letter"}
-                      {inviteInfo.passwordRequirements.requireNumber &&
-                        ", number"}
-                      {inviteInfo.passwordRequirements.requireSpecial &&
-                        ", special character"}
-                      .
-                    </p>
+                    <div className="mt-2 text-xs space-y-1">
+                      <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Password Requirements:
+                      </p>
+                      <div className="grid grid-cols-1 gap-1">
+                        <RequirementItem
+                          met={password.length >= (inviteInfo.passwordRequirements.minLength ?? 8)}
+                          text={`At least ${inviteInfo.passwordRequirements.minLength ?? 8} characters`}
+                        />
+                        {inviteInfo.passwordRequirements.requireUppercase && (
+                          <RequirementItem
+                            met={/[A-Z]/.test(password)}
+                            text="One uppercase letter"
+                          />
+                        )}
+                        {inviteInfo.passwordRequirements.requireLowercase && (
+                          <RequirementItem
+                            met={/[a-z]/.test(password)}
+                            text="One lowercase letter"
+                          />
+                        )}
+                        {inviteInfo.passwordRequirements.requireNumber && (
+                          <RequirementItem
+                            met={/\d/.test(password)}
+                            text="One number"
+                          />
+                        )}
+                        {inviteInfo.passwordRequirements.requireSpecial && (
+                          <RequirementItem
+                            met={/[^A-Za-z0-9]/.test(password)}
+                            text="One special character"
+                          />
+                        )}
+                      </div>
+                    </div>
                   )}
                   <div className="relative mt-1">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />

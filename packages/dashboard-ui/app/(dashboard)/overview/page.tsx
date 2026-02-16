@@ -274,29 +274,21 @@ export default function OverviewPage() {
               <StatCard
                 label="Total Sessions"
                 value={data.totalSessions?.toLocaleString() ?? "0"}
-                change="+12%"
-                positive
                 icon={<BarChart3 className="w-4 h-4" />}
               />
               <StatCard
                 label="Unique Users"
                 value={data.totalUsers?.toLocaleString() ?? "0"}
-                change="+8%"
-                positive
                 icon={<Users className="w-4 h-4" />}
               />
               <StatCard
                 label="Completion Rate"
                 value={`${((data.conversionRate ?? 0) * 100).toFixed(1)}%`}
-                change="+5.2%"
-                positive
                 icon={<Target className="w-4 h-4" />}
               />
               <StatCard
                 label="Avg Duration"
                 value={formatDuration(data.avgSessionDuration ?? 0)}
-                change="-3%"
-                positive={false}
                 icon={<Clock className="w-4 h-4" />}
               />
               <StatCard
@@ -464,8 +456,8 @@ function StatCard({
 }: {
   label: string;
   value: string;
-  change: string;
-  positive: boolean;
+  change?: string;
+  positive?: boolean;
   icon: React.ReactNode;
 }) {
   return (
@@ -475,16 +467,18 @@ function StatCard({
         <div className="text-muted-foreground">{icon}</div>
       </div>
       <div className="text-2xl font-bold text-foreground mb-1">{value}</div>
-      <div
-        className={`text-sm flex items-center gap-1 ${positive ? "text-green-400" : "text-red-400"}`}
-      >
-        {positive ? (
-          <TrendingUp className="w-3 h-3" />
-        ) : (
-          <TrendingDown className="w-3 h-3" />
-        )}
-        {change}
-      </div>
+      {change != null && (
+        <div
+          className={`text-sm flex items-center gap-1 ${positive ? "text-green-400" : "text-red-400"}`}
+        >
+          {positive ? (
+            <TrendingUp className="w-3 h-3" />
+          ) : (
+            <TrendingDown className="w-3 h-3" />
+          )}
+          {change}
+        </div>
+      )}
     </div>
   );
 }

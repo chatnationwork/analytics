@@ -11,8 +11,8 @@ export default function AuthLayout({
       <div className="flex flex-col justify-center px-4 sm:px-6 lg:flex-none lg:px-20 xl:px-24 bg-white dark:bg-gray-900">
         <div className="mx-auto w-full max-w-sm lg:w-[400px]">
           <div className="flex items-center gap-2 mb-10">
-            <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">A</div>
-            <span className="text-xl font-bold dark:text-white"><Link href="/">Analytics</Link></span>
+            <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">S</div>
+            <span className="text-xl font-bold dark:text-white"><Link href="/">Shuru Connect</Link></span>
           </div>
           {children}
         </div>
