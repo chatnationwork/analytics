@@ -1505,27 +1505,26 @@ export class EventRepository {
 
   /**
    * Get self-serve vs assisted journey breakdown.
-   * Self-serve = sessions that never had an agent.handoff event
-   * Assisted = sessions that had at least one agent.handoff event
+   *
+   * Only sessions that participate in a journey (journeyStart flag) or were
+   * handed off to an agent count towards the journey totals.  Sessions where
+   * the user only chatted with the bot (no journey marker, no handoff) are
+   * reported separately as `botChatOnly`.
+   *
+   * - Assisted        = sessions with at least one agent.handoff event
+   * - Completed       = sessions with journeyStart AND journeyEnd, no handoff
+   * - Abandoned       = sessions with journeyStart, no journeyEnd, no handoff
+   * - Total Journeys  = Completed + Abandoned + Assisted
+   * - Bot Chat Only   = sessions with events but no journeyStart and no handoff
    */
   async getSelfServeVsAssistedStats(
     tenantId: string,
     startDate: Date,
     endDate: Date,
   ) {
-    // 1. Total Sessions
-    const totalSessionsResult = await this.repo.query(
-      `
-      SELECT COUNT(DISTINCT "sessionId") as total_sessions
-      FROM events
-      WHERE "tenantId" = $1
-        AND timestamp BETWEEN $2 AND $3
-        AND "sessionId" IS NOT NULL
-      `,
-      [tenantId, startDate, endDate],
-    );
+    const params = [tenantId, startDate, endDate];
 
-    // 2. Assisted Sessions (Any session with agent.handoff)
+    // 1. Assisted sessions (any session with agent.handoff) — unchanged
     const assistedSessionsResult = await this.repo.query(
       `
       SELECT COUNT(DISTINCT "sessionId") as assisted_sessions
@@ -1535,11 +1534,10 @@ export class EventRepository {
         AND timestamp BETWEEN $2 AND $3
         AND "sessionId" IS NOT NULL
       `,
-      [tenantId, startDate, endDate],
+      params,
     );
 
-    // 3. Completed Self-Serve (journeyEnd=true OR bot.resolution, and NO agent.handoff)
-    // Note: checking NOT EXISTS for agent.handoff to ensure it was truly self-serve
+    // 2. Completed self-serve: journeyStart AND journeyEnd, no agent.handoff
     const completedSelfServeResult = await this.repo.query(
       `
       SELECT COUNT(DISTINCT e."sessionId") as completed_sessions
@@ -1547,7 +1545,14 @@ export class EventRepository {
       WHERE e."tenantId" = $1
         AND e.timestamp BETWEEN $2 AND $3
         AND e."sessionId" IS NOT NULL
-        AND (e."eventName" = 'bot.resolution' OR (e.properties->>'journeyEnd')::text = 'true')
+        AND (e.properties->>'journeyEnd')::text = 'true'
+        AND EXISTS (
+          SELECT 1 FROM events s
+          WHERE s."tenantId" = e."tenantId"
+            AND s."sessionId" = e."sessionId"
+            AND (s.properties->>'journeyStart')::text = 'true'
+            AND s.timestamp BETWEEN $2 AND $3
+        )
         AND NOT EXISTS (
           SELECT 1 FROM events h
           WHERE h."tenantId" = e."tenantId"
@@ -1556,26 +1561,80 @@ export class EventRepository {
             AND h.timestamp BETWEEN $2 AND $3
         )
       `,
-      [tenantId, startDate, endDate],
+      params,
     );
 
-    const totalSessions =
-      parseInt(totalSessionsResult[0]?.total_sessions, 10) || 0;
+    // 3. Abandoned: journeyStart, no journeyEnd, no agent.handoff
+    const abandonedResult = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT e."sessionId") as abandoned_sessions
+      FROM events e
+      WHERE e."tenantId" = $1
+        AND e.timestamp BETWEEN $2 AND $3
+        AND e."sessionId" IS NOT NULL
+        AND (e.properties->>'journeyStart')::text = 'true'
+        AND NOT EXISTS (
+          SELECT 1 FROM events c
+          WHERE c."tenantId" = e."tenantId"
+            AND c."sessionId" = e."sessionId"
+            AND (c.properties->>'journeyEnd')::text = 'true'
+            AND c.timestamp BETWEEN $2 AND $3
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM events h
+          WHERE h."tenantId" = e."tenantId"
+            AND h."sessionId" = e."sessionId"
+            AND h."eventName" = 'agent.handoff'
+            AND h.timestamp BETWEEN $2 AND $3
+        )
+      `,
+      params,
+    );
+
+    // 4. Bot Chat Only: sessions with events but no journeyStart and no handoff
+    const botChatOnlyResult = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT e."sessionId") as bot_chat_only
+      FROM events e
+      WHERE e."tenantId" = $1
+        AND e.timestamp BETWEEN $2 AND $3
+        AND e."sessionId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM events j
+          WHERE j."tenantId" = e."tenantId"
+            AND j."sessionId" = e."sessionId"
+            AND (j.properties->>'journeyStart')::text = 'true'
+            AND j.timestamp BETWEEN $2 AND $3
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM events h
+          WHERE h."tenantId" = e."tenantId"
+            AND h."sessionId" = e."sessionId"
+            AND h."eventName" = 'agent.handoff'
+            AND h.timestamp BETWEEN $2 AND $3
+        )
+      `,
+      params,
+    );
+
     const assistedSessions =
       parseInt(assistedSessionsResult[0]?.assisted_sessions, 10) || 0;
     const completedSelfServe =
       parseInt(completedSelfServeResult[0]?.completed_sessions, 10) || 0;
+    const abandonedSessions =
+      parseInt(abandonedResult[0]?.abandoned_sessions, 10) || 0;
+    const botChatOnly =
+      parseInt(botChatOnlyResult[0]?.bot_chat_only, 10) || 0;
 
-    // 4. Abandoned = Total - Assisted - Completed
-    // Ensure we don't go below zero if data is slighty out of sync (unlikely with same-transaction snapshot, but safe)
-    const nonAssisted = Math.max(0, totalSessions - assistedSessions);
-    const abandonedSessions = Math.max(0, nonAssisted - completedSelfServe);
+    // Total journey sessions = the three journey-related categories
+    const totalSessions = completedSelfServe + abandonedSessions + assistedSessions;
 
     return {
       totalSessions,
       assistedSessions,
       completedSelfServe,
       abandonedSessions,
+      botChatOnly,
     };
   }
 
@@ -1785,7 +1844,7 @@ export class EventRepository {
     endDate: Date,
     granularity: "day" | "week" | "month" = "day",
   ) {
-    // Get total sessions per period
+    // Get total journey sessions per period (only sessions with journeyStart or agent.handoff)
     const sessionsResult = await this.repo.query(
       `
       SELECT 
@@ -1795,6 +1854,10 @@ export class EventRepository {
       WHERE "tenantId" = $1
         AND timestamp BETWEEN $2 AND $3
         AND "sessionId" IS NOT NULL
+        AND (
+          (properties->>'journeyStart')::text = 'true'
+          OR "eventName" = 'agent.handoff'
+        )
       GROUP BY DATE_TRUNC($4, timestamp)
       ORDER BY period ASC
       `,

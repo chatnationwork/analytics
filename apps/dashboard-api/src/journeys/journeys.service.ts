@@ -148,11 +148,11 @@ export class JourneysService {
       return ((current - previous) / previous) * 100;
     };
 
-    const selfServeSessions = stats.completedSelfServe + stats.abandonedSessions; // Total non-assisted
+    const selfServeSessions = stats.completedSelfServe + stats.abandonedSessions;
     const prevSelfServeSessions =
       prevStats.completedSelfServe + prevStats.abandonedSessions;
 
-    // Rates
+    // Rates (against journey-scoped total: completed + abandoned + assisted)
     const selfServeRate =
       stats.totalSessions > 0
         ? (selfServeSessions / stats.totalSessions) * 100
@@ -176,6 +176,7 @@ export class JourneysService {
       assistedSessions: stats.assistedSessions,
       completedSessions: stats.completedSelfServe,
       abandonedSessions: stats.abandonedSessions,
+      botChatOnly: stats.botChatOnly,
 
       selfServeRate,
       assistedRate,
@@ -194,6 +195,10 @@ export class JourneysService {
       abandonmentChange: calculateChange(
         stats.abandonedSessions,
         prevStats.abandonedSessions,
+      ),
+      botChatOnlyChange: calculateChange(
+        stats.botChatOnly,
+        prevStats.botChatOnly,
       ),
 
       startDate,

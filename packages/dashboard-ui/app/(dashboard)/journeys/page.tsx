@@ -18,6 +18,7 @@ import {
   Clock,
   TrendingUp,
   TrendingDown,
+  MessageCircle,
 } from "lucide-react";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import {
@@ -722,9 +723,9 @@ export default function JourneysPage() {
         {!isLoading && (
           <>
             {/* Overview Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <StatCard
-                label="Total Sessions"
+                label="Total Journeys"
                 value={overview?.totalSessions.toLocaleString() || "0"}
                 icon={<Users className="w-4 h-4" />}
               />
@@ -763,6 +764,18 @@ export default function JourneysPage() {
                     : undefined
                 }
                 icon={<TrendingDown className="w-4 h-4" />}
+              />
+              <StatCard
+                label="Bot Chat Only"
+                value={overview?.botChatOnly?.toLocaleString() || "0"}
+                subValue="No journey started"
+                change={overview?.botChatOnlyChange}
+                positive={
+                  overview?.botChatOnlyChange
+                    ? overview.botChatOnlyChange <= 0
+                    : undefined
+                }
+                icon={<MessageCircle className="w-4 h-4" />}
               />
             </div>
 

@@ -16,6 +16,7 @@ export interface JourneyOverviewResponse {
   assistedSessions: number;
   completedSessions: number;
   abandonedSessions: number;
+  botChatOnly: number;
 
   selfServeRate: number;
   assistedRate: number;
@@ -26,6 +27,7 @@ export interface JourneyOverviewResponse {
   assistedChange: number;
   completionChange: number;
   abandonmentChange: number;
+  botChatOnlyChange: number;
 
   startDate: string;
   endDate: string;
