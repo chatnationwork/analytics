@@ -31,11 +31,18 @@ if [ "$reply" != "wipe" ]; then
   exit 1
 fi
 
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_DATABASE" -v ON_ERROR_STOP=1 -c "
-  TRUNCATE TABLE ${TABLES}
-  RESTART IDENTITY
-  CASCADE;
-"
+SQL_CMD="TRUNCATE TABLE ${TABLES} RESTART IDENTITY CASCADE;"
+
+if command -v psql >/dev/null 2>&1; then
+  psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_DATABASE" -v ON_ERROR_STOP=1 -c "$SQL_CMD"
+elif command -v docker >/dev/null 2>&1; then
+  echo "psql not found, trying docker exec..."
+  docker exec -i -e PGPASSWORD="$DB_PASSWORD" analytics-postgres psql -U "$DB_USERNAME" -d "$DB_DATABASE" -c "$SQL_CMD"
+else
+  echo "Error: Neither psql nor docker found."
+  unset PGPASSWORD
+  exit 1
+fi
 
 echo "All tables truncated."
 unset PGPASSWORD
