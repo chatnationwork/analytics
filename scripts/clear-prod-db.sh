@@ -31,7 +31,9 @@ if [ "$reply" != "wipe" ]; then
   exit 1
 fi
 
-SQL_CMD="TRUNCATE TABLE ${TABLES} RESTART IDENTITY CASCADE;"
+# Convert space-separated list to comma-separated for SQL
+TABLES_SQL=$(echo "$TABLES" | tr ' ' ',')
+SQL_CMD="TRUNCATE TABLE ${TABLES_SQL} RESTART IDENTITY CASCADE;"
 
 if command -v psql >/dev/null 2>&1; then
   psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_DATABASE" -v ON_ERROR_STOP=1 -c "$SQL_CMD"

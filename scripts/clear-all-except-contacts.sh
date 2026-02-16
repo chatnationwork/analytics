@@ -34,7 +34,9 @@ if [ "$reply" != "wipe-partial" ]; then
   exit 1
 fi
 
-SQL_CMD="TRUNCATE TABLE ${TABLES_TO_WIPE} RESTART IDENTITY CASCADE;"
+# Convert space-separated list to comma-separated for SQL
+TABLES_SQL=$(echo "$TABLES_TO_WIPE" | tr ' ' ',')
+SQL_CMD="TRUNCATE TABLE ${TABLES_SQL} RESTART IDENTITY CASCADE;"
 
 if command -v psql >/dev/null 2>&1; then
   # Run via local psql
