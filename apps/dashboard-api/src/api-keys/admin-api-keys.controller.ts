@@ -58,7 +58,8 @@ export class AdminApiKeysController {
       dto.name,
       dto.type || 'write',
       dto.projectId,
-      'admin', // createdBy — marks this as admin-generated
+      dto.projectId,
+      // createdBy defaults to null, which is correct for admin actions
     );
   }
 
