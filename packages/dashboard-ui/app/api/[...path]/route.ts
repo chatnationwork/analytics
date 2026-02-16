@@ -74,7 +74,13 @@ async function proxyRequest(
     }
   }
 
-  if (token) {
+  const incomingAuthHeader = request.headers.get("authorization");
+
+  if (incomingAuthHeader) {
+    // Prefer the header provided by the client (e.g. for Admin API calls)
+    headers["Authorization"] = incomingAuthHeader;
+  } else if (token) {
+    // Fallback to cookie-based auth
     headers["Authorization"] = `Bearer ${token}`;
   }
 
