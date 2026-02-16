@@ -430,13 +430,13 @@ export default function AiAnalyticsPage() {
             positive={(aiStats?.avgLatencyMs ?? 0) < 500}
             icon={<Zap className="w-4 h-4" />}
           /> */}
-          <StatCard
+          {/* <StatCard
             label="Error Rate"
             value={`${(aiStats?.errorRate ?? 0).toFixed(1)}%`}
             change={`${aiStats?.errorCount ?? 0} errors`}
             positive={(aiStats?.errorRate ?? 0) < 5}
             icon={<AlertTriangle className="w-4 h-4" />}
-          />
+          /> */}
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -446,12 +446,12 @@ export default function AiAnalyticsPage() {
             </h3>
             <IntentBreakdown data={aiIntents ?? []} />
           </div>
-          <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
+          {/* <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
              <h3 className="font-medium text-foreground mb-6">
               Top AI Errors
             </h3>
             <AiErrorBreakdown data={aiErrors ?? []} />
-          </div>
+          </div> */}
         </div>
 
         <h2 className="text-lg font-semibold text-foreground">Trends</h2>
