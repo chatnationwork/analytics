@@ -49,7 +49,7 @@ export class TrendsService {
     );
 
     // Calculate period-over-period change
-    const currentPeriodTotal = data.reduce((sum, d) => sum + d.count, 0);
+    const currentPeriodTotal = data.reduce((sum: number, d: { count: number }) => sum + d.count, 0);
     
     // Get previous period for comparison
     const previousEndDate = startDate;
@@ -60,7 +60,7 @@ export class TrendsService {
       previousEndDate,
       granularity,
     );
-    const previousPeriodTotal = previousData.reduce((sum, d) => sum + d.count, 0);
+    const previousPeriodTotal = previousData.reduce((sum: number, d: { count: number }) => sum + d.count, 0);
     
     const percentChange = previousPeriodTotal > 0 
       ? ((currentPeriodTotal - previousPeriodTotal) / previousPeriodTotal) * 100 
