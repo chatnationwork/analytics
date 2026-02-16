@@ -1918,6 +1918,44 @@ export class EventRepository {
   }
 
   /**
+   * Get journey-scoped session count trend over time.
+   *
+   * Only counts sessions that have at least one journeyStart flag or an
+   * agent.handoff event, excluding bot-chat-only noise.  Used by the
+   * overview "Sessions Over Time" chart.
+   */
+  async getJourneySessionTrend(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" = "day",
+  ) {
+    const result = await this.repo.query(
+      `
+      SELECT
+        DATE_TRUNC($4, timestamp) as period,
+        COUNT(DISTINCT "sessionId") as count
+      FROM events
+      WHERE "tenantId" = $1
+        AND timestamp BETWEEN $2 AND $3
+        AND "sessionId" IS NOT NULL
+        AND (
+          (properties->>'journeyStart')::text = 'true'
+          OR "eventName" = 'agent.handoff'
+        )
+      GROUP BY DATE_TRUNC($4, timestamp)
+      ORDER BY period ASC
+      `,
+      [tenantId, startDate, endDate, granularity],
+    );
+
+    return result.map((r: any) => ({
+      period: r.period,
+      count: parseInt(r.count, 10) || 0,
+    }));
+  }
+
+  /**
    * Get agent performance stats for assisted sessions.
    * Shows how agents are performing in handling handoffs.
    */

@@ -29,6 +29,9 @@ export class TrendsService {
 
   /**
    * Get session count trend over time.
+   *
+   * Uses journey-scoped sessions: only sessions with a journeyStart flag
+   * or an agent.handoff event are counted, excluding bot-chat-only noise.
    */
   async getSessionTrend(
     tenantId: string,
@@ -38,7 +41,7 @@ export class TrendsService {
     const endDate = new Date();
     const startDate = this.calculateStartDate(granularity, periods);
     
-    const data = await this.sessionRepository.getSessionTrend(
+    const data = await this.eventRepository.getJourneySessionTrend(
       tenantId,
       startDate,
       endDate,
@@ -51,7 +54,7 @@ export class TrendsService {
     // Get previous period for comparison
     const previousEndDate = startDate;
     const previousStartDate = this.calculateStartDate(granularity, periods * 2);
-    const previousData = await this.sessionRepository.getSessionTrend(
+    const previousData = await this.eventRepository.getJourneySessionTrend(
       tenantId,
       previousStartDate,
       previousEndDate,
