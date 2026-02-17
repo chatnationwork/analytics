@@ -1918,6 +1918,33 @@ export class EventRepository {
   }
 
   /**
+   * Get total count of journey-scoped sessions in a date range.
+   * Same definition as getJourneySessionTrend: sessions with journeyStart
+   * or agent.handoff, excluding bot-chat-only noise.
+   */
+  async getJourneySessionTotalCount(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    const result = await this.repo.query(
+      `
+      SELECT COUNT(DISTINCT "sessionId") as count
+      FROM events
+      WHERE "tenantId" = $1
+        AND timestamp BETWEEN $2 AND $3
+        AND "sessionId" IS NOT NULL
+        AND (
+          (properties->>'journeyStart')::text = 'true'
+          OR "eventName" = 'agent.handoff'
+        )
+      `,
+      [tenantId, startDate, endDate],
+    );
+    return parseInt(result[0]?.count ?? "0", 10) || 0;
+  }
+
+  /**
    * Get journey-scoped session count trend over time.
    *
    * Only counts sessions that have at least one journeyStart flag or an

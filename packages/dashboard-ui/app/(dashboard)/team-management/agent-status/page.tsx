@@ -233,8 +233,8 @@ export default function AgentStatusPage() {
                           const agent = agents.find(
                             (a: AgentStatusItem) => a.agentId === s.agentId,
                           );
-                          const status = agent?.status ?? "—";
-                          const isOnline = status === "online";
+                          const sessionStatus = s.endedAt ? "offline" : "online";
+                          const isOnline = sessionStatus === "online";
                           return (
                             <TableRow key={s.id}>
                               <TableCell className="font-medium">
@@ -243,28 +243,22 @@ export default function AgentStatusPage() {
                                   s.agentId.slice(0, 8)}
                               </TableCell>
                               <TableCell>
-                                {agent ? (
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
-                                        isOnline
-                                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                          : status === "busy"
-                                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                                            : "bg-muted text-muted-foreground"
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                                      isOnline
+                                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                                        : "bg-muted text-muted-foreground"
+                                    }`}
+                                  >
+                                    <Circle
+                                      className={`h-2 w-2 fill-current ${
+                                        isOnline ? "text-green-600" : ""
                                       }`}
-                                    >
-                                      <Circle
-                                        className={`h-2 w-2 fill-current ${
-                                          isOnline
-                                            ? "text-green-600"
-                                            : status === "busy"
-                                              ? "text-amber-600"
-                                              : ""
-                                        }`}
-                                      />
-                                      {status}
-                                    </span>
+                                    />
+                                    {sessionStatus}
+                                  </span>
+                                  {agent && (
                                     <select
                                       aria-label={`Set ${s.agentName || agent?.name} status`}
                                       value={isOnline ? "online" : "offline"}
@@ -284,10 +278,8 @@ export default function AgentStatusPage() {
                                       <option value="online">Online</option>
                                       <option value="offline">Offline</option>
                                     </select>
-                                  </div>
-                                ) : (
-                                  "—"
-                                )}
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="text-center text-muted-foreground">
                                 {s.loginCount}

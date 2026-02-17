@@ -58,17 +58,22 @@ export class OverviewService {
    * // Returns: { totalSessions: 1500, totalUsers: 1200, conversionRate: 0.42, avgSessionDuration: 245 }
    */
   async getOverview(tenantId: string, startDate: Date, endDate: Date) {
-    const [stats, dailySessions, deviceBreakdown, heatmap] = await Promise.all([
-      this.sessionRepository.getOverviewStats(tenantId, startDate, endDate),
-      this.sessionRepository.getDailySessions(tenantId, startDate, endDate),
-      this.sessionRepository.getDeviceBreakdown(tenantId, startDate, endDate),
-      this.sessionRepository.getActivityHeatmap(tenantId, startDate, endDate),
-    ]);
-
-   
+    const [stats, journeySessionTotal, dailySessions, deviceBreakdown, heatmap] =
+      await Promise.all([
+        this.sessionRepository.getOverviewStats(tenantId, startDate, endDate),
+        this.eventRepository.getJourneySessionTotalCount(
+          tenantId,
+          startDate,
+          endDate,
+        ),
+        this.sessionRepository.getDailySessions(tenantId, startDate, endDate),
+        this.sessionRepository.getDeviceBreakdown(tenantId, startDate, endDate),
+        this.sessionRepository.getActivityHeatmap(tenantId, startDate, endDate),
+      ]);
 
     return {
       ...stats,
+      totalSessions: journeySessionTotal,
       dailySessions,
       deviceBreakdown,
       heatmap,
