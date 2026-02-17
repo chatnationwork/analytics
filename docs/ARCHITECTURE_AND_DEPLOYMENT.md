@@ -1100,20 +1100,43 @@ npm run start:dashboard-api:dev
 npm run start:dashboard-ui:dev
 ```
 
-### 4.5.1 Pulling & Running from Public GHCR
+### 4.5.1 Quick Start (No Source Code / Production)
 
-If your GitHub Packages are public, you can pull them without authentication.
+If you just want to run the application without cloning the repository or building from source, follow these steps.
 
-**On the server:**
-1. Copy `docker-compose.yml` and `.env` to the server.
-2. Run:
+**1. Create a directory and download the configuration:**
+
+```bash
+mkdir analytics-deploy && cd analytics-deploy
+
+# Download docker-compose.yml
+curl -O https://raw.githubusercontent.com/chatnationwork/analytics/main/docker-compose.yml
+
+# Download .env.example (rename to .env)
+curl -o .env https://raw.githubusercontent.com/chatnationwork/analytics/main/.env.example
+```
+
+**2. Configure Environment:**
+
+Edit the `.env` file with your production values (database credentials, JWT secret, etc.).
+
+```bash
+nano .env
+```
+
+**3. Run the Application:**
+
+Since the images are public on GHCR, Docker will pull them automatically.
+
 ```bash
 # Pull latest images
 docker-compose pull
 
-# Start services
+# Start services in background
 docker-compose up -d
 ```
+
+**Note:** You do not need the source code because the `image` directive in `docker-compose.yml` points to the pre-built images on GitHub Container Registry.
 
 ### 4.6 Production Deployment (Kubernetes)
 
