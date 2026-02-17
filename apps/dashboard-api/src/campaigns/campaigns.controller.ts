@@ -14,7 +14,9 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from "@nestjs/common";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CampaignsService } from "./campaigns.service";
 import { CampaignOrchestratorService } from "./campaign-orchestrator.service";
 import { CampaignAnalyticsService } from "./campaign-analytics.service";
@@ -26,6 +28,7 @@ import { CampaignQueryDto } from "./dto/campaign-query.dto";
 import { CampaignStatus } from "@lib/database";
 
 @Controller("campaigns")
+@UseGuards(JwtAuthGuard)
 export class CampaignsController {
   constructor(
     private readonly campaignsService: CampaignsService,
@@ -141,7 +144,7 @@ export class CampaignsController {
   @Post()
   async create(@Req() req: any, @Body() dto: CreateCampaignDto) {
     const tenantId = req.user?.tenantId;
-    const userId = req.user?.sub;
+    const userId = req.user?.id;
     if (!tenantId || !userId) throw new Error("Auth context required");
     return this.campaignsService.create(tenantId, userId, dto);
   }

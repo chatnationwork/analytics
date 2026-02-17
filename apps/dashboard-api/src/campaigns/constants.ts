@@ -1,5 +1,5 @@
 /** BullMQ queue name for campaign message sending. */
-export const CAMPAIGN_QUEUE_NAME = "campaign:send";
+export const CAMPAIGN_QUEUE_NAME = "campaign-send";
 
 /** Injection token for the Redis client used by the rate tracker. */
 export const CAMPAIGN_REDIS_CLIENT = "CAMPAIGN_REDIS_CLIENT";
