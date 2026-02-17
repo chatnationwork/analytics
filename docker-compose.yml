@@ -37,6 +37,10 @@ services:
   # Collector API (event ingestion)
   collector:
     image: ghcr.io/chatnationwork/analytics-collector:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: collector
     container_name: analytics-collector
     restart: unless-stopped
     ports:
@@ -64,6 +68,10 @@ services:
   # Processor Worker (queue consumer)
   processor:
     image: ghcr.io/chatnationwork/analytics-processor:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: processor
     container_name: analytics-processor
     restart: unless-stopped
     environment:
@@ -89,6 +97,10 @@ services:
   # Dashboard API
   dashboard-api:
     image: ghcr.io/chatnationwork/analytics-dashboard-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dashboard-api
     container_name: analytics-dashboard-api
     restart: unless-stopped
     ports:
@@ -128,6 +140,9 @@ services:
   # Dashboard UI (Next.js)
   dashboard-ui:
     image: ghcr.io/chatnationwork/analytics-dashboard-ui:latest
+    build:
+      context: ./packages/dashboard-ui
+      dockerfile: Dockerfile
     container_name: analytics-dashboard-ui
     restart: unless-stopped
     ports:
