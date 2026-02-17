@@ -1,11 +1,7 @@
 # Deployment Guide
 
-This guide explains how to deploy the **Chatnation Analytics** service on any server using pre-built Docker images from the GitHub Container Registry.
+This guide explains how to deploy the **Shuru Connect* service on any server using pre-built Docker images from the GitHub Container Registry.
 
-## Prerequisites
-
-- **Docker** and **Docker Compose** installed on the server.
-- No need to clone the full repository or install Node.js.
 
 ## Steps
 
@@ -15,13 +11,13 @@ Create a folder for the application and download the necessary configuration fil
 
 ```bash
 # Create directory
-mkdir analytics-deploy && cd analytics-deploy
+mkdir shuru_connect && cd shuru_connect
 
 # Download docker-compose.yml
-curl -O https://raw.githubusercontent.com/chatnationwork/analytics/docker-compose.yml
+curl -O https://raw.githubusercontent.com/chatnationwork/analytics/main/docker-compose.yml
 
 # Download environment template
-curl -o .env https://raw.githubusercontent.com/chatnationwork/analytics/.env.example
+curl -o .env https://raw.githubusercontent.com/chatnationwork/analytics/main/.env.example
 ```
 
 ### 2. Configure Environment
@@ -32,11 +28,6 @@ Edit the `.env` file to set your production secrets (database passwords, JWT sec
 nano .env
 ```
 
-**Crucial Settings:**
-- `JWT_SECRET`: Set a strong random string.
-- `DB_PASSWORD`: Set a strong database password.
-- `NEXT_PUBLIC_API_URL`: The public URL of your Dashboard API (e.g., `https://api.analytics.yourdomain.com`).
-- `FRONTEND_URL`: The public URL of your Dashboard UI.
 
 ### 3. Deploy
 

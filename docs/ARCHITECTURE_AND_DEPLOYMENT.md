@@ -1107,7 +1107,7 @@ If you just want to run the application without cloning the repository or buildi
 **1. Create a directory and download the configuration:**
 
 ```bash
-mkdir analytics-deploy && cd analytics-deploy
+mkdir shuru_connect && cd shuru_connect
 
 # Download docker-compose.yml
 curl -O https://raw.githubusercontent.com/chatnationwork/analytics/main/docker-compose.yml
