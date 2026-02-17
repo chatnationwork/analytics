@@ -13,8 +13,8 @@ Create a folder for the application and download the necessary configuration fil
 # Create directory
 mkdir shuru_connect && cd shuru_connect
 
-# Download docker-compose.yml
-curl -O https://raw.githubusercontent.com/chatnationwork/analytics/main/docker-compose.yml
+# Download docker-compose.prod.yml (Production config)
+curl -o docker-compose.yml https://raw.githubusercontent.com/chatnationwork/analytics/main/docker-compose.prod.yml
 
 # Download environment template
 curl -o .env https://raw.githubusercontent.com/chatnationwork/analytics/main/.env.example
