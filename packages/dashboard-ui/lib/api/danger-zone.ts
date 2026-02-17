@@ -19,7 +19,7 @@ export const dangerZoneApi = {
     );
   },
 
-  archiveAndDeactivateUser: async (userId: string) => {
+  archiveAndDeleteUser: async (userId: string) => {
     return fetchWithAuth<{ success: boolean }>(
       `/settings/danger-zone/archive-and-delete/user/${userId}`,
       { method: "POST", body: JSON.stringify({}) },

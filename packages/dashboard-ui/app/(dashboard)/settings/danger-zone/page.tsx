@@ -64,12 +64,13 @@ export default function SettingsDangerZonePage() {
   const [confirmTeam, setConfirmTeam] = useState("");
 
   const deleteUserMutation = useMutation({
-    mutationFn: (userId: string) => dangerZoneApi.archiveAndDeactivateUser(userId),
+    mutationFn: (userId: string) => dangerZoneApi.archiveAndDeleteUser(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenant-members"] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
       setSelectedUserId("");
       setConfirmUser("");
-      toast.success("User deactivated");
+      toast.success("User removed");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -122,7 +123,7 @@ export default function SettingsDangerZonePage() {
             {canDeleteUser && (
               <DangerSection
                 title="Delete user"
-                description="Remove a user from this organization. Data is archived; the user is deactivated."
+                description="Remove a user from this organization. Data is archived; the user is removed from the tenant and all teams."
                 options={deletableMembers.map((m) => ({
                   value: m.userId,
                   label: `${m.name ?? m.email} (${m.role})`,

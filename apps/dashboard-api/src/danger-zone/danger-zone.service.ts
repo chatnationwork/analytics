@@ -1,6 +1,6 @@
 /**
  * Danger Zone Service
- * Archives entity as JSON, then deletes (or deactivates for users).
+ * Archives entity as JSON, then deletes. For users: removes from tenant and team memberships.
  */
 
 import {
@@ -10,7 +10,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import {
   EntityArchiveEntity,
   RoleEntity,
@@ -184,7 +184,7 @@ export class DangerZoneService {
     return { success: true };
   }
 
-  async archiveAndDeactivateUser(
+  async archiveAndDeleteUser(
     targetUserId: string,
     tenantId: string,
     actorId: string,
@@ -206,7 +206,7 @@ export class DangerZoneService {
     );
     if (membership.role === "super_admin" && superAdminCount <= 1) {
       throw new BadRequestException(
-        "Cannot deactivate the last super admin",
+        "Cannot delete the last super admin",
       );
     }
 
@@ -244,13 +244,26 @@ export class DangerZoneService {
       }),
     );
 
-    await this.tenantRepository.setMemberActive(tenantId, targetUserId, false);
+    const tenantTeamIds = (
+      await this.teamRepo.find({
+        where: { tenantId },
+        select: ["id"],
+      })
+    ).map((t) => t.id);
+    if (tenantTeamIds.length > 0) {
+      await this.memberRepo.delete({
+        userId: targetUserId,
+        teamId: In(tenantTeamIds),
+      });
+    }
+
+    await this.tenantRepository.removeMember(tenantId, targetUserId);
 
     await this.auditService.log({
       tenantId,
       actorId,
       actorType: "user",
-      action: "danger_zone.user.deactivated",
+      action: "danger_zone.user.deleted",
       resourceType: "user",
       resourceId: targetUserId,
       details: {

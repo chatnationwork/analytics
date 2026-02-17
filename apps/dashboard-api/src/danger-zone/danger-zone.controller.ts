@@ -80,7 +80,7 @@ export class DangerZoneController {
   }
 
   @Post("archive-and-delete/user/:id")
-  async archiveAndDeactivateUser(
+  async archiveAndDeleteUser(
     @Request() req: {
       user: {
         id: string;
@@ -95,7 +95,7 @@ export class DangerZoneController {
       throw new ForbiddenException("Insufficient permissions");
     }
 
-    return this.dangerZoneService.archiveAndDeactivateUser(
+    return this.dangerZoneService.archiveAndDeleteUser(
       userId,
       req.user.tenantId,
       req.user.id,

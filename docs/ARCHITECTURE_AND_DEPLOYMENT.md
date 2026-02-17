@@ -1100,6 +1100,21 @@ npm run start:dashboard-api:dev
 npm run start:dashboard-ui:dev
 ```
 
+### 4.5.1 Pulling & Running from Public GHCR
+
+If your GitHub Packages are public, you can pull them without authentication.
+
+**On the server:**
+1. Copy `docker-compose.yml` and `.env` to the server.
+2. Run:
+```bash
+# Pull latest images
+docker-compose pull
+
+# Start services
+docker-compose up -d
+```
+
 ### 4.6 Production Deployment (Kubernetes)
 
 **Suggested layout:**
