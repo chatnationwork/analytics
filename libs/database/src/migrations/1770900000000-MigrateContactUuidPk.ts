@@ -37,11 +37,20 @@ export class MigrateContactUuidPk1770900000000 implements MigrationInterface {
       `ALTER TABLE "contacts" ALTER COLUMN "id" SET NOT NULL`,
     );
 
-    // Step 4: Drop the composite PK
-    // The constraint name comes from the original migration
-    await queryRunner.query(
-      `ALTER TABLE "contacts" DROP CONSTRAINT IF EXISTS "PK_contacts_tenant_contact"`,
+    // Step 4: Find and drop the existing PK constraint by querying pg_constraint.
+    // The constraint name varies depending on whether it was created by a migration
+    // or by TypeORM synchronize, so we look it up dynamically.
+    const pkRows = await queryRunner.query(
+      `SELECT conname FROM pg_constraint
+       WHERE conrelid = '"contacts"'::regclass AND contype = 'p'`,
     );
+
+    if (pkRows.length > 0) {
+      const pkName = pkRows[0].conname;
+      await queryRunner.query(
+        `ALTER TABLE "contacts" DROP CONSTRAINT "${pkName}"`,
+      );
+    }
 
     // Step 5: Add UUID as PK
     await queryRunner.query(
@@ -54,8 +63,7 @@ export class MigrateContactUuidPk1770900000000 implements MigrationInterface {
       `ALTER TABLE "contacts" ADD CONSTRAINT "UQ_contacts_tenant_contactId" UNIQUE ("tenantId", "contactId")`,
     );
 
-    // Step 7: Drop the old unique index that TypeORM created (now redundant
-    // with the unique constraint above)
+    // Step 7: Drop old indexes that are now redundant with the unique constraint
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_contacts_tenantId_contactId"`,
     );
@@ -64,10 +72,16 @@ export class MigrateContactUuidPk1770900000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Reverse: restore composite PK, drop UUID column
 
-    // Drop UUID PK
-    await queryRunner.query(
-      `ALTER TABLE "contacts" DROP CONSTRAINT IF EXISTS "PK_contacts_id"`,
+    // Drop UUID PK (find dynamically in case name differs)
+    const pkRows = await queryRunner.query(
+      `SELECT conname FROM pg_constraint
+       WHERE conrelid = '"contacts"'::regclass AND contype = 'p'`,
     );
+    if (pkRows.length > 0) {
+      await queryRunner.query(
+        `ALTER TABLE "contacts" DROP CONSTRAINT "${pkRows[0].conname}"`,
+      );
+    }
 
     // Drop the unique constraint
     await queryRunner.query(
