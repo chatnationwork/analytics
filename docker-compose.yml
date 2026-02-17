@@ -138,6 +138,12 @@ services:
       postgres:
         condition: service_healthy
 
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3001/api/dashboard/auth/signup-available || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Dashboard UI (Next.js)
   dashboard-ui:
     image: ghcr.io/chatnationwork/analytics-dashboard-ui:latest
@@ -154,7 +160,8 @@ services:
       - SERVER_API_URL=http://dashboard-api:3001
       - DEPLOYMENT_MODE=whitelabel
     depends_on:
-      - dashboard-api
+      dashboard-api:
+        condition: service_healthy
 
 volumes:
   postgres_data:
