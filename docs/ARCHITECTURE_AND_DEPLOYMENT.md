@@ -1110,7 +1110,7 @@ If you just want to run the application without cloning the repository or buildi
 mkdir shuru_connect && cd shuru_connect
 
 # Download docker-compose.yml
-curl -O https://raw.githubusercontent.com/chatnationwork/analytics/main/docker-compose.yml
+curl -o docker-compose.yml https://raw.githubusercontent.com/chatnationwork/analytics/main/docker-compose.prod.yml
 
 # Download .env.example (rename to .env)
 curl -o .env https://raw.githubusercontent.com/chatnationwork/analytics/main/.env.example
