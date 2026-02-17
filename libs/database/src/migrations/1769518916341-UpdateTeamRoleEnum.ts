@@ -3,10 +3,14 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 export class UpdateTeamRoleEnum1769518916341 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // Enums in Postgres cannot be created inside a transaction if we use ALTER TYPE inside a transaction block in some versions, 
-        // but typically ADD VALUE is safe. However, to be safe we can run outside transaction or accept it.
-        // TypeORM runs migrations in transaction by default.
-        
+        // Idempotent: only alter if the enum exists (created by AddAgentSystem migration).
+        // Skip when running on a fresh DB where add_agent_system may not have run yet.
+        const result = await queryRunner.query(
+            `SELECT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'team_members_role_enum') AS "exists"`
+        );
+        const row = Array.isArray(result) ? result[0] : (result as { rows?: { exists: boolean }[] })?.rows?.[0];
+        if (row?.exists !== true) return;
+
         await queryRunner.query(`ALTER TYPE "public"."team_members_role_enum" ADD VALUE IF NOT EXISTS 'admin'`);
         await queryRunner.query(`ALTER TYPE "public"."team_members_role_enum" ADD VALUE IF NOT EXISTS 'sub_admin'`);
         await queryRunner.query(`ALTER TYPE "public"."team_members_role_enum" ADD VALUE IF NOT EXISTS 'agent'`);

@@ -73,6 +73,9 @@ export const AppDataSource = new DataSource({
     UserSessionEntity,
     SessionTakeoverRequestEntity,
   ],
-  migrations: ["libs/database/src/migrations/*.ts"],
+  migrations: [
+    "libs/database/migrations/*.ts",
+    "libs/database/src/migrations/*.ts",
+  ],
   synchronize: false,
 });

@@ -4,6 +4,10 @@ export class AddAgentSystem1769509219191 implements MigrationInterface {
     name = 'AddAgentSystem1769509219191'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
+        // Idempotent: skip if agent tables already exist (e.g. from synchronize or prior run)
+        const hasTable = await queryRunner.hasTable("agent_profiles");
+        if (hasTable) return;
+
         await queryRunner.query(`CREATE TYPE "public"."agent_profiles_status_enum" AS ENUM('online', 'offline', 'busy')`);
         await queryRunner.query(`CREATE TABLE "agent_profiles" ("userId" uuid NOT NULL, "status" "public"."agent_profiles_status_enum" NOT NULL DEFAULT 'offline', "maxConcurrentChats" integer NOT NULL DEFAULT '3', "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_b33e9dd5843a6c76a1123463bc1" PRIMARY KEY ("userId"))`);
         await queryRunner.query(`CREATE TYPE "public"."team_members_role_enum" AS ENUM('member', 'leader', 'manager')`);
