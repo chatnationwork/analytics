@@ -34,6 +34,7 @@ import {
   databaseConfig,
   authConfig,
   mediaConfig,
+  redisConfig,
 } from "@lib/common";
 import { DatabaseModule } from "@lib/database";
 import { OverviewModule } from "./overview/overview.module";
@@ -56,6 +57,7 @@ import { DangerZoneModule } from "./danger-zone/danger-zone.module";
 import { AuditModule } from "./audit/audit.module";
 import { MediaModule } from "./media/media.module";
 import { EmailModule } from "./email/email.module";
+import { CampaignsModule } from "./campaigns/campaigns.module";
 
 /**
  * @Module() - Root module decorator
@@ -81,7 +83,7 @@ import { EmailModule } from "./email/email.module";
      */
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, authConfig, mediaConfig],
+      load: [appConfig, databaseConfig, authConfig, mediaConfig, redisConfig],
     }),
     ScheduleModule.forRoot(),
 
@@ -119,6 +121,7 @@ import { EmailModule } from "./email/email.module";
     AuditModule, // GET /api/dashboard/audit-logs
     MediaModule, // POST /api/dashboard/media/upload, GET /api/dashboard/media/:filename
     EmailModule,
+    CampaignsModule, // Campaign broadcasting, scheduling, triggers, analytics
   ],
 })
 export class DashboardModule {}

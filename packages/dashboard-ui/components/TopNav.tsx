@@ -32,6 +32,7 @@ import {
   List,
   Lock,
   AlertTriangle,
+  Megaphone,
 } from "lucide-react";
 import { usePermission } from "@/components/auth/PermissionContext";
 import { api } from "@/lib/api";
@@ -46,6 +47,7 @@ const navGroups = [
       { href: "/agent-inbox", label: "Inbox", icon: Inbox },
       { href: "/contacts", label: "Contacts", icon: Contact, permission: "contacts.view" },
       { href: "/team-management", label: "Team Management", icon: Users },
+      { href: "/broadcast", label: "Broadcast", icon: Megaphone },
     ],
   },
   {
