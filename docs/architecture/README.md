@@ -2,6 +2,8 @@
 
 The Analytics Platform is built for **Kra** (Kenya Revenue Authority). It is deployed as a single-client system; the tenant model is used for organisation structure, users, and access control.
 
+> **Comprehensive document:** For a single document covering system architecture, solutions architecture, database design, and deployment in one place, see [ARCHITECTURE_AND_DEPLOYMENT.md](../ARCHITECTURE_AND_DEPLOYMENT.md).
+
 ## 1. System Context
 
 The platform is a comprehensive system for tracking, processing, and visualising data from various sources (Web, WhatsApp, AI Agents) for Kra.

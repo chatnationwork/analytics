@@ -8,6 +8,7 @@ This documentation describes the **Analytics Platform** built for **Kra** (Kenya
 
 | Section                                    | Description                                                                                                  |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| [**Architecture & Deployment**](ARCHITECTURE_AND_DEPLOYMENT.md) | Single comprehensive document: system architecture, solutions architecture, database design, and deployment. |
 | [**Architecture**](architecture/README.md) | System context, services (Collector, Processor, Dashboard API/UI), agent system, RBAC, WhatsApp integration. |
 | [**Business**](business/)                  | Project description, Kra reports checklist, dashboard requirements, CRM overview, roadmap.                   |
 | [**API**](api/README.md)                   | Event ingestion, dashboard API, handover webhook, CRM API, SDK design.                                       |

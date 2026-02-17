@@ -40,8 +40,6 @@ import { EmailService } from "../email/email.service";
 import { SystemMessagesService } from "../system-messages/system-messages.service";
 import { PresenceService } from "../agent-system/presence.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
-import { InboxService } from "../agent-system/inbox.service";
-import { MessageDirection, MessageType } from "@lib/database";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import {
@@ -112,7 +110,6 @@ export class AuthService {
     private readonly whatsappService: WhatsappService,
     private readonly emailService: EmailService,
     private readonly systemMessages: SystemMessagesService,
-    private readonly inboxService: InboxService,
   ) {}
 
   /**
@@ -279,24 +276,6 @@ export class AuthService {
           );
         }
 
-        // Record 2FA message
-        await this.inboxService
-          .addMessage({
-            tenantId,
-            contactId: user.phone,
-            direction: MessageDirection.OUTBOUND,
-            type: MessageType.TEMPLATE,
-            content: `Sent authentication code`,
-            metadata: {
-              template: sendResult.payload?.template,
-              sent_by_system: true,
-            },
-            senderId: undefined,
-          })
-          .catch((err) =>
-            this.logger.warn(`Failed to record 2FA message: ${err.message}`),
-          );
-
         this.logger.log(
           `Session verification (2FA) required for ${user.email}; code sent`,
         );
@@ -335,24 +314,6 @@ export class AuthService {
             "Could not send code to WhatsApp. Check CRM setup.",
         );
       }
-
-      // Record 2FA message
-      await this.inboxService
-        .addMessage({
-          tenantId,
-          contactId: user.phone,
-          direction: MessageDirection.OUTBOUND,
-          type: MessageType.TEMPLATE,
-          content: `Sent authentication code`,
-          metadata: {
-            template: sendResult.payload?.template,
-            sent_by_system: true,
-          },
-          senderId: undefined,
-        })
-        .catch((err) =>
-          this.logger.warn(`Failed to record 2FA message: ${err.message}`),
-        );
 
       this.logger.log(`2FA code sent to ${user.email}`);
       return {
@@ -556,24 +517,6 @@ export class AuthService {
       );
     }
 
-    // Record 2FA message
-    await this.inboxService
-      .addMessage({
-        tenantId,
-        contactId: user.phone,
-        direction: MessageDirection.OUTBOUND,
-        type: MessageType.TEMPLATE,
-        content: `Sent authentication code`,
-        metadata: {
-          template: sendResult.payload?.template,
-          sent_by_system: true,
-        },
-        senderId: undefined,
-      })
-      .catch((err) =>
-        this.logger.warn(`Failed to record 2FA message: ${err.message}`),
-      );
-
     this.logger.log(`2FA code resent to ${user.email}`);
     return { success: true };
   }
@@ -703,24 +646,6 @@ export class AuthService {
         sendResult.error ?? "Could not send code to WhatsApp. Check CRM setup.",
       );
     }
-
-    // Record 2FA message
-    await this.inboxService
-      .addMessage({
-        tenantId,
-        contactId: phone,
-        direction: MessageDirection.OUTBOUND,
-        type: MessageType.TEMPLATE,
-        content: `Sent authentication code`,
-        metadata: {
-          template: sendResult.payload?.template,
-          sent_by_system: true,
-        },
-        senderId: undefined,
-      })
-      .catch((err) =>
-        this.logger.warn(`Failed to record 2FA message: ${err.message}`),
-      );
 
     this.logger.log(`2FA setup code sent to phone ending ${phone.slice(-4)}`);
     return { token };

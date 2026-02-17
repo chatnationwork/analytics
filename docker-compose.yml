@@ -36,6 +36,7 @@ services:
 
   # Collector API (event ingestion)
   collector:
+    image: ghcr.io/saruni-spec/analytics-collector:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -66,6 +67,7 @@ services:
 
   # Processor Worker (queue consumer)
   processor:
+    image: ghcr.io/saruni-spec/analytics-processor:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -94,6 +96,7 @@ services:
 
   # Dashboard API
   dashboard-api:
+    image: ghcr.io/saruni-spec/analytics-dashboard-api:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -136,6 +139,7 @@ services:
 
   # Dashboard UI (Next.js)
   dashboard-ui:
+    image: ghcr.io/saruni-spec/analytics-dashboard-ui:latest
     build:
       context: ./packages/dashboard-ui
       dockerfile: Dockerfile
