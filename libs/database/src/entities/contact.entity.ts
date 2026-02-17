@@ -1,12 +1,15 @@
 /**
  * Contact entity – people who have sent at least one message (message.received).
  * Populated when we process message.received (collector/processor), not derived from analytics.
+ *
+ * PK: UUID `id` (used by new module FKs: campaigns, events, surveys, etc.)
+ * Unique: (tenantId, contactId) – all existing code queries by this pair.
  */
 
 import {
   Entity,
   Column,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
   Index,
@@ -16,11 +19,14 @@ import {
 @Index(["tenantId", "contactId"], { unique: true })
 @Index(["tenantId", "lastSeen"])
 export class ContactEntity {
-  /** Composite primary key: tenantId + contactId (e.g. phone number) */
-  @PrimaryColumn({ length: 50 })
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  @Column({ type: "varchar", length: 50 })
   tenantId: string;
 
-  @PrimaryColumn({ length: 100 })
+  /** Phone number or external identifier (e.g. WhatsApp number, digits-only). */
+  @Column({ type: "varchar", length: 100 })
   contactId: string;
 
   @Column({ type: "varchar", length: 200, nullable: true })
@@ -49,6 +55,22 @@ export class ContactEntity {
 
   @Column({ type: "int", default: 0 })
   messageCount: number;
+
+  /** Tags for manual segmentation (e.g. ['vip', 'paid', 'event-2024']). */
+  @Column("text", { array: true, default: () => "'{}'" })
+  tags: string[];
+
+  /** Payment state for campaign audience filtering. */
+  @Column({ type: "varchar", length: 20, nullable: true })
+  paymentStatus: string | null;
+
+  /** WhatsApp Business API messaging consent. Defaults to true for existing contacts. */
+  @Column({ type: "boolean", default: true })
+  optedIn: boolean;
+
+  /** When messaging consent was given. */
+  @Column({ type: "timestamptz", nullable: true })
+  optedInAt: Date | null;
 
   /** When set, contact is deactivated (hidden from list/export; admins can deactivate). */
   @Column({ type: "timestamptz", nullable: true })

@@ -1,10 +1,14 @@
 /**
  * Contact repository – upsert on message.received, list with pagination.
+ *
+ * Lookup patterns:
+ * - Existing code (WhatsApp): findOne(tenantId, contactId) via unique constraint
+ * - New module code: findById(id) via UUID PK
  */
 
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
+import { In, IsNull, Repository } from "typeorm";
 import { ContactEntity } from "../entities/contact.entity";
 
 @Injectable()
@@ -55,6 +59,17 @@ export class ContactRepository {
     return this.repo.findOne({
       where: { tenantId, contactId },
     });
+  }
+
+  /** Find a contact by its UUID primary key. Used by new module code (campaigns, events, etc.). */
+  async findById(id: string): Promise<ContactEntity | null> {
+    return this.repo.findOne({ where: { id } });
+  }
+
+  /** Find multiple contacts by UUID primary keys. */
+  async findByIds(ids: string[]): Promise<ContactEntity[]> {
+    if (ids.length === 0) return [];
+    return this.repo.find({ where: { id: In(ids) } });
   }
 
   /**
@@ -252,6 +267,7 @@ export class ContactRepository {
    * Bulk upsert contacts.
    * Updates name/metadata if exists, creates if new.
    * Does NOT reset messageCount or firstSeen for existing.
+   * Uses ON CONFLICT on the unique constraint (tenantId, contactId).
    */
   async bulkUpsert(
     tenantId: string,
@@ -263,23 +279,8 @@ export class ContactRepository {
   ) {
     if (contacts.length === 0) return;
 
-    // TypeORM upsert is efficient
-    // We map input to entity shape
-    const entities = contacts.map((c) => {
-      return this.repo.create({
-        tenantId,
-        contactId: c.contactId,
-        name: c.name || undefined, // undefined keeps existing value in some partial update contexts, but for upsert we need values
-        // For upsert, we need to be careful not to overwrite firstSeen if it exists
-        // But TypeORM upsert overwrite options are limited
-        // A better approach for "update only if exists, else create" in bulk is tricky with pure upsert without overwriting everything
-        // However, standard upsert overwrites columns.
-        // We want to PRESERVE firstSeen/messageCount if existing
-        // So we might need to do: INSERT ... ON CONFLICT (...) DO UPDATE SET name = EXCLUDED.name ...
-      });
-    });
-
-    // Custom query builder for precise control over ON CONFLICT
+    // Custom query builder for precise control over ON CONFLICT.
+    // Uses the unique constraint (tenantId, contactId) for conflict detection.
     await this.repo
       .createQueryBuilder()
       .insert()
