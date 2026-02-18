@@ -30,6 +30,7 @@ import {
   ASSIGNMENT_ENGINE_RULES,
   ROUND_ROBIN_CONTEXT_PROVIDER,
   type RoundRobinContextProvider,
+  type RuleResult,
 } from "./assignment-engine";
 
 export type AssignmentStrategy =
@@ -861,7 +862,7 @@ export class AssignmentService {
       where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
     });
     const waterfall = config?.settings?.waterfall;
-    const noAgentAction = waterfall?.noAgentAction || "queue";
+    const noAgentAction = waterfall?.noAgentAction || "reply";
     if (noAgentAction !== "reply") return;
 
     const messageText =
@@ -895,13 +896,15 @@ export class AssignmentService {
    * Requests assignment for a session (used when bot hands off to agent).
    * If auto-assignment is possible, assigns immediately.
    * Otherwise, leaves in unassigned queue.
+   * Returns both the session and the engine outcome so the caller can decide
+   * which user-facing message to send (handover, OOO, no-agent, or none).
    * §5.1 Verified engine-only: no legacy path; schedule/contact/assign/no-agent are handled by rules.
    */
   async requestAssignment(
     sessionId: string,
     teamId?: string,
     context?: Record<string, unknown>,
-  ): Promise<InboxSessionEntity> {
+  ): Promise<{ session: InboxSessionEntity; outcome: RuleResult }> {
     const session = await this.sessionRepo.findOneOrFail({
       where: { id: sessionId },
     });
@@ -932,15 +935,15 @@ export class AssignmentService {
       session.status = SessionStatus.ASSIGNED;
       session.assignedAt = new Date();
       await this.sessionRepo.save(session);
-      return session;
+      return { session, outcome: result };
     }
-    if (result.outcome === "skip") return session;
+    if (result.outcome === "skip") return { session, outcome: result };
     if (result.outcome === "error") {
       this.logger.warn(`Assignment engine error: ${result.message}`);
-      return session; // No assign, no partial save (4.3)
+      return { session, outcome: result }; // No assign, no partial save (4.3)
     }
     // outcome === 'stop': schedule closed, manual strategy, or no agents (fallback already run by rules)
-    return session;
+    return { session, outcome: result };
   }
 
   /**

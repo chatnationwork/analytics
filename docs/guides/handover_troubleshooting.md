@@ -27,9 +27,11 @@ When handover succeeds (session created) but the chat stays **unassigned**, use 
      - If **no one** is found from those roles, the code falls back to the **default team** (where `teams.isDefault = true`): agents = that team’s members.
    - If the waterfall + default team still yield **no agents**, the session stays **unassigned** and a warning is logged.
 
-4. **Confirmation message (best-effort, after assignment)**  
-   If `sendHandoverMessage !== false`, the “Connecting you to an agent...” (or custom) message is sent in the **background** via WhatsApp.  
-   Failures here (e.g. WhatsApp/CRM config) do **not** block or undo assignment; they only affect the optional message.
+4. **Confirmation message (only on successful assignment)**  
+   The “Connecting you to an agent...” (or custom) message is sent **only** when the engine assigns the session to an agent.  
+   When the team is closed (OOO), the schedule rule sends the OOO message instead.  
+   When no agents are available, the no-agent fallback sends “All of our agents are currently busy. We will get back to you shortly.” (default; configurable via `noAgentAction`/`noAgentMessage` in waterfall config).  
+   Failures here do **not** block or undo assignment; they only affect the optional message.
 
 ---
 
@@ -97,7 +99,7 @@ If **tenant roles** returned no one and **default team** has no members (or ther
 
 ### 4. CRM integration (WhatsApp confirmation message)
 
-Assignment does **not** depend on CRM. CRM is only used for sending the optional “Connecting you to an agent...” message. So CRM issues do not cause “not assigned”; they can only cause the confirmation message to fail.
+Assignment does **not** depend on CRM. CRM is only used for sending the “Connecting you to an agent...” message (sent only on successful assignment). So CRM issues do not cause “not assigned”; they can only cause the confirmation message to fail.
 
 For the message to send, the integration must be active and have the right shape:
 
@@ -165,4 +167,4 @@ When the **confirmation message** fails (e.g. WhatsApp config), you’ll see:
 Handover confirmation message failed (assignment already done): ...
 ```
 
-Assignment has already run; only the optional message failed. Fix CRM/WhatsApp config so the user gets the “Connecting you to an agent...” message.
+Assignment has already run; only the optional message failed. Fix CRM/WhatsApp config so the user gets the “Connecting you to an agent...” message (only sent when assignment succeeds).

@@ -28,7 +28,7 @@ export async function runNoAgentFallback(
     where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
   });
   const waterfall = config?.settings?.waterfall;
-  const noAgentAction = waterfall?.noAgentAction || "queue";
+  const noAgentAction = waterfall?.noAgentAction || "reply";
   if (noAgentAction !== "reply") return;
 
   const messageText =
