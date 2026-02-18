@@ -14,8 +14,8 @@ import { Inject, Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import Redis from "ioredis";
 import { ConfigService } from "@nestjs/config";
 import { CrmIntegrationsService } from "../crm-integrations/crm-integrations.service";
-import { CAMPAIGN_REDIS_CLIENT } from "./campaigns.module";
 import {
+  CAMPAIGN_REDIS_CLIENT,
   QUOTA_REDIS_KEY_PREFIX,
   QUOTA_BUCKET_TTL_SECONDS,
   DEFAULT_CONVERSATION_TIER,

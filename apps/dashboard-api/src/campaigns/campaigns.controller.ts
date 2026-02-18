@@ -14,7 +14,9 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from "@nestjs/common";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CampaignsService } from "./campaigns.service";
 import { CampaignOrchestratorService } from "./campaign-orchestrator.service";
 import { CampaignAnalyticsService } from "./campaign-analytics.service";
@@ -23,9 +25,12 @@ import { RateTrackerService } from "./rate-tracker.service";
 import { CreateCampaignDto } from "./dto/create-campaign.dto";
 import { UpdateCampaignDto } from "./dto/update-campaign.dto";
 import { CampaignQueryDto } from "./dto/campaign-query.dto";
+import { ValidateTemplateDto } from "./dto/validate-template.dto";
+import { TemplateRendererService } from "./template-renderer.service";
 import { CampaignStatus } from "@lib/database";
 
 @Controller("campaigns")
+@UseGuards(JwtAuthGuard)
 export class CampaignsController {
   constructor(
     private readonly campaignsService: CampaignsService,
@@ -33,6 +38,7 @@ export class CampaignsController {
     private readonly analytics: CampaignAnalyticsService,
     private readonly audienceService: AudienceService,
     private readonly rateTracker: RateTrackerService,
+    private readonly renderer: TemplateRendererService,
   ) {}
 
   /** List campaigns (paginated, filterable by status and sourceModule). */
@@ -141,7 +147,7 @@ export class CampaignsController {
   @Post()
   async create(@Req() req: any, @Body() dto: CreateCampaignDto) {
     const tenantId = req.user?.tenantId;
-    const userId = req.user?.sub;
+    const userId = req.user?.id;
     if (!tenantId || !userId) throw new Error("Auth context required");
     return this.campaignsService.create(tenantId, userId, dto);
   }
@@ -200,5 +206,46 @@ export class CampaignsController {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
     return this.campaignsService.cancel(tenantId, id);
+  }
+
+  /** Validate message template placeholders. */
+  @Post("validate-template")
+  @HttpCode(HttpStatus.OK)
+  async validateTemplate(@Body() dto: ValidateTemplateDto) {
+    const placeholders = this.renderer.extractPlaceholders(dto.template);
+    
+    // Known valid fields
+    const validFields = [
+      "name", "contactId", "email", "pin", "yearOfBirth",
+      "today", "tomorrow", "greeting"
+    ];
+
+    const invalid: string[] = [];
+    const warnings: Array<{ field: string; message: string }> = [];
+
+    for (const field of placeholders) {
+      // Check if it's a known field or metadata field
+      const isMetadata = field.startsWith("metadata.");
+      const isValid = validFields.includes(field) || isMetadata;
+
+      if (!isValid) {
+        invalid.push(field);
+      }
+
+      // Add warnings for fields that might be empty
+      if (["email", "pin", "yearOfBirth"].includes(field)) {
+        warnings.push({
+          field,
+          message: `The field "${field}" might be empty for some contacts. Consider using a fallback.`,
+        });
+      }
+    }
+
+    return {
+      valid: invalid.length === 0,
+      placeholders,
+      invalid,
+      warnings,
+    };
   }
 }

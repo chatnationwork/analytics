@@ -99,6 +99,13 @@ async function proxyRequest(
       body = await request.arrayBuffer();
     } else {
       body = await request.text();
+      
+      // If body is empty string, remove Content-Type JSON header to avoid 400 Bad Request
+      // (Fastify throws "Body cannot be empty" if Content-Type is application/json but body is empty)
+      if (!body) {
+        delete headers["Content-Type"];
+        body = undefined;
+      }
     }
 
     const response = await fetch(`${url}${searchParams}`, {

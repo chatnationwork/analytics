@@ -30,6 +30,7 @@ import {
   ASSIGNMENT_ENGINE_RULES,
   ROUND_ROBIN_CONTEXT_PROVIDER,
   type RoundRobinContextProvider,
+  type RuleResult,
 } from "./assignment-engine";
 
 export type AssignmentStrategy =
@@ -854,14 +855,28 @@ export class AssignmentService {
 
   /**
    * Run no-agent fallback (send message and record in inbox if configured).
+   * Throttled to at most once per 24h per session to avoid spamming the user.
    * Public for use by assignment engine rules.
    */
   async runNoAgentFallback(session: InboxSessionEntity): Promise<void> {
+    // Throttle: only send once per 24h per session (same pattern as OOO throttle)
+    const ctx = session.context as Record<string, unknown> | null | undefined;
+    const sentAt = ctx?.noAgentLastSentAt;
+    if (typeof sentAt === "string") {
+      const t = Date.parse(sentAt);
+      if (!Number.isNaN(t) && Date.now() - t < 24 * 60 * 60 * 1000) {
+        this.logger.debug(
+          `No-agent message throttled for session ${session.id} (sent ${sentAt})`,
+        );
+        return;
+      }
+    }
+
     const config = await this.configRepo.findOne({
       where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
     });
     const waterfall = config?.settings?.waterfall;
-    const noAgentAction = waterfall?.noAgentAction || "queue";
+    const noAgentAction = waterfall?.noAgentAction || "reply";
     if (noAgentAction !== "reply") return;
 
     const messageText =
@@ -885,6 +900,12 @@ export class AssignmentService {
         content: messageText,
         senderId: undefined,
       });
+      // Stamp throttle timestamp on session context
+      session.context = {
+        ...((session.context as Record<string, unknown>) || {}),
+        noAgentLastSentAt: new Date().toISOString(),
+      };
+      await this.sessionRepo.save(session);
       this.logger.log(`Sent no-agent fallback message to ${session.contactId}`);
     } catch (e) {
       this.logger.error("Failed to send no-agent fallback message", e);
@@ -895,13 +916,15 @@ export class AssignmentService {
    * Requests assignment for a session (used when bot hands off to agent).
    * If auto-assignment is possible, assigns immediately.
    * Otherwise, leaves in unassigned queue.
+   * Returns both the session and the engine outcome so the caller can decide
+   * which user-facing message to send (handover, OOO, no-agent, or none).
    * §5.1 Verified engine-only: no legacy path; schedule/contact/assign/no-agent are handled by rules.
    */
   async requestAssignment(
     sessionId: string,
     teamId?: string,
     context?: Record<string, unknown>,
-  ): Promise<InboxSessionEntity> {
+  ): Promise<{ session: InboxSessionEntity; outcome: RuleResult }> {
     const session = await this.sessionRepo.findOneOrFail({
       where: { id: sessionId },
     });
@@ -932,15 +955,15 @@ export class AssignmentService {
       session.status = SessionStatus.ASSIGNED;
       session.assignedAt = new Date();
       await this.sessionRepo.save(session);
-      return session;
+      return { session, outcome: result };
     }
-    if (result.outcome === "skip") return session;
+    if (result.outcome === "skip") return { session, outcome: result };
     if (result.outcome === "error") {
       this.logger.warn(`Assignment engine error: ${result.message}`);
-      return session; // No assign, no partial save (4.3)
+      return { session, outcome: result }; // No assign, no partial save (4.3)
     }
     // outcome === 'stop': schedule closed, manual strategy, or no agents (fallback already run by rules)
-    return session;
+    return { session, outcome: result };
   }
 
   /**

@@ -43,12 +43,12 @@ export default function LandingPage() {
             <span className="font-semibold text-xl">Shuru Connect</span>
           </div>
           <div className="flex items-center gap-6">
-            <Link
+            {/* <Link
               href="/docs"
               className="text-gray-300 hover:text-white transition-colors"
             >
               Docs
-            </Link>
+            </Link> */}
             <Link
               href="/showcase"
               className="text-gray-300 hover:text-white transition-colors"
@@ -109,7 +109,7 @@ export default function LandingPage() {
             </div>
             <span>Shuru Connect · Built by ChatNation</span>
           </div>
-          <div className="flex items-center gap-6">
+          {/* <div className="flex items-center gap-6">
             <Link href="/docs" className="hover:text-white transition-colors">
               Documentation
             </Link>
@@ -125,7 +125,7 @@ export default function LandingPage() {
             >
               SDK
             </Link>
-          </div>
+          </div> */}
         </div>
       </footer>
     </div>
