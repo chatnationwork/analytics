@@ -29,15 +29,17 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-gray-500 mb-2">
+        <p className="text-sm text-muted-foreground mb-2">
           {new Date(event.startsAt).toLocaleDateString()} -{" "}
           {new Date(event.endsAt).toLocaleDateString()}
         </p>
-        <p className="text-sm text-gray-600 line-clamp-2">
+        <p className="text-sm text-muted-foreground line-clamp-2">
           {event.description || "No description provided."}
         </p>
         {event.venueName && (
-          <p className="text-xs text-gray-400 mt-2">📍 {event.venueName}</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            📍 {event.venueName}
+          </p>
         )}
       </CardContent>
       <CardFooter className="flex justify-end gap-2">

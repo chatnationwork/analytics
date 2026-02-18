@@ -49,9 +49,9 @@ export default function EosEventsPage() {
       </div>
 
       {events.length === 0 ? (
-        <div className="text-center py-12 border rounded-lg bg-gray-50">
-          <h3 className="text-lg font-medium text-gray-900">No events yet</h3>
-          <p className="text-gray-500 mt-1">
+        <div className="text-center py-12 border rounded-lg bg-muted">
+          <h3 className="text-lg font-medium">No events yet</h3>
+          <p className="text-muted-foreground mt-1">
             Get started by creating your first EOS event.
           </p>
           <div className="mt-6">

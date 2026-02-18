@@ -16,12 +16,11 @@ export const VenueGrid: React.FC<VenueGridProps> = ({
 }) => {
   const { cols, rows } = grid;
 
-  const gridStyle = {
+  const gridStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
     gridTemplateRows: `repeat(${rows}, 50px)`,
     gap: "4px",
-    border: "1px solid #eee",
     padding: "10px",
   };
 
@@ -43,21 +42,21 @@ export const VenueGrid: React.FC<VenueGridProps> = ({
           key={`${x}-${y}`}
           className={`
                     border rounded text-xs flex items-center justify-center cursor-pointer transition-colors
-                    ${exhibitor ? "bg-blue-100 border-blue-300" : "bg-gray-50 hover:bg-gray-100"}
-                    ${!slot && !exhibitor ? "bg-transparent border-none" : ""} 
+                    ${exhibitor ? "bg-primary/20 border-primary/40" : "bg-muted hover:bg-muted/80 border-border"}
+                    ${!slot && !exhibitor ? "bg-transparent border-transparent" : ""} 
                 `}
           onClick={() => slot && onSlotClick?.(slot.id)}
           style={{ gridColumn: x + 1, gridRow: y + 1 }}
         >
           {exhibitor ? (
             <div
-              className="text-center font-semibold text-blue-800 truncate px-1"
+              className="text-center font-semibold text-primary truncate px-1"
               title={exhibitor.name}
             >
               {exhibitor.boothNumber || exhibitor.name}
             </div>
           ) : slot ? (
-            <span className="text-gray-300">Slot</span>
+            <span className="text-muted-foreground/50">Slot</span>
           ) : null}
         </div>,
       );
@@ -65,9 +64,11 @@ export const VenueGrid: React.FC<VenueGridProps> = ({
   }
 
   return (
-    <div className="w-full overflow-auto p-4 border rounded-lg bg-white">
+    <div className="w-full overflow-auto p-4 border border-border rounded-lg bg-card">
       <h3 className="text-lg font-semibold mb-2">Venue Map</h3>
-      <div style={gridStyle}>{cells}</div>
+      <div style={gridStyle} className="border border-border rounded">
+        {cells}
+      </div>
     </div>
   );
 };

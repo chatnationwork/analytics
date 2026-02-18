@@ -6,6 +6,7 @@ import { eventsApi } from "@/lib/eos-events-api";
 import { EosEvent, EosExhibitor } from "@/types/eos-events";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VenueGrid } from "@/components/eos-events/VenueGrid";
 import { Loader2 } from "lucide-react";
@@ -54,7 +55,7 @@ export default function EosEventDetailsPage() {
           <h1 className="text-3xl font-bold">{event.name}</h1>
           <div className="flex gap-2 mt-2">
             <Badge>{event.status}</Badge>
-            <span className="text-gray-500">
+            <span className="text-muted-foreground">
               {new Date(event.startsAt).toLocaleDateString()}
             </span>
           </div>
@@ -77,10 +78,12 @@ export default function EosEventDetailsPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="font-semibold mb-2">Description</h3>
-            <p className="text-gray-600">{event.description}</p>
-          </div>
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="font-semibold mb-2">Description</h3>
+              <p className="text-muted-foreground">{event.description}</p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="venue">
@@ -96,13 +99,13 @@ export default function EosEventDetailsPage() {
         </TabsContent>
 
         <TabsContent value="exhibitors">
-          <div className="p-4 bg-gray-50 rounded text-center text-gray-500">
+          <div className="p-4 bg-muted rounded text-center text-muted-foreground">
             Exhibitor management implementation needed...
           </div>
         </TabsContent>
 
         <TabsContent value="tickets">
-          <div className="p-4 bg-gray-50 rounded text-center text-gray-500">
+          <div className="p-4 bg-muted rounded text-center text-muted-foreground">
             Ticket management implementation needed...
           </div>
         </TabsContent>
