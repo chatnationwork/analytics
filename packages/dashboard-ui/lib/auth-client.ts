@@ -62,6 +62,7 @@ export const authClient = {
   async getProfile(): Promise<User> {
     // No manual token check. Rely on Proxy + Cookie.
     const res = await fetch(`${API_URL}/api/dashboard/auth/me`, {
+      credentials: "include",
       headers: {
         // 'Authorization': Bearer token is injected by the Next.js Proxy
       },
@@ -75,6 +76,7 @@ export const authClient = {
   async updateProfile(data: { name: string }): Promise<User> {
     const res = await fetch(`${API_URL}/api/dashboard/auth/me`, {
       method: "PATCH",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
