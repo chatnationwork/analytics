@@ -14,8 +14,8 @@ import { Inject, Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import Redis from "ioredis";
 import { ConfigService } from "@nestjs/config";
 import { CrmIntegrationsService } from "../crm-integrations/crm-integrations.service";
-import { CAMPAIGN_REDIS_CLIENT } from "./campaigns.module";
 import {
+  CAMPAIGN_REDIS_CLIENT,
   QUOTA_REDIS_KEY_PREFIX,
   QUOTA_BUCKET_TTL_SECONDS,
   DEFAULT_CONVERSATION_TIER,
@@ -190,9 +190,7 @@ export class RateTrackerService implements OnModuleInit {
    * Get the conversation tier for a tenant.
    * TODO: Store tier on the CRM integration config for per-tenant configuration.
    */
-  private async getTenantTier(
-    _tenantId: string,
-  ): Promise<ConversationTier> {
+  private async getTenantTier(_tenantId: string): Promise<ConversationTier> {
     return DEFAULT_CONVERSATION_TIER;
   }
 }

@@ -156,7 +156,14 @@ update_env "COLLECTOR_PORT" "3000"
 update_env "DASHBOARD_API_PORT" "3001"
 update_env "DASHBOARD_UI_PORT" "3002"
 update_env "SERVER_API_URL" "http://localhost:3001"
-update_env "NEXT_PUBLIC_API_URL" "http://localhost:3002"
+update_env "NEXT_PUBLIC_API_URL" "http://localhost:3001"
+
+# Create symlink for dashboard-ui to access root .env
+log "Ensuring dashboard-ui can access environment variables..."
+if [ -d "packages/dashboard-ui" ]; then
+    ln -sf ../../.env packages/dashboard-ui/.env
+    success "Dashboard UI environment linked."
+fi
 
 success ".env file configured."
 

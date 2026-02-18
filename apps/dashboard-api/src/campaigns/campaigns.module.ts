@@ -13,15 +13,14 @@ import { TriggerService } from "./trigger.service";
 import { CampaignAnalyticsService } from "./campaign-analytics.service";
 import { RateTrackerService } from "./rate-tracker.service";
 import { SendWorker } from "./send.worker";
+import { CrmIntegrationsService } from "../crm-integrations/crm-integrations.service";
 import {
   CAMPAIGN_QUEUE_NAME,
+  CAMPAIGN_REDIS_CLIENT,
   WA_MAX_MESSAGES_PER_SECOND,
 } from "./constants";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.module";
-
-/** Injection token for the Redis client used by the rate tracker. */
-export const CAMPAIGN_REDIS_CLIENT = "CAMPAIGN_REDIS_CLIENT";
 
 @Module({
   imports: [
