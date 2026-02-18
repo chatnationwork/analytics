@@ -47,6 +47,7 @@ const navGroups = [
       { href: "/agent-inbox", label: "Inbox", icon: Inbox },
       { href: "/contacts", label: "Contacts", icon: Contact, permission: "contacts.view" },
       { href: "/team-management", label: "Team Management", icon: Users },
+      { href: "/eos-events", label: "EOS Events", icon: Activity },
       { href: "/broadcast", label: "Broadcast", icon: Megaphone },
     ],
   },

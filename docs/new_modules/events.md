@@ -6,7 +6,7 @@ The EOS module is a multi-tenant infrastructure designed to handle the full life
 
 ## 1. Overview
 
-The Events Module enables "Organizers" (Primary Tenants) to create events, manage ticket sales, and onboard "Exhibitors" (Sub-Tenants). It bridges the gap between physical interactions and digital CRM data using WhatsApp QR flows.
+The EOS-Events Module enables "Organizers" (Primary Tenants) to create events, manage ticket sales, and onboard "Exhibitors" (Sub-Tenants). It bridges the gap between physical interactions and digital CRM data using WhatsApp QR flows.
 
 ### Key Design Decisions
 
@@ -20,13 +20,14 @@ The Events Module enables "Organizers" (Primary Tenants) to create events, manag
 
 ## 2. Architecture
 
-The module operates as a core service within `apps/dashboard-api/src/events/`, interacting with:
+The module operates as a core service within `apps/dashboard-api/src/eos-events/`, interacting with:
+
 - **Campaigns module** (`TriggerService`) for WhatsApp message delivery.
 - **Billing module** (`WalletService`) for token reservation and debit on HypeCard generation.
 - **HypeCard module** (`generated_cards` table) for social asset creation.
 
 ```
-EventsController
+EosEventsController
     |
     +-- EventService (CRUD, venue layout)
     +-- TicketService (purchase initiation, M-Pesa callback)
@@ -68,26 +69,26 @@ Defined in `DATABASE_SCHEMA.md §4.1`. The `settings` JSONB column stores EOS-sp
 }
 ```
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID | PK |
-| `organization_id` | UUID | FK → `organizations.id`. Organizer tenant. |
-| `name` | VARCHAR(255) | NOT NULL |
-| `slug` | VARCHAR(100) | Unique URL identifier |
-| `description` | TEXT | |
-| `starts_at` | TIMESTAMPTZ | NOT NULL |
-| `ends_at` | TIMESTAMPTZ | NOT NULL |
-| `timezone` | VARCHAR(50) | Default `'Africa/Nairobi'` |
-| `venue_name` | VARCHAR(255) | |
-| `venue_address` | TEXT | |
-| `is_virtual` | BOOLEAN | Default false |
-| `virtual_url` | TEXT | |
-| `cover_image_url` | TEXT | |
-| `settings` | JSONB | `{ hype_card_on_reg, venue_map_config }` |
-| `status` | VARCHAR(20) | `draft`, `published`, `cancelled`, `completed` |
-| `published_at` | TIMESTAMPTZ | |
-| `created_at` | TIMESTAMPTZ | Auto |
-| `updated_at` | TIMESTAMPTZ | Auto |
+| Column            | Type         | Notes                                          |
+| ----------------- | ------------ | ---------------------------------------------- |
+| `id`              | UUID         | PK                                             |
+| `organization_id` | UUID         | FK → `organizations.id`. Organizer tenant.     |
+| `name`            | VARCHAR(255) | NOT NULL                                       |
+| `slug`            | VARCHAR(100) | Unique URL identifier                          |
+| `description`     | TEXT         |                                                |
+| `starts_at`       | TIMESTAMPTZ  | NOT NULL                                       |
+| `ends_at`         | TIMESTAMPTZ  | NOT NULL                                       |
+| `timezone`        | VARCHAR(50)  | Default `'Africa/Nairobi'`                     |
+| `venue_name`      | VARCHAR(255) |                                                |
+| `venue_address`   | TEXT         |                                                |
+| `is_virtual`      | BOOLEAN      | Default false                                  |
+| `virtual_url`     | TEXT         |                                                |
+| `cover_image_url` | TEXT         |                                                |
+| `settings`        | JSONB        | `{ hype_card_on_reg, venue_map_config }`       |
+| `status`          | VARCHAR(20)  | `draft`, `published`, `cancelled`, `completed` |
+| `published_at`    | TIMESTAMPTZ  |                                                |
+| `created_at`      | TIMESTAMPTZ  | Auto                                           |
+| `updated_at`      | TIMESTAMPTZ  | Auto                                           |
 
 **Indexes:** `idx_events_org`, `idx_events_dates`, `idx_events_status`
 
@@ -97,22 +98,22 @@ Defined in `DATABASE_SCHEMA.md §4.1`. The `settings` JSONB column stores EOS-sp
 
 Defined in `DATABASE_SCHEMA.md §4.1`. No additions needed.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID | PK |
-| `event_id` | UUID | FK → `events.id` ON DELETE CASCADE |
-| `name` | VARCHAR(100) | NOT NULL |
-| `description` | TEXT | |
-| `price` | DECIMAL(10,2) | NOT NULL, default 0 |
-| `currency` | VARCHAR(3) | Default `'KES'` |
-| `quantity_total` | INTEGER | |
-| `quantity_sold` | INTEGER | Default 0 |
-| `max_per_order` | INTEGER | Default 10 |
-| `sales_start_at` | TIMESTAMPTZ | |
-| `sales_end_at` | TIMESTAMPTZ | |
-| `is_active` | BOOLEAN | Default true |
-| `sort_order` | INTEGER | Default 0 |
-| `created_at` | TIMESTAMPTZ | Auto |
+| Column           | Type          | Notes                              |
+| ---------------- | ------------- | ---------------------------------- |
+| `id`             | UUID          | PK                                 |
+| `event_id`       | UUID          | FK → `events.id` ON DELETE CASCADE |
+| `name`           | VARCHAR(100)  | NOT NULL                           |
+| `description`    | TEXT          |                                    |
+| `price`          | DECIMAL(10,2) | NOT NULL, default 0                |
+| `currency`       | VARCHAR(3)    | Default `'KES'`                    |
+| `quantity_total` | INTEGER       |                                    |
+| `quantity_sold`  | INTEGER       | Default 0                          |
+| `max_per_order`  | INTEGER       | Default 10                         |
+| `sales_start_at` | TIMESTAMPTZ   |                                    |
+| `sales_end_at`   | TIMESTAMPTZ   |                                    |
+| `is_active`      | BOOLEAN       | Default true                       |
+| `sort_order`     | INTEGER       | Default 0                          |
+| `created_at`     | TIMESTAMPTZ   | Auto                               |
 
 ---
 
@@ -120,24 +121,24 @@ Defined in `DATABASE_SCHEMA.md §4.1`. No additions needed.
 
 Defined in `DATABASE_SCHEMA.md §4.1`. The `payment_reference` column stores the M-Pesa `CheckoutRequestID`. The `hype_card_url` is stored as a `generated_cards` FK (see §4.4) — add the following column via migration:
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID | PK |
-| `ticket_type_id` | UUID | FK → `ticket_types.id` |
-| `contact_id` | UUID | FK → `contacts.id` |
-| `ticket_code` | VARCHAR(20) | UNIQUE NOT NULL. QR code value. |
-| `qr_code_url` | TEXT | Public URL of QR image |
-| `holder_name` | VARCHAR(255) | |
-| `holder_email` | VARCHAR(255) | |
-| `holder_phone` | VARCHAR(20) | |
-| `amount_paid` | DECIMAL(10,2) | |
-| `payment_reference` | VARCHAR(100) | M-Pesa `CheckoutRequestID` |
-| `payment_status` | VARCHAR(20) | `pending`, `completed`, `failed` |
-| `payment_metadata` | JSONB | `{ mpesa_receipt, checkout_request_id }` — **ADD via migration** |
-| `hype_card_id` | UUID | FK → `generated_cards.id` — **ADD via migration** |
-| `status` | VARCHAR(20) | `valid`, `used`, `cancelled`, `refunded` |
-| `checked_in_at` | TIMESTAMPTZ | |
-| `created_at` | TIMESTAMPTZ | Auto |
+| Column              | Type          | Notes                                                            |
+| ------------------- | ------------- | ---------------------------------------------------------------- |
+| `id`                | UUID          | PK                                                               |
+| `ticket_type_id`    | UUID          | FK → `ticket_types.id`                                           |
+| `contact_id`        | UUID          | FK → `contacts.id`                                               |
+| `ticket_code`       | VARCHAR(20)   | UNIQUE NOT NULL. QR code value.                                  |
+| `qr_code_url`       | TEXT          | Public URL of QR image                                           |
+| `holder_name`       | VARCHAR(255)  |                                                                  |
+| `holder_email`      | VARCHAR(255)  |                                                                  |
+| `holder_phone`      | VARCHAR(20)   |                                                                  |
+| `amount_paid`       | DECIMAL(10,2) |                                                                  |
+| `payment_reference` | VARCHAR(100)  | M-Pesa `CheckoutRequestID`                                       |
+| `payment_status`    | VARCHAR(20)   | `pending`, `completed`, `failed`                                 |
+| `payment_metadata`  | JSONB         | `{ mpesa_receipt, checkout_request_id }` — **ADD via migration** |
+| `hype_card_id`      | UUID          | FK → `generated_cards.id` — **ADD via migration**                |
+| `status`            | VARCHAR(20)   | `valid`, `used`, `cancelled`, `refunded`                         |
+| `checked_in_at`     | TIMESTAMPTZ   |                                                                  |
+| `created_at`        | TIMESTAMPTZ   | Auto                                                             |
 
 **Migration required:** Add `payment_metadata JSONB` and `hype_card_id UUID REFERENCES generated_cards(id)` to the `tickets` table.
 
@@ -147,23 +148,23 @@ Defined in `DATABASE_SCHEMA.md §4.1`. The `payment_reference` column stores the
 
 Defined in `DATABASE_SCHEMA.md §4.1`. No additions needed. The `booth_location` JSONB (`{ x, y, width, height }`) is the source of truth for the venue grid renderer.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID | PK |
-| `event_id` | UUID | FK → `events.id` ON DELETE CASCADE |
-| `organization_id` | UUID | FK → `organizations.id`. Nullable — only set if exhibitor has own account. |
-| `name` | VARCHAR(255) | NOT NULL |
-| `description` | TEXT | |
-| `logo_url` | TEXT | |
-| `booth_number` | VARCHAR(50) | |
-| `booth_location` | JSONB | `{ x, y, width, height }` |
-| `contact_name` | VARCHAR(255) | |
-| `contact_email` | VARCHAR(255) | |
-| `contact_phone` | VARCHAR(20) | |
-| `settings` | JSONB | Default `{}` |
-| `status` | VARCHAR(20) | `pending`, `approved`, `rejected` |
-| `created_at` | TIMESTAMPTZ | Auto |
-| `updated_at` | TIMESTAMPTZ | Auto |
+| Column            | Type         | Notes                                                                      |
+| ----------------- | ------------ | -------------------------------------------------------------------------- |
+| `id`              | UUID         | PK                                                                         |
+| `event_id`        | UUID         | FK → `events.id` ON DELETE CASCADE                                         |
+| `organization_id` | UUID         | FK → `organizations.id`. Nullable — only set if exhibitor has own account. |
+| `name`            | VARCHAR(255) | NOT NULL                                                                   |
+| `description`     | TEXT         |                                                                            |
+| `logo_url`        | TEXT         |                                                                            |
+| `booth_number`    | VARCHAR(50)  |                                                                            |
+| `booth_location`  | JSONB        | `{ x, y, width, height }`                                                  |
+| `contact_name`    | VARCHAR(255) |                                                                            |
+| `contact_email`   | VARCHAR(255) |                                                                            |
+| `contact_phone`   | VARCHAR(20)  |                                                                            |
+| `settings`        | JSONB        | Default `{}`                                                               |
+| `status`          | VARCHAR(20)  | `pending`, `approved`, `rejected`                                          |
+| `created_at`      | TIMESTAMPTZ  | Auto                                                                       |
+| `updated_at`      | TIMESTAMPTZ  | Auto                                                                       |
 
 ---
 
@@ -171,21 +172,22 @@ Defined in `DATABASE_SCHEMA.md §4.1`. No additions needed. The `booth_location`
 
 Defined in `DATABASE_SCHEMA.md §4.1`. Requires additional columns for AI enrichment. **ADD via migration:**
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID | PK |
-| `exhibitor_id` | UUID | FK → `exhibitors.id` ON DELETE CASCADE |
-| `contact_id` | UUID | FK → `contacts.id` |
-| `source` | VARCHAR(50) | `qr_scan`, `chat`, `booth_visit` |
-| `notes` | TEXT | Manual exhibitor notes |
-| `interest_level` | VARCHAR(20) | **CHANGE type from INTEGER to VARCHAR(20)** — `cold`, `warm`, `hot`. **Migration required.** |
-| `ai_intent` | TEXT | Extracted intent summary e.g. "Wants 50 units of X" — **ADD via migration** |
-| `interaction_context` | VARCHAR(20) | `event_active`, `grace_period`, `independent` — **ADD via migration** |
-| `follow_up_status` | VARCHAR(20) | Default `new` |
-| `followed_up_at` | TIMESTAMPTZ | |
-| `created_at` | TIMESTAMPTZ | Auto |
+| Column                | Type        | Notes                                                                                        |
+| --------------------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `id`                  | UUID        | PK                                                                                           |
+| `exhibitor_id`        | UUID        | FK → `exhibitors.id` ON DELETE CASCADE                                                       |
+| `contact_id`          | UUID        | FK → `contacts.id`                                                                           |
+| `source`              | VARCHAR(50) | `qr_scan`, `chat`, `booth_visit`                                                             |
+| `notes`               | TEXT        | Manual exhibitor notes                                                                       |
+| `interest_level`      | VARCHAR(20) | **CHANGE type from INTEGER to VARCHAR(20)** — `cold`, `warm`, `hot`. **Migration required.** |
+| `ai_intent`           | TEXT        | Extracted intent summary e.g. "Wants 50 units of X" — **ADD via migration**                  |
+| `interaction_context` | VARCHAR(20) | `event_active`, `grace_period`, `independent` — **ADD via migration**                        |
+| `follow_up_status`    | VARCHAR(20) | Default `new`                                                                                |
+| `followed_up_at`      | TIMESTAMPTZ |                                                                                              |
+| `created_at`          | TIMESTAMPTZ | Auto                                                                                         |
 
 **Migrations required:**
+
 1. `ALTER TABLE leads ALTER COLUMN interest_level TYPE VARCHAR(20)` (drop integer, add string enum).
 2. `ALTER TABLE leads ADD COLUMN ai_intent TEXT`.
 3. `ALTER TABLE leads ADD COLUMN interaction_context VARCHAR(20) NOT NULL DEFAULT 'event_active'`.
@@ -262,23 +264,29 @@ All entities live in `libs/database/src/entities/` and must be registered in `li
 
 ```typescript
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, ManyToOne, OneToMany, JoinColumn,
-} from 'typeorm';
-import { Organization } from './organization.entity';
-import { TicketType } from './ticket-type.entity';
-import { Exhibitor } from './exhibitor.entity';
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from "typeorm";
+import { Organization } from "./organization.entity";
+import { TicketType } from "./ticket-type.entity";
+import { Exhibitor } from "./exhibitor.entity";
 
-@Entity('events')
+@Entity("events")
 export class Event {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: 'organization_id' })
+  @Column({ name: "organization_id" })
   organizationId: string;
 
   @ManyToOne(() => Organization)
-  @JoinColumn({ name: 'organization_id' })
+  @JoinColumn({ name: "organization_id" })
   organization: Organization;
 
   @Column({ length: 255 })
@@ -287,44 +295,44 @@ export class Event {
   @Column({ nullable: true, length: 100 })
   slug: string;
 
-  @Column({ nullable: true, type: 'text' })
+  @Column({ nullable: true, type: "text" })
   description: string;
 
-  @Column({ name: 'starts_at', type: 'timestamptz' })
+  @Column({ name: "starts_at", type: "timestamptz" })
   startsAt: Date;
 
-  @Column({ name: 'ends_at', type: 'timestamptz' })
+  @Column({ name: "ends_at", type: "timestamptz" })
   endsAt: Date;
 
-  @Column({ length: 50, default: 'Africa/Nairobi' })
+  @Column({ length: 50, default: "Africa/Nairobi" })
   timezone: string;
 
-  @Column({ name: 'venue_name', nullable: true, length: 255 })
+  @Column({ name: "venue_name", nullable: true, length: 255 })
   venueName: string;
 
-  @Column({ name: 'venue_address', nullable: true, type: 'text' })
+  @Column({ name: "venue_address", nullable: true, type: "text" })
   venueAddress: string;
 
-  @Column({ name: 'is_virtual', default: false })
+  @Column({ name: "is_virtual", default: false })
   isVirtual: boolean;
 
-  @Column({ name: 'virtual_url', nullable: true, type: 'text' })
+  @Column({ name: "virtual_url", nullable: true, type: "text" })
   virtualUrl: string;
 
-  @Column({ name: 'cover_image_url', nullable: true, type: 'text' })
+  @Column({ name: "cover_image_url", nullable: true, type: "text" })
   coverImageUrl: string;
 
   /**
    * settings.hype_card_on_reg: boolean
    * settings.venue_map_config: { grid: { cols, rows }, slots: [{ id, x, y }] }
    */
-  @Column({ type: 'jsonb', default: '{}' })
+  @Column({ type: "jsonb", default: "{}" })
   settings: Record<string, any>;
 
-  @Column({ length: 20, default: 'draft' })
-  status: 'draft' | 'published' | 'cancelled' | 'completed';
+  @Column({ length: 20, default: "draft" })
+  status: "draft" | "published" | "cancelled" | "completed";
 
-  @Column({ name: 'published_at', nullable: true, type: 'timestamptz' })
+  @Column({ name: "published_at", nullable: true, type: "timestamptz" })
   publishedAt: Date;
 
   @OneToMany(() => TicketType, (tt) => tt.event)
@@ -333,10 +341,10 @@ export class Event {
   @OneToMany(() => Exhibitor, (e) => e.event)
   exhibitors: Exhibitor[];
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
   updatedAt: Date;
 }
 ```
@@ -345,61 +353,66 @@ export class Event {
 
 ```typescript
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  ManyToOne, OneToMany, JoinColumn,
-} from 'typeorm';
-import { Event } from './event.entity';
-import { Ticket } from './ticket.entity';
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from "typeorm";
+import { Event } from "./event.entity";
+import { Ticket } from "./ticket.entity";
 
-@Entity('ticket_types')
+@Entity("ticket_types")
 export class TicketType {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: 'event_id' })
+  @Column({ name: "event_id" })
   eventId: string;
 
-  @ManyToOne(() => Event, (e) => e.ticketTypes, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'event_id' })
+  @ManyToOne(() => Event, (e) => e.ticketTypes, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "event_id" })
   event: Event;
 
   @Column({ length: 100 })
   name: string;
 
-  @Column({ nullable: true, type: 'text' })
+  @Column({ nullable: true, type: "text" })
   description: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
   price: number;
 
-  @Column({ length: 3, default: 'KES' })
+  @Column({ length: 3, default: "KES" })
   currency: string;
 
-  @Column({ name: 'quantity_total', nullable: true, type: 'int' })
+  @Column({ name: "quantity_total", nullable: true, type: "int" })
   quantityTotal: number;
 
-  @Column({ name: 'quantity_sold', default: 0 })
+  @Column({ name: "quantity_sold", default: 0 })
   quantitySold: number;
 
-  @Column({ name: 'max_per_order', default: 10 })
+  @Column({ name: "max_per_order", default: 10 })
   maxPerOrder: number;
 
-  @Column({ name: 'sales_start_at', nullable: true, type: 'timestamptz' })
+  @Column({ name: "sales_start_at", nullable: true, type: "timestamptz" })
   salesStartAt: Date;
 
-  @Column({ name: 'sales_end_at', nullable: true, type: 'timestamptz' })
+  @Column({ name: "sales_end_at", nullable: true, type: "timestamptz" })
   salesEndAt: Date;
 
-  @Column({ name: 'is_active', default: true })
+  @Column({ name: "is_active", default: true })
   isActive: boolean;
 
-  @Column({ name: 'sort_order', default: 0 })
+  @Column({ name: "sort_order", default: 0 })
   sortOrder: number;
 
   @OneToMany(() => Ticket, (t) => t.ticketType)
   tickets: Ticket[];
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 }
 ```
@@ -408,74 +421,84 @@ export class TicketType {
 
 ```typescript
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  ManyToOne, JoinColumn,
-} from 'typeorm';
-import { TicketType } from './ticket-type.entity';
-import { Contact } from './contact.entity';
-import { GeneratedCard } from './generated-card.entity';
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
+import { TicketType } from "./ticket-type.entity";
+import { Contact } from "./contact.entity";
+import { GeneratedCard } from "./generated-card.entity";
 
-@Entity('tickets')
+@Entity("tickets")
 export class Ticket {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: 'ticket_type_id' })
+  @Column({ name: "ticket_type_id" })
   ticketTypeId: string;
 
   @ManyToOne(() => TicketType, (tt) => tt.tickets)
-  @JoinColumn({ name: 'ticket_type_id' })
+  @JoinColumn({ name: "ticket_type_id" })
   ticketType: TicketType;
 
-  @Column({ name: 'contact_id' })
+  @Column({ name: "contact_id" })
   contactId: string;
 
   @ManyToOne(() => Contact)
-  @JoinColumn({ name: 'contact_id' })
+  @JoinColumn({ name: "contact_id" })
   contact: Contact;
 
-  @Column({ name: 'ticket_code', length: 20, unique: true })
+  @Column({ name: "ticket_code", length: 20, unique: true })
   ticketCode: string;
 
-  @Column({ name: 'qr_code_url', nullable: true, type: 'text' })
+  @Column({ name: "qr_code_url", nullable: true, type: "text" })
   qrCodeUrl: string;
 
-  @Column({ name: 'holder_name', nullable: true, length: 255 })
+  @Column({ name: "holder_name", nullable: true, length: 255 })
   holderName: string;
 
-  @Column({ name: 'holder_email', nullable: true, length: 255 })
+  @Column({ name: "holder_email", nullable: true, length: 255 })
   holderEmail: string;
 
-  @Column({ name: 'holder_phone', nullable: true, length: 20 })
+  @Column({ name: "holder_phone", nullable: true, length: 20 })
   holderPhone: string;
 
-  @Column({ name: 'amount_paid', nullable: true, type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    name: "amount_paid",
+    nullable: true,
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+  })
   amountPaid: number;
 
-  @Column({ name: 'payment_reference', nullable: true, length: 100 })
+  @Column({ name: "payment_reference", nullable: true, length: 100 })
   paymentReference: string;
 
-  @Column({ name: 'payment_status', length: 20, default: 'pending' })
-  paymentStatus: 'pending' | 'completed' | 'failed';
+  @Column({ name: "payment_status", length: 20, default: "pending" })
+  paymentStatus: "pending" | "completed" | "failed";
 
   /** { mpesa_receipt: string, checkout_request_id: string } */
-  @Column({ name: 'payment_metadata', nullable: true, type: 'jsonb' })
+  @Column({ name: "payment_metadata", nullable: true, type: "jsonb" })
   paymentMetadata: { mpesa_receipt?: string; checkout_request_id?: string };
 
-  @Column({ name: 'hype_card_id', nullable: true })
+  @Column({ name: "hype_card_id", nullable: true })
   hypeCardId: string;
 
   @ManyToOne(() => GeneratedCard, { nullable: true })
-  @JoinColumn({ name: 'hype_card_id' })
+  @JoinColumn({ name: "hype_card_id" })
   hypeCard: GeneratedCard;
 
-  @Column({ length: 20, default: 'valid' })
-  status: 'valid' | 'used' | 'cancelled' | 'refunded';
+  @Column({ length: 20, default: "valid" })
+  status: "valid" | "used" | "cancelled" | "refunded";
 
-  @Column({ name: 'checked_in_at', nullable: true, type: 'timestamptz' })
+  @Column({ name: "checked_in_at", nullable: true, type: "timestamptz" })
   checkedInAt: Date;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 }
 ```
@@ -484,70 +507,76 @@ export class Ticket {
 
 ```typescript
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, ManyToOne, OneToMany, JoinColumn,
-} from 'typeorm';
-import { Event } from './event.entity';
-import { Organization } from './organization.entity';
-import { Lead } from './lead.entity';
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from "typeorm";
+import { Event } from "./event.entity";
+import { Organization } from "./organization.entity";
+import { Lead } from "./lead.entity";
 
-@Entity('exhibitors')
+@Entity("exhibitors")
 export class Exhibitor {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: 'event_id' })
+  @Column({ name: "event_id" })
   eventId: string;
 
-  @ManyToOne(() => Event, (e) => e.exhibitors, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'event_id' })
+  @ManyToOne(() => Event, (e) => e.exhibitors, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "event_id" })
   event: Event;
 
-  @Column({ name: 'organization_id', nullable: true })
+  @Column({ name: "organization_id", nullable: true })
   organizationId: string;
 
   @ManyToOne(() => Organization, { nullable: true })
-  @JoinColumn({ name: 'organization_id' })
+  @JoinColumn({ name: "organization_id" })
   organization: Organization;
 
   @Column({ length: 255 })
   name: string;
 
-  @Column({ nullable: true, type: 'text' })
+  @Column({ nullable: true, type: "text" })
   description: string;
 
-  @Column({ name: 'logo_url', nullable: true, type: 'text' })
+  @Column({ name: "logo_url", nullable: true, type: "text" })
   logoUrl: string;
 
-  @Column({ name: 'booth_number', nullable: true, length: 50 })
+  @Column({ name: "booth_number", nullable: true, length: 50 })
   boothNumber: string;
 
   /** { x: number, y: number, width: number, height: number } */
-  @Column({ name: 'booth_location', nullable: true, type: 'jsonb' })
+  @Column({ name: "booth_location", nullable: true, type: "jsonb" })
   boothLocation: { x: number; y: number; width: number; height: number };
 
-  @Column({ name: 'contact_name', nullable: true, length: 255 })
+  @Column({ name: "contact_name", nullable: true, length: 255 })
   contactName: string;
 
-  @Column({ name: 'contact_email', nullable: true, length: 255 })
+  @Column({ name: "contact_email", nullable: true, length: 255 })
   contactEmail: string;
 
-  @Column({ name: 'contact_phone', nullable: true, length: 20 })
+  @Column({ name: "contact_phone", nullable: true, length: 20 })
   contactPhone: string;
 
-  @Column({ type: 'jsonb', default: '{}' })
+  @Column({ type: "jsonb", default: "{}" })
   settings: Record<string, any>;
 
-  @Column({ length: 20, default: 'pending' })
-  status: 'pending' | 'approved' | 'rejected';
+  @Column({ length: 20, default: "pending" })
+  status: "pending" | "approved" | "rejected";
 
   @OneToMany(() => Lead, (l) => l.exhibitor)
   leads: Lead[];
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
   updatedAt: Date;
 }
 ```
@@ -556,56 +585,60 @@ export class Exhibitor {
 
 ```typescript
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  ManyToOne, JoinColumn,
-} from 'typeorm';
-import { Exhibitor } from './exhibitor.entity';
-import { Contact } from './contact.entity';
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
+import { Exhibitor } from "./exhibitor.entity";
+import { Contact } from "./contact.entity";
 
-@Entity('leads')
+@Entity("leads")
 export class Lead {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: 'exhibitor_id' })
+  @Column({ name: "exhibitor_id" })
   exhibitorId: string;
 
-  @ManyToOne(() => Exhibitor, (e) => e.leads, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'exhibitor_id' })
+  @ManyToOne(() => Exhibitor, (e) => e.leads, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "exhibitor_id" })
   exhibitor: Exhibitor;
 
-  @Column({ name: 'contact_id' })
+  @Column({ name: "contact_id" })
   contactId: string;
 
   @ManyToOne(() => Contact)
-  @JoinColumn({ name: 'contact_id' })
+  @JoinColumn({ name: "contact_id" })
   contact: Contact;
 
   @Column({ nullable: true, length: 50 })
-  source: 'qr_scan' | 'chat' | 'booth_visit';
+  source: "qr_scan" | "chat" | "booth_visit";
 
-  @Column({ nullable: true, type: 'text' })
+  @Column({ nullable: true, type: "text" })
   notes: string;
 
   /** AI-classified interest level (replaces the old INTEGER 1-5) */
-  @Column({ name: 'interest_level', length: 20, nullable: true })
-  interestLevel: 'cold' | 'warm' | 'hot';
+  @Column({ name: "interest_level", length: 20, nullable: true })
+  interestLevel: "cold" | "warm" | "hot";
 
   /** Extracted AI intent summary e.g. "Wants 50 units of product X" */
-  @Column({ name: 'ai_intent', nullable: true, type: 'text' })
+  @Column({ name: "ai_intent", nullable: true, type: "text" })
   aiIntent: string;
 
   /** Lifecycle context at time of capture */
-  @Column({ name: 'interaction_context', length: 20, default: 'event_active' })
-  interactionContext: 'event_active' | 'grace_period' | 'independent';
+  @Column({ name: "interaction_context", length: 20, default: "event_active" })
+  interactionContext: "event_active" | "grace_period" | "independent";
 
-  @Column({ name: 'follow_up_status', length: 20, default: 'new' })
+  @Column({ name: "follow_up_status", length: 20, default: "new" })
   followUpStatus: string;
 
-  @Column({ name: 'followed_up_at', nullable: true, type: 'timestamptz' })
+  @Column({ name: "followed_up_at", nullable: true, type: "timestamptz" })
   followedUpAt: Date;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 }
 ```
@@ -614,18 +647,18 @@ export class Lead {
 
 ## 7. Service Breakdown
 
-### `EventService` (`apps/dashboard-api/src/events/event.service.ts`)
+### `EventService` (`apps/dashboard-api/src/eos-events/event.service.ts`)
 
 - **`createEvent(organizationId: string, dto: CreateEventDto): Promise<Event>`** — Validates dates, creates the event row, initializes `settings.venue_map_config` to a default 10×10 grid.
 - **`getVenueLayout(organizationId: string, eventId: string): Promise<VenueLayoutDto>`** — Fetches the event, reads `settings.venue_map_config`, returns it with exhibitor `booth_location` overlay for the frontend CSS Grid renderer.
 - **`publishEvent(organizationId: string, eventId: string): Promise<Event>`** — Sets `status = 'published'` and `published_at = NOW()`. Validates that at least one `ticket_type` exists.
 
-### `TicketService` (`apps/dashboard-api/src/events/ticket.service.ts`)
+### `TicketService` (`apps/dashboard-api/src/eos-events/ticket.service.ts`)
 
 - **`initiatePurchase(dto: InitiatePurchaseDto): Promise<Ticket>`** — Creates a `ticket_types` quantity lock, inserts a `tickets` row with `payment_status = 'pending'`, then calls `PaymentService.stkPush({ phone, amount, reference: ticket.id })`.
 - **`processCallback(payload: MpesaCallbackPayload): Promise<void>`** — Validates the M-Pesa result. On success: updates `payment_status = 'completed'`, writes `payment_metadata`, generates `ticket_code` (nanoid 8-char), enqueues `HypeCardWorker` job if `event.settings.hype_card_on_reg === true`, then calls:
   ```typescript
-  TriggerService.handle('TICKET_ISSUED', {
+  TriggerService.handle("TICKET_ISSUED", {
     tenantId: organizationId,
     contactId: ticket.contactId,
     payload: { ticketCode: ticket.ticketCode, qrCodeUrl: ticket.qrCodeUrl },
@@ -633,13 +666,13 @@ export class Lead {
   ```
   On failure: sets `payment_status = 'failed'`, releases quantity lock.
 
-### `LeadService` (`apps/dashboard-api/src/events/lead.service.ts`)
+### `LeadService` (`apps/dashboard-api/src/eos-events/lead.service.ts`)
 
 - **`captureLead(contactId: string, exhibitorId: string): Promise<Lead>`** — Entry point for QR scans. Creates a `leads` row with `source = 'qr_scan'`, `interest_level = 'cold'`, `interaction_context = 'event_active'`. Enqueues a `LeadProcessorWorker` job.
 - **`analyzeIntent(leadId: string, transcript: string): Promise<void>`** — Called by the worker. Posts transcript to Central AI Brain. Receives `{ intent: string, interestLevel: 'cold'|'warm'|'hot' }`. Updates the `leads` row. If `interestLevel === 'hot'`, calls `notifyExhibitor(leadId)`.
 - **`notifyExhibitor(leadId: string): Promise<void>`** — Loads the lead + exhibitor. Calls:
   ```typescript
-  TriggerService.handle('HOT_LEAD_CAPTURED', {
+  TriggerService.handle("HOT_LEAD_CAPTURED", {
     tenantId: exhibitor.organizationId,
     contactId: exhibitor.contactId, // exhibitor's own WhatsApp contact
     payload: { leadContactName, aiIntent, eventName },
@@ -650,7 +683,7 @@ export class Lead {
 
 ## 8. BullMQ Workers
 
-### `LeadProcessorWorker` (`apps/dashboard-api/src/events/workers/lead-processor.worker.ts`)
+### `LeadProcessorWorker` (`apps/dashboard-api/src/eos-events/workers/lead-processor.worker.ts`)
 
 - **Queue name:** `eos-lead-processing`
 - **Concurrency:** 5
@@ -658,7 +691,7 @@ export class Lead {
 - **On process:** Calls `LeadService.analyzeIntent(leadId, transcript)`.
 - **On failure:** Retries 3× with exponential backoff (30s base). Final failure sets `leads.interaction_context` unchanged — the lead remains `cold` and is not escalated.
 
-### `HypeCardWorker` (`apps/dashboard-api/src/events/workers/hypecard.worker.ts`)
+### `HypeCardWorker` (`apps/dashboard-api/src/eos-events/workers/hypecard.worker.ts`)
 
 - **Queue name:** `eos-hypecard-generation`
 - **Concurrency:** 10
@@ -675,7 +708,7 @@ export class Lead {
 4. **Worker Picks Up:** `LeadProcessorWorker` calls `LeadService.analyzeIntent(leadId, transcript)`.
 5. **Classification:** AI returns `{ intent, interestLevel }`. Lead row is updated.
 6. **Hot Lead Escalation:** If `hot`, `TriggerService.handle('HOT_LEAD_CAPTURED')` fires a campaign message to the exhibitor's WhatsApp.
-7. **Viral Loop:** A HypeCard job is enqueued: *"I just visited [Exhibitor Name] at [Event]!"* — sent to the lead's contact via the Campaigns module.
+7. **Viral Loop:** A HypeCard job is enqueued: _"I just visited [Exhibitor Name] at [Event]!"_ — sent to the lead's contact via the Campaigns module.
 
 ---
 
@@ -708,20 +741,20 @@ export class Lead {
 
 ## 12. API Endpoints
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| `POST` | `/events` | `EventController.create` | Create a new event |
-| `GET` | `/events/:id` | `EventController.findOne` | Get event detail |
-| `PATCH` | `/events/:id` | `EventController.update` | Update event (includes venue map) |
-| `POST` | `/events/:id/publish` | `EventController.publish` | Publish event |
-| `GET` | `/events/:id/venue-layout` | `EventController.getVenueLayout` | Get grid + booth overlay |
-| `POST` | `/events/:eventId/ticket-types` | `TicketTypeController.create` | Add a ticket type |
-| `POST` | `/events/:eventId/tickets/purchase` | `TicketController.initiatePurchase` | Start M-Pesa payment |
-| `GET` | `/tickets/:id/status` | `TicketController.getStatus` | Poll payment status |
-| `POST` | `/events/:eventId/exhibitors` | `ExhibitorController.create` | Onboard an exhibitor |
-| `GET` | `/events/:eventId/exhibitors` | `ExhibitorController.list` | List exhibitors (organizer) |
-| `GET` | `/exhibitors/:id/leads` | `LeadController.list` | List leads (exhibitor-scoped) |
-| `POST` | `/leads/qr-scan` | `LeadController.handleQrScan` | Entry point for booth QR scans |
+| Method  | Path                                | Handler                             | Description                       |
+| ------- | ----------------------------------- | ----------------------------------- | --------------------------------- |
+| `POST`  | `/events`                           | `EventController.create`            | Create a new event                |
+| `GET`   | `/events/:id`                       | `EventController.findOne`           | Get event detail                  |
+| `PATCH` | `/events/:id`                       | `EventController.update`            | Update event (includes venue map) |
+| `POST`  | `/events/:id/publish`               | `EventController.publish`           | Publish event                     |
+| `GET`   | `/events/:id/venue-layout`          | `EventController.getVenueLayout`    | Get grid + booth overlay          |
+| `POST`  | `/events/:eventId/ticket-types`     | `TicketTypeController.create`       | Add a ticket type                 |
+| `POST`  | `/events/:eventId/tickets/purchase` | `TicketController.initiatePurchase` | Start M-Pesa payment              |
+| `GET`   | `/tickets/:id/status`               | `TicketController.getStatus`        | Poll payment status               |
+| `POST`  | `/events/:eventId/exhibitors`       | `ExhibitorController.create`        | Onboard an exhibitor              |
+| `GET`   | `/events/:eventId/exhibitors`       | `ExhibitorController.list`          | List exhibitors (organizer)       |
+| `GET`   | `/exhibitors/:id/leads`             | `LeadController.list`               | List leads (exhibitor-scoped)     |
+| `POST`  | `/leads/qr-scan`                    | `LeadController.handleQrScan`       | Entry point for booth QR scans    |
 
 All endpoints require a JWT bearer token. `organization_id` is extracted from the token payload — it is never accepted as a query/body param.
 
@@ -732,7 +765,13 @@ All endpoints require a JWT bearer token. `organization_id` is extracted from th
 ### `CreateEventDto` (`dto/create-event.dto.ts`)
 
 ```typescript
-import { IsString, IsDateString, IsBoolean, IsOptional, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsDateString,
+  IsBoolean,
+  IsOptional,
+  IsObject,
+} from "class-validator";
 
 export class CreateEventDto {
   @IsString()
@@ -792,7 +831,7 @@ export class CreateEventDto {
 ### `InitiatePurchaseDto` (`dto/initiate-purchase.dto.ts`)
 
 ```typescript
-import { IsUUID, IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsUUID, IsString, IsOptional, IsEmail } from "class-validator";
 
 export class InitiatePurchaseDto {
   @IsUUID()
@@ -817,10 +856,10 @@ export class InitiatePurchaseDto {
 
 The Events module fires two trigger types handled by the Campaigns module `TriggerService`. Both use `type: 'module_initiated'` campaigns and expect pre-configured templates to exist.
 
-| Trigger Name | Fired By | Template Variables |
-|---|---|---|
-| `TICKET_ISSUED` | `TicketService.processCallback` | `ticketCode`, `qrCodeUrl`, `eventName`, `holderName` |
-| `HOT_LEAD_CAPTURED` | `LeadService.notifyExhibitor` | `leadContactName`, `aiIntent`, `eventName`, `exhibitorName` |
+| Trigger Name        | Fired By                        | Template Variables                                          |
+| ------------------- | ------------------------------- | ----------------------------------------------------------- |
+| `TICKET_ISSUED`     | `TicketService.processCallback` | `ticketCode`, `qrCodeUrl`, `eventName`, `holderName`        |
+| `HOT_LEAD_CAPTURED` | `LeadService.notifyExhibitor`   | `leadContactName`, `aiIntent`, `eventName`, `exhibitorName` |
 
 **Trigger call signature** (matches `TriggerService` in `campaigns/trigger.service.ts`):
 
@@ -838,18 +877,18 @@ await this.triggerService.handle(triggerType: string, {
 
 Token debits are made via `WalletService` (Billing module) for the following actions:
 
-| Action | Tokens | When |
-|--------|--------|------|
-| `generate_hypecard` (ticket) | 1 | On `HypeCardWorker` success |
-| `generate_hypecard` (lead viral) | 1 | On `HypeCardWorker` success |
-| WhatsApp message delivery | Per campaign config | Managed by Campaigns module — not called here |
+| Action                           | Tokens              | When                                          |
+| -------------------------------- | ------------------- | --------------------------------------------- |
+| `generate_hypecard` (ticket)     | 1                   | On `HypeCardWorker` success                   |
+| `generate_hypecard` (lead viral) | 1                   | On `HypeCardWorker` success                   |
+| WhatsApp message delivery        | Per campaign config | Managed by Campaigns module — not called here |
 
 ```typescript
 await this.walletService.debit({
   organizationId,
   amount: 1,
-  module: 'events',
-  action: 'generate_hypecard',
+  module: "events",
+  action: "generate_hypecard",
   referenceId: ticketId, // or leadId
 });
 ```
@@ -858,25 +897,25 @@ await this.walletService.debit({
 
 ## 16. File Inventory
 
-| File | Responsibility |
-|------|---------------|
-| `apps/dashboard-api/src/events/events.module.ts` | NestJS module: registers services, workers, BullMQ queues |
-| `apps/dashboard-api/src/events/event.controller.ts` | REST endpoints for events, venue layout |
-| `apps/dashboard-api/src/events/ticket.controller.ts` | REST endpoints for ticket purchase + status |
-| `apps/dashboard-api/src/events/exhibitor.controller.ts` | REST endpoints for exhibitor onboarding |
-| `apps/dashboard-api/src/events/lead.controller.ts` | REST endpoints for QR scan + lead listing |
-| `apps/dashboard-api/src/events/event.service.ts` | Event CRUD and venue layout logic |
-| `apps/dashboard-api/src/events/ticket.service.ts` | Purchase initiation and M-Pesa callback handling |
-| `apps/dashboard-api/src/events/lead.service.ts` | Lead capture, AI analysis, exhibitor notification |
-| `apps/dashboard-api/src/events/workers/lead-processor.worker.ts` | BullMQ worker: AI intent analysis |
-| `apps/dashboard-api/src/events/workers/hypecard.worker.ts` | BullMQ worker: HypeCard generation + debit |
-| `apps/dashboard-api/src/events/dto/create-event.dto.ts` | Event creation validation |
-| `apps/dashboard-api/src/events/dto/initiate-purchase.dto.ts` | Ticket purchase validation |
-| `libs/database/src/entities/event.entity.ts` | TypeORM entity |
-| `libs/database/src/entities/ticket-type.entity.ts` | TypeORM entity |
-| `libs/database/src/entities/ticket.entity.ts` | TypeORM entity |
-| `libs/database/src/entities/exhibitor.entity.ts` | TypeORM entity |
-| `libs/database/src/entities/lead.entity.ts` | TypeORM entity |
+| File                                                                        | Responsibility                                                                                                                           |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/dashboard-api/src/eos-events/events.module.ts`                        | NestJS module: registers services, workers, BullMQ queues                                                                                |
+| `apps/dashboard-api/src/eos-events/event.controller.ts`                     | REST endpoints for events, venue layout                                                                                                  |
+| `apps/dashboard-api/src/eos-events/ticket.controller.ts`                    | REST endpoints for ticket purchase + status                                                                                              |
+| `apps/dashboard-api/src/eos-events/exhibitor.controller.ts`                 | REST endpoints for exhibitor onboarding                                                                                                  |
+| `apps/dashboard-api/src/eos-events/lead.controller.ts`                      | REST endpoints for QR scan + lead listing                                                                                                |
+| `apps/dashboard-api/src/eos-events/event.service.ts`                        | Event CRUD and venue layout logic                                                                                                        |
+| `apps/dashboard-api/src/eos-events/ticket.service.ts`                       | Purchase initiation and M-Pesa callback handling                                                                                         |
+| `apps/dashboard-api/src/eos-events/lead.service.ts`                         | Lead capture, AI analysis, exhibitor notification                                                                                        |
+| `apps/dashboard-api/src/eos-events/workers/lead-processor.worker.ts`        | BullMQ worker: AI intent analysis                                                                                                        |
+| `apps/dashboard-api/src/eos-events/workers/hypecard.worker.ts`              | BullMQ worker: HypeCard generation + debit                                                                                               |
+| `apps/dashboard-api/src/eos-events/dto/create-event.dto.ts`                 | Event creation validation                                                                                                                |
+| `apps/dashboard-api/src/eos-events/dto/initiate-purchase.dto.ts`            | Ticket purchase validation                                                                                                               |
+| `libs/database/src/entities/event.entity.ts`                                | TypeORM entity                                                                                                                           |
+| `libs/database/src/entities/ticket-type.entity.ts`                          | TypeORM entity                                                                                                                           |
+| `libs/database/src/entities/ticket.entity.ts`                               | TypeORM entity                                                                                                                           |
+| `libs/database/src/entities/exhibitor.entity.ts`                            | TypeORM entity                                                                                                                           |
+| `libs/database/src/entities/lead.entity.ts`                                 | TypeORM entity                                                                                                                           |
 | `libs/database/src/migrations/{timestamp}-AddEosColumnsToExistingTables.ts` | Adds `payment_metadata`, `hype_card_id` to `tickets`; adds `ai_intent`, `interaction_context`, migrates `interest_level` type in `leads` |
 
 ---
@@ -887,6 +926,6 @@ When wiring this module into the app, the code agent must update the following f
 
 1. **`libs/database/src/entities/index.ts`** — Export `Event`, `TicketType`, `Ticket`, `Exhibitor`, `Lead`.
 2. **`libs/database/src/database.module.ts`** — Add all 5 entities to the `entities` array.
-3. **`apps/dashboard-api/src/dashboard.module.ts`** — Import `EventsModule`.
+3. **`apps/dashboard-api/src/dashboard.module.ts`** — Import `EosEventsModule`.
 4. **`libs/database/src/migrations/index.ts`** (if it exists) — Register `AddEosColumnsToExistingTables` migration.
 5. Run `npm run db:migrate` via the Docker entrypoint before app start.
