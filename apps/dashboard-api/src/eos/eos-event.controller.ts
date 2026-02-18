@@ -20,31 +20,26 @@ export class EosEventController {
 
   @Post()
   create(@Req() req: any, @Body() dto: CreateEventDto) {
-    const organizationId = req.user.organizationId;
-    return this.eventService.createEvent(organizationId, dto);
+    return this.eventService.createEvent(req.user, dto);
   }
 
   @Get(":id")
   findOne(@Req() req: any, @Param("id") id: string) {
-    const organizationId = req.user.organizationId;
-    return this.eventService.findOne(organizationId, id);
+    return this.eventService.findOne(req.user.tenantId, id);
   }
 
   @Patch(":id")
   update(@Req() req: any, @Param("id") id: string, @Body() updates: any) {
-    const organizationId = req.user.organizationId;
-    return this.eventService.update(organizationId, id, updates);
+    return this.eventService.update(req.user, id, updates);
   }
 
   @Post(":id/publish")
   publish(@Req() req: any, @Param("id") id: string) {
-    const organizationId = req.user.organizationId;
-    return this.eventService.publishEvent(organizationId, id);
+    return this.eventService.publishEvent(req.user.tenantId, id);
   }
 
   @Get(":id/venue-layout")
   getVenueLayout(@Req() req: any, @Param("id") id: string) {
-    const organizationId = req.user.organizationId;
-    return this.eventService.getVenueLayout(organizationId, id);
+    return this.eventService.getVenueLayout(req.user.tenantId, id);
   }
 }

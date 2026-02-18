@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { EosEvent } from "@lib/database";
+import { EosEvent, IdentityEntity } from "@lib/database";
 import { EosExhibitor } from "@lib/database";
 import { EosTicketType } from "@lib/database";
 import { CreateEventDto } from "./dto/create-event.dto";
@@ -15,19 +15,28 @@ export class EosEventService {
     private readonly exhibitorRepo: Repository<EosExhibitor>,
     @InjectRepository(EosTicketType)
     private readonly ticketTypeRepo: Repository<EosTicketType>,
+    @InjectRepository(IdentityEntity)
+    private readonly identityRepo: Repository<IdentityEntity>,
   ) {}
 
   async createEvent(
-    organizationId: string,
+    user: { id: string; tenantId: string },
     dto: CreateEventDto,
   ): Promise<EosEvent> {
     if (new Date(dto.startsAt) >= new Date(dto.endsAt)) {
       throw new BadRequestException("Start date must be before end date");
     }
 
+    // Find identity for audit
+    const identity = await this.identityRepo.findOne({
+      where: { userId: user.id, tenantId: user.tenantId },
+    });
+
     const event = this.eventRepo.create({
       ...dto,
-      organizationId,
+      organizationId: user.tenantId,
+      createdById: identity?.id,
+      updatedById: identity?.id,
       settings: {
         ...dto.settings,
         venue_map_config: dto.settings?.venue_map_config || {
@@ -86,12 +95,20 @@ export class EosEventService {
   }
 
   async update(
-    organizationId: string,
+    user: { id: string; tenantId: string },
     eventId: string,
     updates: Partial<EosEvent>,
   ): Promise<EosEvent> {
-    const event = await this.findOne(organizationId, eventId);
+    const event = await this.findOne(user.tenantId, eventId);
+
+    // Find identity for audit
+    const identity = await this.identityRepo.findOne({
+      where: { userId: user.id, tenantId: user.tenantId },
+    });
+
     Object.assign(event, updates);
+    event.updatedById = identity?.id || event.updatedById;
+
     return this.eventRepo.save(event);
   }
 }

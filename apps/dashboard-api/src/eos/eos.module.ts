@@ -9,6 +9,7 @@ import {
   EosExhibitor,
   EosLead,
   ContactEntity,
+  IdentityEntity,
 } from "@lib/database";
 
 import { EosEventController } from "./eos-event.controller";
@@ -37,6 +38,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
       EosExhibitor,
       EosLead,
       ContactEntity,
+      IdentityEntity,
     ]),
     BullModule.registerQueue(
       { name: "eos-lead-processing" },

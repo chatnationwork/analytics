@@ -10,6 +10,8 @@ import {
 } from "typeorm";
 import { EosTicketType } from "@lib/database/entities/eos-ticket-type.entity";
 import { EosExhibitor } from "@lib/database/entities/eos-exhibitor.entity";
+import { IdentityEntity } from "@lib/database/entities/identity.entity";
+import { ManyToOne } from "typeorm";
 
 @Entity("eos_events")
 export class EosEvent {
@@ -18,6 +20,20 @@ export class EosEvent {
 
   @Column({ name: "organization_id" })
   organizationId: string;
+
+  @Column({ name: "created_by_id", nullable: true })
+  createdById: string;
+
+  @Column({ name: "updated_by_id", nullable: true })
+  updatedById: string;
+
+  @ManyToOne(() => IdentityEntity)
+  @JoinColumn({ name: "created_by_id" })
+  createdBy: Relation<IdentityEntity>;
+
+  @ManyToOne(() => IdentityEntity)
+  @JoinColumn({ name: "updated_by_id" })
+  updatedBy: Relation<IdentityEntity>;
 
   @Column({ length: 255 })
   name: string;
