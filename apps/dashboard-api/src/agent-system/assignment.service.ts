@@ -855,9 +855,23 @@ export class AssignmentService {
 
   /**
    * Run no-agent fallback (send message and record in inbox if configured).
+   * Throttled to at most once per 24h per session to avoid spamming the user.
    * Public for use by assignment engine rules.
    */
   async runNoAgentFallback(session: InboxSessionEntity): Promise<void> {
+    // Throttle: only send once per 24h per session (same pattern as OOO throttle)
+    const ctx = session.context as Record<string, unknown> | null | undefined;
+    const sentAt = ctx?.noAgentLastSentAt;
+    if (typeof sentAt === "string") {
+      const t = Date.parse(sentAt);
+      if (!Number.isNaN(t) && Date.now() - t < 24 * 60 * 60 * 1000) {
+        this.logger.debug(
+          `No-agent message throttled for session ${session.id} (sent ${sentAt})`,
+        );
+        return;
+      }
+    }
+
     const config = await this.configRepo.findOne({
       where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
     });
@@ -886,6 +900,12 @@ export class AssignmentService {
         content: messageText,
         senderId: undefined,
       });
+      // Stamp throttle timestamp on session context
+      session.context = {
+        ...((session.context as Record<string, unknown>) || {}),
+        noAgentLastSentAt: new Date().toISOString(),
+      };
+      await this.sessionRepo.save(session);
       this.logger.log(`Sent no-agent fallback message to ${session.contactId}`);
     } catch (e) {
       this.logger.error("Failed to send no-agent fallback message", e);
