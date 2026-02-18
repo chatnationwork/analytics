@@ -78,6 +78,7 @@ import { ContactRepository } from "./repositories/contact.repository";
 import { AgentSessionRepository } from "./repositories/agent-session.repository";
 import { AuditLogRepository } from "./repositories/audit-log.repository";
 import { UserSessionRepository } from "./repositories/user-session.repository";
+import { SegmentationService } from "./segmentation/segmentation.service";
 
 /**
  * All entities that map to database tables.
@@ -218,8 +219,8 @@ export class DatabaseModule {
     return {
       module: DatabaseModule,
       imports: [TypeOrmModule.forFeature(entities)],
-      providers: [...repositories],
-      exports: [TypeOrmModule, ...repositories],
+      providers: [...repositories, SegmentationService],
+      exports: [TypeOrmModule, ...repositories, SegmentationService],
     };
   }
 }

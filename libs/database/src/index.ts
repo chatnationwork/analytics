@@ -37,3 +37,5 @@ export {
   InboxSessionHelper,
   GetOrCreateSessionOptions,
 } from "./helpers/inbox-session.helper";
+export * from "./segmentation/segment-filter.types";
+export * from "./segmentation/segmentation.service";
