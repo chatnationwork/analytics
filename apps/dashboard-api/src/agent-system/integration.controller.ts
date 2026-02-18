@@ -6,7 +6,6 @@ import {
   UseGuards,
   BadRequestException,
 } from "@nestjs/common";
-import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { HandoverAuthGuard } from "../auth/handover-auth.guard";
 import { InboxService } from "./inbox.service";
 import { AssignmentService } from "./assignment.service";
