@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Save, Calendar, Users, MessageSquare, Check, Loader2 } from "lucide-react";
@@ -16,6 +16,8 @@ import { AudienceFilterBuilder } from "../components/AudienceFilterBuilder";
 import { AudiencePreviewCard } from "../components/AudiencePreviewCard";
 import { broadcastApi } from "@/lib/broadcast-api";
 import { CreateCampaignDto, AudienceFilter, AudiencePreview, CampaignType } from "@/lib/broadcast-types";
+import { PlaceholderSelector } from "@/components/broadcast/PlaceholderSelector";
+import { MessagePreview } from "@/components/broadcast/MessagePreview";
 
 // Steps
 const STEPS = [
@@ -28,6 +30,7 @@ export default function NewCampaignPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Form State
   const [name, setName] = useState("");
@@ -89,6 +92,32 @@ export default function NewCampaignPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleInsertPlaceholder = (placeholder: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      // Fallback if ref not set: append to end
+      setMessageBody(prev => prev + placeholder);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = messageBody;
+
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    const newText = before + placeholder + after;
+
+    setMessageBody(newText);
+
+    // Restore cursor position after placeholder
+    setTimeout(() => {
+      const newCursorPos = start + placeholder.length;
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
   };
 
   const isStepValid = () => {
@@ -168,13 +197,18 @@ export default function NewCampaignPage() {
 
                         <div className="space-y-2">
                            <Label>Message Content</Label>
+                           <PlaceholderSelector onInsert={handleInsertPlaceholder} />
                            <Textarea 
+                             ref={textareaRef}
                              value={messageBody} 
                              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageBody(e.target.value)} 
                              placeholder="Hello {{name}}, check out our latest updates..." 
                              rows={6} 
                            />
                            <p className="text-xs text-muted-foreground">Supports generic text templates for now.</p>
+                           
+                           {/* Live Preview */}
+                           {messageBody.length > 0 && <MessagePreview message={messageBody} />}
                         </div>
                      </div>
                   )}

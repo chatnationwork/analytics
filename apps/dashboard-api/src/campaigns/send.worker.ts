@@ -23,9 +23,12 @@ import {
   CampaignMessageStatus,
   CampaignEntity,
   CampaignStatus,
+  ContactEntity,
+  ContactRepository,
 } from "@lib/database";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { RateTrackerService } from "./rate-tracker.service";
+import { TemplateRendererService } from "./template-renderer.service";
 import {
   CAMPAIGN_QUEUE_NAME,
   CAMPAIGN_JOBS,
@@ -47,6 +50,8 @@ export class SendWorker extends WorkerHost {
   constructor(
     private readonly whatsappService: WhatsappService,
     private readonly rateTracker: RateTrackerService,
+    private readonly templateRenderer: TemplateRendererService,
+    private readonly contactRepo: ContactRepository,
     @InjectRepository(CampaignMessageEntity)
     private readonly messageRepo: Repository<CampaignMessageEntity>,
     @InjectRepository(CampaignEntity)
@@ -84,10 +89,30 @@ export class SendWorker extends WorkerHost {
         attempts: () => '"attempts" + 1',
       });
 
+      // Fetch contact to render message template placeholders
+      const contact = await this.contactRepo.findOne(tenantId, recipientPhone);
+
+      if (!contact) {
+        throw new Error(`Contact not found: ${recipientPhone}`);
+      }
+
+      // Extract text body from message payload and render with contact data
+      const textBody = (messagePayload as any)?.text?.body || "";
+      const renderedBody = this.templateRenderer.render(textBody, contact);
+
+      // Create final message payload with rendered template
+      const renderedPayload = {
+        ...messagePayload,
+        text: {
+          ...(messagePayload as any).text,
+          body: renderedBody,
+        },
+      };
+
       const result = await this.whatsappService.sendMessage(
         tenantId,
         recipientPhone,
-        messagePayload as any,
+        renderedPayload as any,
       );
 
       if (result.success) {

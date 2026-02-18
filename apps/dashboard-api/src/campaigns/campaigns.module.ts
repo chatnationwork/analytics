@@ -12,6 +12,7 @@ import { CampaignSchedulerService } from "./campaign-scheduler.service";
 import { TriggerService } from "./trigger.service";
 import { CampaignAnalyticsService } from "./campaign-analytics.service";
 import { RateTrackerService } from "./rate-tracker.service";
+import { TemplateRendererService } from "./template-renderer.service";
 import { SendWorker } from "./send.worker";
 import {
   CAMPAIGN_QUEUE_NAME,
@@ -81,6 +82,7 @@ import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.modu
     TriggerService,
     CampaignAnalyticsService,
     RateTrackerService,
+    TemplateRendererService,
     SendWorker,
   ],
   exports: [CampaignsService, TriggerService, RateTrackerService],
