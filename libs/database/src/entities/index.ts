@@ -55,3 +55,4 @@ export * from "./entity-archive.entity";
 export * from "./campaign.entity";
 export * from "./campaign-message.entity";
 export * from "./campaign-schedule.entity";
+export * from "./import-mapping-template.entity";

@@ -165,13 +165,20 @@ export const whatsappAnalyticsApi = {
     return fetchBlobWithAuth("/whatsapp-analytics/contacts/export");
   },
 
+  exportContactsConfigured: async (columns: string[], filters?: { tags?: string[] }) => {
+    return fetchBlobWithAuth("/whatsapp-analytics/contacts/export", {
+      method: "POST",
+      body: JSON.stringify({ columns, filters }),
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+
   importContacts: async (
     file: File,
     strategy: "first" | "last" | "reject" = "last",
   ) => {
     const formData = new FormData();
     formData.append("file", file);
-    // Remove Content-Type header to let browser set it with boundary
     return fetchWithAuth(
       `/whatsapp-analytics/contacts/import?strategy=${strategy}`,
       {
@@ -180,6 +187,48 @@ export const whatsappAnalyticsApi = {
         headers: {},
       },
     );
+  },
+
+  importContactsMapped: async (
+    file: File,
+    mapping: Record<string, string>,
+    strategy: "first" | "last" | "reject" = "last",
+  ) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("mapping", JSON.stringify(mapping));
+    formData.append("strategy", strategy);
+    
+    return fetchWithAuth(`/whatsapp-analytics/contacts/import-mapped`, {
+      method: "POST",
+      body: formData,
+      headers: {},
+    });
+  },
+
+  getMappingTemplates: async () => {
+    return fetchWithAuth("/whatsapp-analytics/mapping-templates") as Promise<
+      Array<{
+        id: string;
+        name: string;
+        mapping: Record<string, string>;
+        createdAt: string;
+      }>
+    >;
+  },
+
+  createMappingTemplate: async (name: string, mapping: Record<string, string>) => {
+    return fetchWithAuth("/whatsapp-analytics/mapping-templates", {
+      method: "POST",
+      body: JSON.stringify({ name, mapping }),
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+
+  deleteMappingTemplate: async (id: string) => {
+    return fetchWithAuth(`/whatsapp-analytics/mapping-templates/${id}`, {
+      method: "DELETE",
+    });
   },
 
   deactivateContact: async (contactId: string) => {
