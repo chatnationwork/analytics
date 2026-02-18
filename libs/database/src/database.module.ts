@@ -63,6 +63,9 @@ import { PasswordResetTokenEntity } from "./entities/password-reset-token.entity
 import { UserSessionEntity } from "./entities/user-session.entity";
 import { SessionTakeoverRequestEntity } from "./entities/session-takeover-request.entity";
 import { EntityArchiveEntity } from "./entities/entity-archive.entity";
+import { CampaignEntity } from "./entities/campaign.entity";
+import { CampaignMessageEntity } from "./entities/campaign-message.entity";
+import { CampaignScheduleEntity } from "./entities/campaign-schedule.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -109,6 +112,9 @@ const entities = [
   UserSessionEntity,
   SessionTakeoverRequestEntity,
   EntityArchiveEntity,
+  CampaignEntity,
+  CampaignMessageEntity,
+  CampaignScheduleEntity,
 ];
 
 /**

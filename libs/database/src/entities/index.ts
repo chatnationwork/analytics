@@ -52,3 +52,6 @@ export * from "./password-reset-token.entity";
 export * from "./user-session.entity";
 export * from "./session-takeover-request.entity";
 export * from "./entity-archive.entity";
+export * from "./campaign.entity";
+export * from "./campaign-message.entity";
+export * from "./campaign-schedule.entity";

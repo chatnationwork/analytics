@@ -7,8 +7,11 @@
 ## Table of Contents
 
 1. [System Architecture](#1-system-architecture)
+   - [1.13 Campaign Module Architecture](#113-campaign-module-architecture)
 2. [Solutions Architecture](#2-solutions-architecture)
 3. [Database Design](#3-database-design)
+   - [3.7 Contact Model (Updated)](#37-contact-model-updated)
+   - [3.8 Campaign Tables](#38-campaign-tables)
 4. [Deployment](#4-deployment)
 
 ---
@@ -237,6 +240,7 @@ flowchart TB
         Audit["AuditModule"]
         Media["MediaModule"]
         Email["EmailModule"]
+        Campaigns["CampaignsModule"]
     end
 
     subgraph Endpoints["Key API Paths"]
@@ -252,6 +256,7 @@ flowchart TB
         CsatAnalytics --> |"/csat-analytics/*"| CsatE["CSAT reports"]
         Audit --> |"/audit-logs"| AuditE["Audit trail"]
         Media --> |"/media/*"| MediaE["upload, serve"]
+        Campaigns --> |"/campaigns/*"| CampaignsE["CRUD, launch, analytics"]
     end
 ```
 
@@ -277,6 +282,7 @@ flowchart TB
 | **AuditModule** | Audit log query |
 | **MediaModule** | File upload, serve (agent attachments) |
 | **EmailModule** | Resend (invites, password reset) |
+| **CampaignsModule** | Campaign broadcasting, scheduling, triggers, analytics |
 
 ### 1.9 Dashboard UI — Page Structure
 
@@ -408,6 +414,118 @@ flowchart TB
 - **Inbox**: Session list, send message, accept, resolve, transfer, presence.
 - **Assignment Engine**: ScheduleRule → ContactAlreadyAssignedRule → StrategyRule → EligibilityRule → SelectorRule.
 - **Strategies**: round_robin, least_active, least_assigned, hybrid, manual.
+
+### 1.13 Campaign Module Architecture
+
+The Campaign Module enables broadcasting WhatsApp messages to filtered contact lists. It supports manual, scheduled, recurring, and event-triggered campaign types. Message delivery is managed through BullMQ for reliable processing with retries, rate limiting, and error classification.
+
+See [docs/new_modules/CAMPAIGNS.md](./new_modules/CAMPAIGNS.md) for the full specification.
+
+```mermaid
+flowchart TB
+    subgraph CampaignModule["CampaignsModule (dashboard-api)"]
+        Controller["CampaignsController"]
+        CampaignService["CampaignsService"]
+        AudienceService["AudienceService"]
+        Orchestrator["CampaignOrchestratorService"]
+        Scheduler["CampaignSchedulerService"]
+        TriggerService["TriggerService"]
+        AnalyticsService["CampaignAnalyticsService"]
+        SendWorker["SendWorker"]
+    end
+
+    subgraph Infrastructure["Infrastructure"]
+        BullMQ["BullMQ Queue"]
+        Redis["Redis"]
+        Postgres["PostgreSQL"]
+    end
+
+    subgraph ExternalSvc["External"]
+        CRM["CRM API"]
+        WhatsApp["WhatsApp Cloud API"]
+    end
+
+    Controller --> CampaignService
+    Controller --> AnalyticsService
+    Controller --> AudienceService
+    CampaignService --> Orchestrator
+    Orchestrator --> AudienceService
+    Orchestrator --> BullMQ
+    BullMQ --> SendWorker
+    SendWorker --> CRM
+    CRM --> WhatsApp
+    Scheduler --> Orchestrator
+    TriggerService --> Orchestrator
+    BullMQ --> Redis
+    CampaignService --> Postgres
+    AudienceService --> Postgres
+    SendWorker --> Postgres
+```
+
+**Key Services:**
+
+| Service | Responsibility |
+|---------|---------------|
+| **CampaignsService** | CRUD operations, status management for campaigns |
+| **AudienceService** | Translates filter DSL to TypeORM queries, resolves contacts with 24h window split |
+| **CampaignOrchestratorService** | Resolves audience, checks quota, enqueues with tiered staggered delays |
+| **SendWorker** | BullMQ worker (80 msg/s rate limit) that sends messages, tracks quota, handles 429s |
+| **RateTrackerService** | Redis-backed 24h rolling counter for business-initiated conversations |
+| **CampaignSchedulerService** | Cron-based service for recurring and one-time scheduled campaigns |
+| **TriggerService** | Handles predefined event triggers from other modules |
+| **CampaignAnalyticsService** | Aggregated campaign metrics and error breakdowns |
+
+**Message Delivery Flow:**
+
+```mermaid
+sequenceDiagram
+    participant API as CampaignsController
+    participant Svc as CampaignsService
+    participant Orch as Orchestrator
+    participant Aud as AudienceService
+    participant Q as BullMQ
+    participant W as SendWorker
+    participant CRM as CRM_API
+
+    API->>Svc: POST /campaigns/:id/send
+    Svc->>Orch: execute(tenantId, campaignId)
+    Orch->>Aud: resolveContactsWithWindowSplit(filter)
+    Aud-->>Orch: inWindow + outOfWindow contacts
+    Orch->>Orch: Check 24h quota for out-of-window
+    Orch->>Orch: Create campaign_messages rows
+    Orch->>Q: Enqueue in-window first, then out-of-window with staggered delays
+    Q->>W: Process SEND_MESSAGE job (rate limited 80/s)
+    W->>CRM: sendMessage(phone, template)
+    alt Success
+        CRM-->>W: 200 OK
+        W->>W: Update status = sent, record quota if business-initiated
+    else Rate Limited
+        CRM-->>W: 429
+        W->>Q: Pause queue 60s, retry without counting attempt
+    else Retryable Error
+        CRM-->>W: 5xx / timeout
+        W->>Q: Retry with 30s exponential backoff
+    else Permanent Error
+        CRM-->>W: 400 / invalid number
+        W->>W: Update status = failed
+    end
+```
+
+**Campaign Types:**
+
+- **manual** — Admin launches via API/UI, audience resolved at launch time
+- **scheduled** — One-time future execution via BullMQ delayed job
+- **event_triggered** — Fired by predefined system events (e.g., payment received, survey completed)
+- **module_initiated** — Triggered programmatically by other modules (events, surveys, etc.)
+
+**Audience Filter DSL:**
+
+Campaigns use a JSONB filter stored on the campaign record. The `AudienceService` translates this into TypeORM queries against the `contacts` table:
+
+- `tags` — Array overlap filter (GIN-indexed)
+- `paymentStatus` — Exact match (e.g., "paid", "unpaid")
+- `optedIn` — Boolean filter for WhatsApp opt-in compliance
+- `tenantId` — Always applied for multi-tenancy isolation
 
 ---
 
@@ -1004,6 +1122,96 @@ Agent availability, sessions, shifts, and assignment configuration.
 - **contact_notes**: Notes on contacts
 - **entity_archive**: Soft-delete archive
 
+### 3.7 Contact Model (Updated)
+
+The `contacts` table was migrated from a composite primary key `(tenantId, contactId)` to a UUID primary key to support foreign key relationships from campaign tables and future modules.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| **id** | UUID | Primary key (auto-generated) |
+| tenantId | VARCHAR(50) | Tenant isolation |
+| contactId | VARCHAR(100) | External WhatsApp/channel identifier |
+| name | VARCHAR(255) | Display name |
+| phone | VARCHAR(20) | Phone number |
+| tags | TEXT[] | Segmentation tags (GIN-indexed) |
+| paymentStatus | VARCHAR(20) | "paid", "unpaid", etc. |
+| optedIn | BOOLEAN | WhatsApp opt-in status (default: true) |
+| optedInAt | TIMESTAMPTZ | When contact opted in |
+
+**Constraints:** `UNIQUE(tenantId, contactId)` — preserves existing lookup patterns.
+
+**Migration:** `1770900000000-MigrateContactUuidPk` (UUID PK swap), `1770900100000-AddContactCampaignFields` (new columns and indexes).
+
+### 3.8 Campaign Tables
+
+```mermaid
+erDiagram
+    campaigns ||--o{ campaign_messages : "has many"
+    campaigns ||--o{ campaign_schedules : "has many"
+    contacts ||--o{ campaign_messages : "receives"
+
+    campaigns {
+        uuid id PK
+        varchar tenantId
+        varchar name
+        enum type
+        enum status
+        jsonb messageTemplate
+        jsonb audienceFilter
+        timestamptz scheduledAt
+        uuid createdBy
+        int totalRecipients
+        int sentCount
+        int failedCount
+        int deliveredCount
+        int readCount
+        timestamptz startedAt
+        timestamptz completedAt
+    }
+
+    campaign_messages {
+        uuid id PK
+        uuid campaignId FK
+        varchar tenantId
+        uuid contactId FK
+        varchar recipientPhone
+        enum status
+        varchar externalMessageId
+        jsonb errorDetails
+        int attemptCount
+        timestamptz sentAt
+        timestamptz deliveredAt
+        timestamptz readAt
+        timestamptz failedAt
+    }
+
+    campaign_schedules {
+        uuid id PK
+        uuid campaignId FK
+        varchar tenantId
+        varchar cronExpression
+        varchar timezone
+        timestamptz nextRunAt
+        timestamptz lastRunAt
+        boolean active
+    }
+```
+
+**Enums:**
+
+- `campaign_type_enum`: `manual`, `event_triggered`, `scheduled`, `module_initiated`
+- `campaign_status_enum`: `draft`, `scheduled`, `running`, `paused`, `completed`, `failed`, `cancelled`
+- `campaign_message_status_enum`: `pending`, `queued`, `sent`, `delivered`, `read`, `failed`
+
+**Key Indexes:**
+
+- `campaigns`: `(tenantId, status)`, `(tenantId, type)`, `(tenantId, createdAt DESC)`
+- `campaign_messages`: `(campaignId, status)`, `(tenantId, contactId)`, `(externalMessageId)` where not null
+- `campaign_schedules`: `(nextRunAt)` where active = true
+- `contacts`: `GIN(tags)`, `(tenantId, paymentStatus)`, partial on `(tenantId) WHERE optedIn = TRUE`
+
+**Migration:** `1770900200000-CreateCampaignTables`
+
 ---
 
 ## 4. Deployment
@@ -1168,6 +1376,7 @@ docker-compose up -d
 - [ ] Test event sent to Collector and visible in DB
 - [ ] Dashboard loads and shows data
 - [ ] Agent inbox and CRM integration work (if used)
+- [ ] Campaign module: BullMQ connects to Redis, test campaign launch completes
 
 ### 4.8 Key Scripts
 
@@ -1184,6 +1393,7 @@ docker-compose up -d
 
 ## Related Documentation
 
+- [docs/new_modules/CAMPAIGNS.md](./new_modules/CAMPAIGNS.md) — Campaign module specification
 - [docs/architecture/system_overview.md](./architecture/system_overview.md) — System overview
 - [docs/architecture/solutions_overview.md](./architecture/solutions_overview.md) — Solutions context
 - [docs/guides/deployment.md](./guides/deployment.md) — Detailed deployment guide
