@@ -55,3 +55,8 @@ export * from "./entity-archive.entity";
 export * from "./campaign.entity";
 export * from "./campaign-message.entity";
 export * from "./campaign-schedule.entity";
+export * from "./eos-event.entity";
+export * from "./eos-ticket-type.entity";
+export * from "./eos-ticket.entity";
+export * from "./eos-exhibitor.entity";
+export * from "./eos-lead.entity";

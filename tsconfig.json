@@ -39,8 +39,11 @@
             "@lib/events": [
                 "libs/events/src"
             ],
-            "@lib/events/*": [
-                "libs/events/src/*"
+            "@lib/eos-events": [
+                "libs/eos-events/src"
+            ],
+            "@lib/eos-events/*": [
+                "libs/eos-events/src/*"
             ],
             "@lib/crm-api": [
                 "libs/crm-api"

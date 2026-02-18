@@ -1,0 +1,66 @@
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { BullModule } from "@nestjs/bullmq";
+import { DatabaseModule } from "@lib/database";
+import {
+  EosEvent,
+  EosTicketType,
+  EosTicket,
+  EosExhibitor,
+  EosLead,
+  ContactEntity,
+} from "@lib/database";
+
+import { EosEventController } from "./eos-event.controller";
+import { EosTicketController } from "./eos-ticket.controller";
+import { EosExhibitorController } from "./eos-exhibitor.controller";
+import { EosTicketTypeController } from "./eos-ticket-type.controller";
+import { EosLeadController } from "./eos-lead.controller";
+
+import { EosEventService } from "./eos-event.service";
+import { EosTicketService } from "./eos-ticket.service";
+import { EosLeadService } from "./eos-lead.service";
+
+import { LeadProcessorWorker } from "./workers/lead-processor.worker";
+import { HypeCardWorker } from "./workers/hypecard.worker";
+
+import { BillingModule } from "../billing/billing.module";
+import { CampaignsModule } from "../campaigns/campaigns.module";
+
+@Module({
+  imports: [
+    DatabaseModule.forFeature(), // Provides Request scoped Repos? Wait, DatabaseModule.forFeature provides repositories.
+    TypeOrmModule.forFeature([
+      EosEvent,
+      EosTicketType,
+      EosTicket,
+      EosExhibitor,
+      EosLead,
+      ContactEntity,
+    ]),
+    BullModule.registerQueue(
+      { name: "eos-lead-processing" },
+      { name: "eos-hypecard-generation" },
+    ),
+    BillingModule,
+    CampaignsModule, // For TriggerService
+  ],
+  controllers: [
+    EosEventController,
+    EosTicketController,
+    EosExhibitorController,
+    EosTicketTypeController,
+    EosLeadController,
+  ],
+  providers: [
+    EosEventService,
+    EosTicketService,
+    EosLeadService,
+    LeadProcessorWorker,
+    HypeCardWorker,
+  ],
+  exports: [
+    EosEventService, // Export if needed by other modules
+  ],
+})
+export class EosModule {}

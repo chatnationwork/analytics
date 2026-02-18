@@ -16,6 +16,7 @@ export const CAMPAIGN_JOBS = {
 export enum CampaignTrigger {
   // Ticketing / Events module
   TICKET_PURCHASED = "ticket.purchased",
+  TICKET_ISSUED = "ticket.issued",
   EVENT_CHECKIN = "event.checkin",
   EVENT_REGISTRATION = "event.registration",
 
@@ -39,9 +40,9 @@ export const ENQUEUE_BATCH_SIZE = 500;
 
 /** WhatsApp Cloud API error codes that are retryable. */
 export const RETRYABLE_WA_ERROR_CODES = new Set([
-  "429",   // Too Many Requests
-  "500",   // Internal Server Error
-  "503",   // Service Unavailable
+  "429", // Too Many Requests
+  "500", // Internal Server Error
+  "503", // Service Unavailable
   "131048", // WhatsApp rate limit
   "131056", // WhatsApp pair rate limit
 ]);
