@@ -124,8 +124,6 @@ const entities = [
   EntityArchiveEntity,
   CampaignEntity,
   CampaignMessageEntity,
-  CampaignMessageEntity,
-  CampaignScheduleEntity,
   CampaignScheduleEntity,
   EosEvent,
   EosTicketType,

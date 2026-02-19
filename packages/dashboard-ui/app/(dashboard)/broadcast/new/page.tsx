@@ -156,10 +156,16 @@ export default function NewCampaignPage() {
       }
 
       const campaign = await broadcastApi.createCampaign(payload);
-      
+
       if (type === "manual") {
         await broadcastApi.sendCampaign(campaign.id);
         toast.success("Campaign launched!", { description: "Messages are being queued." });
+      } else if (type === "scheduled" && scheduledAt && !isRecurring) {
+        // Ensure one-time scheduled campaigns are promoted to SCHEDULED status
+        await broadcastApi.scheduleCampaign(campaign.id, new Date(scheduledAt).toISOString());
+        toast.success("Campaign scheduled!", {
+          description: `Will run on ${new Date(scheduledAt).toLocaleString()}.`,
+        });
       } else {
         toast.success("Campaign created", { description: "Your campaign has been saved." });
       }
