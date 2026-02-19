@@ -66,6 +66,8 @@ import { EntityArchiveEntity } from "./entities/entity-archive.entity";
 import { CampaignEntity } from "./entities/campaign.entity";
 import { CampaignMessageEntity } from "./entities/campaign-message.entity";
 import { CampaignScheduleEntity } from "./entities/campaign-schedule.entity";
+import { ImportMappingTemplate } from "./entities/import-mapping-template.entity";
+import { ScheduleEntity } from "./scheduler/schedule.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -77,6 +79,7 @@ import { ContactRepository } from "./repositories/contact.repository";
 import { AgentSessionRepository } from "./repositories/agent-session.repository";
 import { AuditLogRepository } from "./repositories/audit-log.repository";
 import { UserSessionRepository } from "./repositories/user-session.repository";
+import { SegmentationService } from "./segmentation/segmentation.service";
 
 /**
  * All entities that map to database tables.
@@ -114,7 +117,10 @@ const entities = [
   EntityArchiveEntity,
   CampaignEntity,
   CampaignMessageEntity,
+  CampaignMessageEntity,
   CampaignScheduleEntity,
+  ImportMappingTemplate,
+  ScheduleEntity,
 ];
 
 /**
@@ -215,8 +221,8 @@ export class DatabaseModule {
     return {
       module: DatabaseModule,
       imports: [TypeOrmModule.forFeature(entities)],
-      providers: [...repositories],
-      exports: [TypeOrmModule, ...repositories],
+      providers: [...repositories, SegmentationService],
+      exports: [TypeOrmModule, ...repositories, SegmentationService],
     };
   }
 }

@@ -252,7 +252,7 @@ export class ContactRepository {
       .createQueryBuilder("c")
       .select([
         "c.name AS name",
-        "c.contactId AS contactId",
+        'c.contactId AS "contactId"',
         "c.messageCount AS messageCount",
         "c.firstSeen AS firstSeen",
         "c.lastSeen AS lastSeen",
@@ -264,39 +264,95 @@ export class ContactRepository {
   }
 
   /**
-   * Bulk upsert contacts.
-   * Updates name/metadata if exists, creates if new.
-   * Does NOT reset messageCount or firstSeen for existing.
-   * Uses ON CONFLICT on the unique constraint (tenantId, contactId).
+   * Stream contacts for export with all available fields.
+   * Supports optional filtering.
    */
-  async bulkUpsert(
+  async getExportStream(
     tenantId: string,
-    contacts: Array<{
-      contactId: string;
-      name?: string | null;
-      metadata?: Record<string, string>;
-    }>,
+    filters?: {
+      tags?: string[];
+    },
   ) {
-    if (contacts.length === 0) return;
+    const qb = this.repo
+      .createQueryBuilder("c")
+      .select([
+        "c.name AS name",
+        "c.contactId AS contactId",
+        "c.email AS email",
+        "c.pin AS pin",
+        "c.yearOfBirth AS yearOfBirth",
+        "c.tags AS tags",
+        "c.paymentStatus AS paymentStatus",
+        "c.messageCount AS messageCount",
+        "c.firstSeen AS firstSeen",
+        "c.lastSeen AS lastSeen",
+        "c.metadata AS metadata",
+      ])
+      .where("c.tenantId = :tenantId", { tenantId })
+      .andWhere("c.deactivatedAt IS NULL");
 
-    // Custom query builder for precise control over ON CONFLICT.
-    // Uses the unique constraint (tenantId, contactId) for conflict detection.
-    await this.repo
-      .createQueryBuilder()
-      .insert()
-      .into(ContactEntity)
-      .values(
-        contacts.map((c) => ({
-          tenantId,
-          contactId: c.contactId,
-          name: c.name || null,
-          metadata: c.metadata || null,
-          firstSeen: new Date(), // Used only if new
-          lastSeen: new Date(),
-          messageCount: 0, // Used only if new
-        })),
-      )
-      .orUpdate(["name", "metadata", "lastSeen"], ["tenantId", "contactId"])
-      .execute();
+    if (filters?.tags && filters.tags.length > 0) {
+      // Postgres array overlap operator &&
+      qb.andWhere("c.tags && :tags", { tags: filters.tags });
+    }
+
+    return qb.orderBy("c.lastSeen", "DESC").stream();
+  }
+
+  /**
+ * Bulk upsert contacts.
+ * Updates name/metadata/email/pin/yob/tags/paymentId if exists, creates if new.
+ * Does NOT reset messageCount or firstSeen for existing.
+ */
+async bulkUpsert(
+  tenantId: string,
+  contacts: Array<{
+    contactId: string;
+    name?: string | null;
+    email?: string | null;
+    pin?: string | null;
+    yearOfBirth?: number | null;
+    tags?: string[];
+    paymentStatus?: string | null;
+    metadata?: Record<string, string>;
+  }>,
+) {
+  if (contacts.length === 0) return;
+
+  // Custom query builder for precise control over ON CONFLICT
+  await this.repo
+    .createQueryBuilder()
+    .insert()
+    .into(ContactEntity)
+    .values(
+      contacts.map((c) => ({
+        tenantId,
+        contactId: c.contactId,
+        name: c.name || null,
+        email: c.email || null,
+        pin: c.pin || null,
+        yearOfBirth: c.yearOfBirth || null,
+        tags: c.tags || [],
+        paymentStatus: c.paymentStatus || null,
+        metadata: c.metadata || null,
+        firstSeen: new Date(), // Used only if new
+        lastSeen: new Date(),
+        messageCount: 0, // Used only if new
+      })),
+    )
+    .orUpdate(
+      [
+        "name", 
+        "email", 
+        "pin", 
+        "yearOfBirth", 
+        "tags", 
+        "paymentStatus", 
+        "metadata", 
+        "lastSeen"
+      ], 
+      ["tenantId", "contactId"]
+    )
+    .execute();
   }
 }

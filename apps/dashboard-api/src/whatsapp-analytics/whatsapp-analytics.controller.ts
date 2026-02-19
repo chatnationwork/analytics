@@ -9,6 +9,10 @@ import {
   UseGuards,
   BadRequestException,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
+  Body,
+  Delete,
   Param,
 } from "@nestjs/common";
 import { FastifyReply, FastifyRequest } from "fastify";
@@ -243,6 +247,37 @@ export class WhatsappAnalyticsController {
     return res.send(csvStream);
   }
 
+  @Post("contacts/export")
+  async exportContactsConfigured(
+    @Request() req: any,
+    @Body() body: { columns: string[]; filters?: { tags?: string[] } },
+    @Res() res: FastifyReply,
+  ) {
+    if (!hasPermission((req as any).user, Permission.CONTACTS_VIEW)) {
+      throw new ForbiddenException(
+        "You need contacts.view permission to export contacts.",
+      );
+    }
+
+    if (!body.columns || body.columns.length === 0) {
+      throw new BadRequestException("At least one column must be selected");
+    }
+
+    const stream = await this.service.exportContactsConfigured(
+      req.user.tenantId,
+      body.columns,
+      body.filters,
+    );
+
+    res.header("Content-Type", "text/csv");
+    res.header(
+      "Content-Disposition",
+      `attachment; filename="contacts-${new Date().toISOString()}.csv"`,
+    );
+
+    return res.send(stream);
+  }
+
   @Post("contacts/import")
   async importContacts(
     @Request() req: FastifyRequest,
@@ -264,6 +299,52 @@ export class WhatsappAnalyticsController {
     );
   }
 
+  @Post("contacts/import-mapped")
+  async importContactsMapped(@Request() req: FastifyRequest) {
+    if (!hasPermission((req as any).user, Permission.CONTACTS_CREATE)) {
+      throw new ForbiddenException(
+        "You need contacts.create permission to import contacts.",
+      );
+    }
+
+    const parts = (req as any).parts();
+    let buffer: Buffer | null = null;
+    let mapping: Record<string, string> | null = null;
+    let strategy: "first" | "last" | "reject" = "last";
+
+    for await (const part of parts) {
+      if (part.file) {
+        if (buffer) continue; // Only take first file
+        buffer = await part.toBuffer();
+      } else {
+        if (part.fieldname === "mapping") {
+          try {
+            mapping = JSON.parse(part.value as string);
+          } catch {
+            throw new BadRequestException("Invalid mapping JSON");
+          }
+        }
+        if (part.fieldname === "strategy") {
+          strategy = part.value as "first" | "last" | "reject";
+        }
+      }
+    }
+
+    if (!buffer) {
+      throw new BadRequestException("No file uploaded");
+    }
+    if (!mapping) {
+      throw new BadRequestException("No column mapping provided");
+    }
+
+    return this.service.importContactsMapped(
+      (req as any).user.tenantId,
+      buffer,
+      mapping,
+      strategy,
+    );
+  }
+
   @Patch("contacts/:contactId/deactivate")
   async deactivateContact(@Request() req: any, @Param("contactId") contactId: string) {
     if (!hasPermission(req.user, Permission.CONTACTS_DEACTIVATE)) {
@@ -273,5 +354,40 @@ export class WhatsappAnalyticsController {
       throw new BadRequestException("contactId is required");
     }
     return this.service.deactivateContact(req.user.tenantId, contactId.trim());
+  }
+  @Get("mapping-templates")
+  async getMappingTemplates(@Request() req: any) {
+    return this.service.getMappingTemplates(req.user.tenantId);
+  }
+
+  @Post("mapping-templates")
+  async createMappingTemplate(
+    @Request() req: any,
+    @Body() body: { name: string; mapping: Record<string, string> },
+  ) {
+    if (!hasPermission((req as any).user, Permission.CONTACTS_CREATE)) {
+      throw new ForbiddenException(
+        "You need contacts.create permission to save mapping templates.",
+      );
+    }
+    if (!body.name || !body.mapping) {
+      throw new BadRequestException("Name and mapping are required");
+    }
+    return this.service.createMappingTemplate(
+      req.user.tenantId,
+      body.name,
+      body.mapping,
+      req.user.id || "system", // Fallback if user ID missing from req.user
+    );
+  }
+
+  @Delete("mapping-templates/:id")
+  async deleteMappingTemplate(@Request() req: any, @Param("id") id: string) {
+    if (!hasPermission((req as any).user, Permission.CONTACTS_CREATE)) {
+      throw new ForbiddenException(
+        "You need contacts.create permission to delete mapping templates.",
+      );
+    }
+    return this.service.deleteMappingTemplate(req.user.tenantId, id);
   }
 }

@@ -8,6 +8,7 @@ import {
   ValidateNested,
   IsArray,
   IsNotEmpty,
+  Allow,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { CampaignType } from "@lib/database";
@@ -21,6 +22,7 @@ export class FilterConditionDto {
   @IsNotEmpty()
   operator: string;
 
+  @Allow()
   value: unknown;
 }
 

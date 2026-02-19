@@ -17,7 +17,7 @@ const AVAILABLE_FIELDS = [
   { value: "paymentStatus", label: "Payment Status" },
   { value: "lastSeen", label: "Last Seen Date" },
   { value: "name", label: "Name" },
-  { value: "phone", label: "Phone Number" },
+  { value: "contactId", label: "Phone Number" },
   { value: "metadata.company", label: "Company (Metadata)" },
   { value: "metadata.role", label: "Role (Metadata)" },
 ];

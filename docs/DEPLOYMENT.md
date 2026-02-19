@@ -5,6 +5,8 @@ This guide explains how to deploy the Analytics Platform on any server using pre
 
 ## Steps
 
+For Kubernetes deployment, please refer to the [Kubernetes Guide](KUBERNETES.md).
+
 ### 1. Setup Directory and Configuration
 
 Create a folder for the application and download the necessary configuration files.
