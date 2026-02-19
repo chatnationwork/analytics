@@ -29,7 +29,7 @@ export function ImportTemplateDialog({ onSuccess }: ImportTemplateDialogProps) {
   // Name and language are now extracted, not input manually
   const [extractedName, setExtractedName] = useState<string | null>(null);
   const [extractedLang, setExtractedLang] = useState<string | null>(null);
-  
+
   const [jsonInput, setJsonInput] = useState("");
   const [bodyText, setBodyText] = useState("");
   const [variables, setVariables] = useState<string[]>([]);
@@ -50,11 +50,13 @@ export function ImportTemplateDialog({ onSuccess }: ImportTemplateDialogProps) {
 
       // Try to extract name and language
       const name = parsed.template?.name || parsed.name;
-      const lang = parsed.template?.language?.code || parsed.language?.code || parsed.language;
+      const lang =
+        parsed.template?.language?.code ||
+        parsed.language?.code ||
+        parsed.language;
 
       setExtractedName(name || "???");
       setExtractedLang(lang || "???");
-
     } catch (e) {
       setJsonError("Invalid JSON syntax");
       setExtractedName(null);
@@ -65,8 +67,8 @@ export function ImportTemplateDialog({ onSuccess }: ImportTemplateDialogProps) {
   // Extract variables from body text
   useEffect(() => {
     if (!bodyText.trim()) {
-        setVariables([]);
-        return;
+      setVariables([]);
+      return;
     }
     const matches = bodyText.match(/\{\{\d+\}\}/g) || [];
     const vars = matches.map((v: string) => v.replace(/\{\{|\}\}/g, ""));
@@ -83,17 +85,19 @@ export function ImportTemplateDialog({ onSuccess }: ImportTemplateDialogProps) {
         structure: JSON.parse(jsonInput),
         bodyText: bodyText.trim() || undefined,
       });
-      
+
       toast.success("Template imported successfully");
       setOpen(false);
-      
+
       // Reset form
       setJsonInput("");
       setBodyText("");
       onSuccess();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to import template. Ensure JSON has name and language.");
+      toast.error(
+        "Failed to import template. Ensure JSON has name and language.",
+      );
     } finally {
       setLoading(false);
     }
@@ -115,11 +119,12 @@ export function ImportTemplateDialog({ onSuccess }: ImportTemplateDialogProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-          
           <div className="space-y-2">
             <Label htmlFor="json" className="flex items-center justify-between">
-                <span>JSON Payload</span>
-                {jsonError && <span className="text-xs text-red-500">{jsonError}</span>}
+              <span>JSON Payload</span>
+              {jsonError && (
+                <span className="text-xs text-red-500">{jsonError}</span>
+              )}
             </Label>
             <Textarea
               id="json"
@@ -133,14 +138,22 @@ export function ImportTemplateDialog({ onSuccess }: ImportTemplateDialogProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-                <span className="text-xs text-muted-foreground font-semibold">DETECTED NAME</span>
-                <p className="text-sm font-medium">{extractedName || "-"}</p>
+              <span className="text-xs text-muted-foreground font-semibold">
+                DETECTED NAME
+              </span>
+              <p className="text-sm font-medium">{extractedName || "-"}</p>
             </div>
             <div className="space-y-1">
-                <span className="text-xs text-muted-foreground font-semibold">DETECTED LANGUAGE</span>
-                <p className="text-sm font-medium">
-                    {extractedLang ? <Badge variant="outline">{extractedLang}</Badge> : "-"}
-                </p>
+              <span className="text-xs text-muted-foreground font-semibold">
+                DETECTED LANGUAGE
+              </span>
+              <div className="text-sm font-medium">
+                {extractedLang ? (
+                  <Badge variant="outline">{extractedLang}</Badge>
+                ) : (
+                  "-"
+                )}
+              </div>
             </div>
           </div>
 
@@ -155,31 +168,47 @@ export function ImportTemplateDialog({ onSuccess }: ImportTemplateDialogProps) {
               required
             />
             <p className="text-[10px] text-muted-foreground">
-                Copy the text exactly as it appears in the template, with {"{{#}}"} variables.
+              Copy the text exactly as it appears in the template, with{" "}
+              {"{{#}}"} variables.
             </p>
           </div>
 
           {variables.length > 0 && (
             <div className="bg-muted p-4 rounded-md flex items-start gap-2">
-                <Code className="w-4 h-4 mt-1 text-muted-foreground shrink-0" />
-                <div className="space-y-2">
-                    <span className="text-xs font-semibold uppercase text-muted-foreground">Detected Variables</span>
-                    <div className="flex flex-wrap gap-2">
-                        {variables.map(v => (
-                            <Badge key={v} variant="secondary">
-                                {'{{' + v + '}}'}
-                            </Badge>
-                        ))}
-                    </div>
+              <Code className="w-4 h-4 mt-1 text-muted-foreground shrink-0" />
+              <div className="space-y-2">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Detected Variables
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {variables.map((v) => (
+                    <Badge key={v} variant="secondary">
+                      {"{{" + v + "}}"}
+                    </Badge>
+                  ))}
                 </div>
+              </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !!jsonError || !jsonInput || !extractedName || !extractedLang}>
+            <Button
+              type="submit"
+              disabled={
+                loading ||
+                !!jsonError ||
+                !jsonInput ||
+                !extractedName ||
+                !extractedLang
+              }
+            >
               {loading ? "Importing..." : "Import Template"}
             </Button>
           </DialogFooter>
