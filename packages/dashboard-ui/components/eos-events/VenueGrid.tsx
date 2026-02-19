@@ -5,14 +5,18 @@ interface VenueGridProps {
   grid: { cols: number; rows: number };
   slots: Array<{ id: string; x: number; y: number }>;
   exhibitors: EosExhibitor[];
-  onSlotClick?: (slotId: string) => void;
+  editable?: boolean;
+  onSlotClick?: (slotId: string, x: number, y: number) => void;
+  onCellClick?: (x: number, y: number) => void;
 }
 
 export const VenueGrid: React.FC<VenueGridProps> = ({
   grid,
   slots,
   exhibitors,
+  editable,
   onSlotClick,
+  onCellClick,
 }) => {
   const { cols, rows } = grid;
 
@@ -43,9 +47,15 @@ export const VenueGrid: React.FC<VenueGridProps> = ({
           className={`
                     border rounded text-xs flex items-center justify-center cursor-pointer transition-colors
                     ${exhibitor ? "bg-primary/20 border-primary/40" : "bg-muted hover:bg-muted/80 border-border"}
-                    ${!slot && !exhibitor ? "bg-transparent border-transparent" : ""} 
+                    ${!slot && !exhibitor ? (editable ? "bg-muted/30 border-dashed border-muted-foreground/30" : "bg-transparent border-transparent") : ""} 
                 `}
-          onClick={() => slot && onSlotClick?.(slot.id)}
+          onClick={() => {
+            if (slot) {
+              onSlotClick?.(slot.id, x, y);
+            } else if (editable) {
+              onCellClick?.(x, y);
+            }
+          }}
           style={{ gridColumn: x + 1, gridRow: y + 1 }}
         >
           {exhibitor ? (

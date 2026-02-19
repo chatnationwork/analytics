@@ -255,6 +255,14 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
     });
   }
 
+  async findAll(eventId: string): Promise<EosTicket[]> {
+    return this.ticketRepo.find({
+      where: { ticketType: { eventId: eventId } },
+      relations: ["ticketType", "contact", "hypeCard"],
+      order: { createdAt: "DESC" },
+    });
+  }
+
   async checkIn(ticketCode: string): Promise<EosTicket> {
     const ticket = await this.ticketRepo.findOne({
       where: { ticketCode },

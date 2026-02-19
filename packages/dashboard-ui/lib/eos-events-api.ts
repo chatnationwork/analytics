@@ -4,6 +4,7 @@ import {
   EosTicketType,
   EosExhibitor,
   EosLead,
+  EosTicket,
 } from "../types/eos-events";
 
 export const eventsApi = {
@@ -50,6 +51,29 @@ export const eventsApi = {
       body: JSON.stringify(data),
     });
   },
+  listTicketTypes: async (eventId: string) => {
+    return fetchWithAuth<EosTicketType[]>(
+      `/eos/events/${eventId}/ticket-types`,
+    );
+  },
+  updateTicketType: async (
+    id: string,
+    eventId: string,
+    data: Partial<EosTicketType>,
+  ) => {
+    return fetchWithAuth<EosTicketType>(
+      `/eos/events/${eventId}/ticket-types/${id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      },
+    );
+  },
+  deleteTicketType: async (id: string, eventId: string) => {
+    return fetchWithAuth<void>(`/eos/events/${eventId}/ticket-types/${id}`, {
+      method: "DELETE",
+    });
+  },
 
   // Exhibitors
   createExhibitor: async (eventId: string, data: Partial<EosExhibitor>) => {
@@ -58,9 +82,68 @@ export const eventsApi = {
       body: JSON.stringify(data),
     });
   },
-
   listExhibitors: async (eventId: string) => {
     return fetchWithAuth<EosExhibitor[]>(`/eos/events/${eventId}/exhibitors`);
+  },
+  updateExhibitor: async (
+    id: string,
+    eventId: string,
+    data: Partial<EosExhibitor>,
+  ) => {
+    return fetchWithAuth<EosExhibitor>(
+      `/eos/events/${eventId}/exhibitors/${id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      },
+    );
+  },
+  approveExhibitor: async (id: string, eventId: string) => {
+    return fetchWithAuth<EosExhibitor>(
+      `/eos/events/${eventId}/exhibitors/${id}/approve`,
+      {
+        method: "PATCH",
+      },
+    );
+  },
+  rejectExhibitor: async (id: string, eventId: string) => {
+    return fetchWithAuth<EosExhibitor>(
+      `/eos/events/${eventId}/exhibitors/${id}/reject`,
+      {
+        method: "PATCH",
+      },
+    );
+  },
+  deleteExhibitor: async (id: string, eventId: string) => {
+    return fetchWithAuth<void>(`/eos/events/${eventId}/exhibitors/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Tickets
+  listTickets: async (eventId: string) => {
+    return fetchWithAuth<EosTicket[]>(`/eos/events/${eventId}/tickets`);
+  },
+  checkIn: async (ticketCode: string) => {
+    return fetchWithAuth<any>("/eos/tickets/check-in", {
+      method: "POST",
+      body: JSON.stringify({ ticketCode }),
+    });
+  },
+  getTicketStatus: async (id: string) => {
+    return fetchWithAuth<any>(`/eos/tickets/${id}/status`);
+  },
+
+  // Event Lifecycle
+  cancel: async (id: string) => {
+    return fetchWithAuth<EosEvent>(`/eos/events/${id}/cancel`, {
+      method: "POST",
+    });
+  },
+  complete: async (id: string) => {
+    return fetchWithAuth<EosEvent>(`/eos/events/${id}/complete`, {
+      method: "POST",
+    });
   },
 
   // Leads

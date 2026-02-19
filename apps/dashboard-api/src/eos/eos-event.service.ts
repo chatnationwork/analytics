@@ -32,8 +32,16 @@ export class EosEventService {
       where: { userId: user.id, tenantId: user.tenantId },
     });
 
+    const slug =
+      dto.slug ??
+      dto.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
     const event = this.eventRepo.create({
       ...dto,
+      slug,
       organizationId: user.tenantId,
       createdById: identity?.id,
       updatedById: identity?.id,

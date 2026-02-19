@@ -1,0 +1,224 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { eventsApi } from "@/lib/eos-events-api";
+import { EosTicketType } from "@/types/eos-events";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+interface TicketTypeManagerProps {
+  eventId: string;
+}
+
+export function TicketTypeManager({ eventId }: TicketTypeManagerProps) {
+  const [ticketTypes, setTicketTypes] = useState<EosTicketType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newType, setNewType] = useState({
+    name: "",
+    price: 0,
+    currency: "KES",
+    quantityTotal: 100,
+  });
+
+  const loadTicketTypes = async () => {
+    setLoading(true);
+    try {
+      const data = await eventsApi.listTicketTypes(eventId);
+      setTicketTypes(data);
+    } catch (e) {
+      console.error("Failed to load ticket types", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTicketTypes();
+  }, [eventId]);
+
+  const handleCreate = async () => {
+    try {
+      await eventsApi.createTicketType(eventId, newType);
+      toast.success("Ticket type created successfully");
+      setIsDialogOpen(false);
+      loadTicketTypes();
+      setNewType({ name: "", price: 0, currency: "KES", quantityTotal: 100 });
+    } catch (e) {
+      console.error("Failed to create ticket type", e);
+      toast.error("Failed to create ticket type");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to deactivate this ticket type?"))
+      return;
+    try {
+      await eventsApi.deleteTicketType(id, eventId);
+      toast.success("Ticket type deactivated");
+      loadTicketTypes();
+    } catch (e) {
+      console.error("Failed to delete ticket type", e);
+      toast.error("Failed to deactivate ticket type");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Ticket Types</h3>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" /> Add Type
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Ticket Type</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={newType.name}
+                  onChange={(e) =>
+                    setNewType({ ...newType, name: e.target.value })
+                  }
+                  placeholder="General Admission"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="price">Price</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={newType.price}
+                    onChange={(e) =>
+                      setNewType({
+                        ...newType,
+                        price: parseFloat(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="currency">Currency</Label>
+                  <Input
+                    id="currency"
+                    value={newType.currency}
+                    onChange={(e) =>
+                      setNewType({ ...newType, currency: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="quantity">Total Quantity</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={newType.quantityTotal}
+                  onChange={(e) =>
+                    setNewType({
+                      ...newType,
+                      quantityTotal: parseInt(e.target.value),
+                    })
+                  }
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleCreate}>Create Ticket Type</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {ticketTypes.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  No ticket types defined yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              ticketTypes.map((type) => (
+                <TableRow key={type.id}>
+                  <TableCell className="font-medium">{type.name}</TableCell>
+                  <TableCell>
+                    {type.price} {type.currency}
+                  </TableCell>
+                  <TableCell>
+                    {type.quantitySold} / {type.quantityTotal || "∞"}
+                  </TableCell>
+                  <TableCell>
+                    {type.isActive ? (
+                      <Badge variant="default">Active</Badge>
+                    ) : (
+                      <Badge variant="secondary">Inactive</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(type.id)}
+                      disabled={!type.isActive}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}

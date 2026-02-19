@@ -639,4 +639,16 @@ export const api = {
       `/sessions/journey/${encodeURIComponent(id)}?${params}`,
     );
   },
+
+  /**
+   * Upload a file to the media service.
+   */
+  async uploadMedia(file: File): Promise<{ url: string; filename: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return fetchWithAuth("/media/upload", {
+      method: "POST",
+      body: formData,
+    });
+  },
 };

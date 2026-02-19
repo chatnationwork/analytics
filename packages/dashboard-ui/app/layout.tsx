@@ -6,6 +6,7 @@ import { Providers } from "@/components/Providers";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { PermissionProvider } from "@/components/auth/PermissionContext";
 import { SessionManager } from "@/components/auth/SessionManager";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
             <PermissionProvider>
               <SessionManager />
               {children}
+              <Toaster richColors closeButton position="top-right" />
             </PermissionProvider>
           </AuthProvider>
         </Providers>

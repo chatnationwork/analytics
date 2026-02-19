@@ -11,21 +11,25 @@ import { Loader2, Plus } from "lucide-react";
 export default function EosEventsPage() {
   const [events, setEvents] = useState<EosEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadEvents = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await eventsApi.list();
+      setEvents(res);
+    } catch (e) {
+      console.error("Failed to fetch events", e);
+      setError(
+        "Could not load events. Please check your connection and try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadEvents() {
-      try {
-        // eventsApi.findAll was not in the original api client?
-        // Wait, I added get (findAll) to the backend in Step 251.
-        // I need to update eventsApi to include list/findAll.
-        const res = await eventsApi.list();
-        setEvents(res);
-      } catch (e) {
-        console.error("Failed to fetch events", e);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadEvents();
   }, []);
 
@@ -48,7 +52,16 @@ export default function EosEventsPage() {
         </Link>
       </div>
 
-      {events.length === 0 ? (
+      {error && (
+        <div className="p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex justify-between items-center">
+          <p>{error}</p>
+          <Button variant="outline" size="sm" onClick={loadEvents}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {!error && events.length === 0 ? (
         <div className="text-center py-12 border rounded-lg bg-muted">
           <h3 className="text-lg font-medium">No events yet</h3>
           <p className="text-muted-foreground mt-1">

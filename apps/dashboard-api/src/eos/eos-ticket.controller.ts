@@ -38,6 +38,12 @@ export class EosTicketController {
     return this.ticketService.getStatus(id);
   }
 
+  @Get("eos/events/:eventId/tickets")
+  @UseGuards(JwtAuthGuard)
+  listTickets(@Param("eventId") eventId: string) {
+    return this.ticketService.findAll(eventId);
+  }
+
   @Post("eos/tickets/check-in")
   @UseGuards(JwtAuthGuard)
   checkIn(@Body() body: { ticketCode: string }) {
