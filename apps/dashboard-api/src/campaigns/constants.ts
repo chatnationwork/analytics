@@ -36,6 +36,9 @@ export enum CampaignTrigger {
 
   // Lead Generation
   HOT_LEAD_CAPTURED = "lead.hot_captured",
+
+  // Exhibitor Onboarding
+  EXHIBITOR_INVITED = "exhibitor.invited",
 }
 
 /** Maximum batch size when enqueuing jobs to BullMQ. */

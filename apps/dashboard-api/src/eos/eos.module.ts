@@ -18,6 +18,7 @@ import { EosTicketController } from "./eos-ticket.controller";
 import { EosExhibitorController } from "./eos-exhibitor.controller";
 import { EosTicketTypeController } from "./eos-ticket-type.controller";
 import { EosLeadController } from "./eos-lead.controller";
+import { EosPublicController } from "./eos-public.controller";
 
 import { EosEventService } from "./eos-event.service";
 import { EosTicketService } from "./eos-ticket.service";
@@ -58,6 +59,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     EosExhibitorController,
     EosTicketTypeController,
     EosLeadController,
+    EosPublicController,
   ],
   providers: [
     EosEventService,

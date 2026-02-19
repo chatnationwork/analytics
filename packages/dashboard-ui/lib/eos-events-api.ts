@@ -82,6 +82,15 @@ export const eventsApi = {
       body: JSON.stringify(data),
     });
   },
+  inviteExhibitor: async (eventId: string, data: Partial<EosExhibitor>) => {
+    return fetchWithAuth<EosExhibitor>(
+      `/eos/events/${eventId}/exhibitors/invite`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    );
+  },
   listExhibitors: async (eventId: string) => {
     return fetchWithAuth<EosExhibitor[]>(`/eos/events/${eventId}/exhibitors`);
   },

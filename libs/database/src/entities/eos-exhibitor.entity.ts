@@ -70,8 +70,19 @@ export class EosExhibitor {
   @Column({ type: "jsonb", default: "{}" })
   settings: Record<string, any>;
 
+  @Column({
+    name: "invitation_token",
+    nullable: true,
+    unique: true,
+    length: 255,
+  })
+  invitationToken: string;
+
+  @Column({ name: "invited_at", nullable: true, type: "timestamptz" })
+  invitedAt: Date;
+
   @Column({ length: 20, default: "pending" })
-  status: "pending" | "approved" | "rejected";
+  status: "invited" | "pending" | "approved" | "rejected";
 
   @OneToMany(() => EosLead, (l: EosLead) => l.exhibitor)
   leads: Relation<EosLead>[];

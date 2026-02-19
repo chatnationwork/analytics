@@ -28,6 +28,16 @@ import {
   AuditLogEntity,
   TwoFaVerificationEntity,
   PasswordResetTokenEntity,
+  CampaignEntity,
+  CampaignMessageEntity,
+  CampaignScheduleEntity,
+  EosEvent,
+  EosTicketType,
+  EosTicket,
+  EosExhibitor,
+  EosLead,
+  Payment,
+  GeneratedCard,
 } from "./entities";
 import { UserSessionEntity } from "./entities/user-session.entity";
 import { SessionTakeoverRequestEntity } from "./entities/session-takeover-request.entity";
@@ -72,6 +82,16 @@ export const AppDataSource = new DataSource({
     PasswordResetTokenEntity,
     UserSessionEntity,
     SessionTakeoverRequestEntity,
+    CampaignEntity,
+    CampaignMessageEntity,
+    CampaignScheduleEntity,
+    EosEvent,
+    EosTicketType,
+    EosTicket,
+    EosExhibitor,
+    EosLead,
+    Payment,
+    GeneratedCard,
   ],
   migrations: [
     "libs/database/migrations/*.ts",

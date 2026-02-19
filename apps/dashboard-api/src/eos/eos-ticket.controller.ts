@@ -12,39 +12,34 @@ import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { EosTicketService } from "./eos-ticket.service";
 import { InitiatePurchaseDto } from "./dto/initiate-purchase.dto";
 
-@Controller()
+@Controller("eos/events/:eventId/tickets")
 export class EosTicketController {
   constructor(private readonly ticketService: EosTicketService) {}
 
-  @Post("eos/events/:eventId/tickets/purchase")
-  @UseGuards(JwtAuthGuard) // Assuming purchase needs auth? Brief says "Attendee submits registration form".
-  // If public, might need to relax guard or use different one.
-  // Brief says "All endpoints require a JWT bearer token." so keeping guard.
+  @Post("purchase")
+  @UseGuards(JwtAuthGuard)
   initiatePurchase(
     @Req() req: any,
     @Param("eventId") eventId: string,
     @Body() dto: InitiatePurchaseDto,
   ) {
-    const organizationId = req.user.tenantId; // Use tenantId from JWT
-    // Actually, initiatePurchase validates ticketType -> event -> organizationId matching.
-    // Attendee might not belong to Org. This usually implies public access.
-    // Sticking to brief "All endpoints require a JWT". Maybe user logs in as "Attendee"?
+    const organizationId = req.user.tenantId;
     return this.ticketService.initiatePurchase(organizationId, dto);
   }
 
-  @Get("eos/tickets/:id/status")
+  @Get(":id/status")
   @UseGuards(JwtAuthGuard)
   getStatus(@Param("id") id: string) {
     return this.ticketService.getStatus(id);
   }
 
-  @Get("eos/events/:eventId/tickets")
+  @Get()
   @UseGuards(JwtAuthGuard)
   listTickets(@Param("eventId") eventId: string) {
     return this.ticketService.findAll(eventId);
   }
 
-  @Post("eos/tickets/check-in")
+  @Post("check-in")
   @UseGuards(JwtAuthGuard)
   checkIn(@Body() body: { ticketCode: string }) {
     if (!body.ticketCode) {

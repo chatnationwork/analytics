@@ -96,7 +96,7 @@ export class Payment {
   merchantRequestId: string;
 
   @Column({ name: "mpesa_receipt_number", nullable: true, length: 50 })
-  mpesaReceiptNumber: string | null;
+  mpesaReceiptNumber: string;
 
   // Status
   @Column({ length: 20, default: "pending" })

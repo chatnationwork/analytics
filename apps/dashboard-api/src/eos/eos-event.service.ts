@@ -64,6 +64,12 @@ export class EosEventService {
     });
   }
 
+  async findOnePublic(eventId: string): Promise<EosEvent> {
+    return this.eventRepo.findOneOrFail({
+      where: { id: eventId },
+    });
+  }
+
   async getVenueLayout(organizationId: string, eventId: string) {
     const event = await this.findOne(organizationId, eventId);
     const exhibitors = await this.exhibitorRepo.find({

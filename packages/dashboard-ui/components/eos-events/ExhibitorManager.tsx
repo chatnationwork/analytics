@@ -38,6 +38,9 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
     name: "",
     description: "",
     boothNumber: "",
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
   });
 
   const loadExhibitors = async () => {
@@ -56,16 +59,23 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
     loadExhibitors();
   }, [eventId]);
 
-  const handleCreate = async () => {
+  const handleInvite = async () => {
     try {
-      await eventsApi.createExhibitor(eventId, newExhibitor);
-      toast.success("Exhibitor added successfully");
+      await eventsApi.inviteExhibitor(eventId, newExhibitor);
+      toast.success("Invitation sent successfully");
       setIsDialogOpen(false);
       loadExhibitors();
-      setNewExhibitor({ name: "", description: "", boothNumber: "" });
+      setNewExhibitor({
+        name: "",
+        description: "",
+        boothNumber: "",
+        contactName: "",
+        contactPhone: "",
+        contactEmail: "",
+      });
     } catch (e) {
-      console.error("Failed to create exhibitor", e);
-      toast.error("Failed to add exhibitor");
+      console.error("Failed to invite exhibitor", e);
+      toast.error("Failed to send invitation");
     }
   };
 
@@ -118,12 +128,12 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" /> Add Exhibitor
+              <Plus className="mr-2 h-4 w-4" /> Invite Exhibitor
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Exhibitor</DialogTitle>
+              <DialogTitle>Invite Exhibitor</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
@@ -164,9 +174,58 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
                   placeholder="A12"
                 />
               </div>
+
+              <div className="grid gap-2 border-t pt-4">
+                <p className="text-sm font-medium">Contact Person</p>
+                <div className="grid gap-2">
+                  <Label htmlFor="contactName">Full Name</Label>
+                  <Input
+                    id="contactName"
+                    value={newExhibitor.contactName}
+                    onChange={(e) =>
+                      setNewExhibitor({
+                        ...newExhibitor,
+                        contactName: e.target.value,
+                      })
+                    }
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="contactPhone">Phone Number</Label>
+                  <Input
+                    id="contactPhone"
+                    value={newExhibitor.contactPhone}
+                    onChange={(e) =>
+                      setNewExhibitor({
+                        ...newExhibitor,
+                        contactPhone: e.target.value,
+                      })
+                    }
+                    placeholder="254712345678"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="contactEmail">Email (Optional)</Label>
+                  <Input
+                    id="contactEmail"
+                    type="email"
+                    value={newExhibitor.contactEmail}
+                    onChange={(e) =>
+                      setNewExhibitor({
+                        ...newExhibitor,
+                        contactEmail: e.target.value,
+                      })
+                    }
+                    placeholder="john@example.com"
+                  />
+                </div>
+              </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleCreate}>Add Exhibitor</Button>
+              <Button onClick={handleInvite}>Send Invitation</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

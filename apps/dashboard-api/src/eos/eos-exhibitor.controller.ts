@@ -27,6 +27,15 @@ export class EosExhibitorController {
     return this.service.create(eventId, dto);
   }
 
+  @Post("invite")
+  invite(
+    @Req() req: any,
+    @Param("eventId") eventId: string,
+    @Body() dto: CreateExhibitorDto,
+  ) {
+    return this.service.invite(eventId, dto);
+  }
+
   @Get()
   list(@Param("eventId") eventId: string) {
     return this.service.findAll(eventId);
