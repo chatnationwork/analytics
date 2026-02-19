@@ -29,6 +29,8 @@
  */
 
 export * from "./database.module";
+export * from "./entities/template.entity";
+export * from "./entities/campaign.entity";
 export * from "./entities";
 export * from "./repositories";
 export * from "./utils/canonical-contact-id";

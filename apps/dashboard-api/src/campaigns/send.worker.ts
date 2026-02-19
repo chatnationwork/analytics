@@ -96,18 +96,35 @@ export class SendWorker extends WorkerHost {
         throw new Error(`Contact not found: ${recipientPhone}`);
       }
 
-      // Extract text body from message payload and render with contact data
-      const textBody = (messagePayload as any)?.text?.body || "";
-      const renderedBody = this.templateRenderer.render(textBody, contact);
+      let renderedPayload = { ...messagePayload };
 
-      // Create final message payload with rendered template
-      const renderedPayload = {
-        ...messagePayload,
-        text: {
-          ...(messagePayload as any).text,
-          body: renderedBody,
-        },
-      };
+      if ((messagePayload as any).type === "template") {
+          // Handle WhatsApp Template Message
+          const components = (messagePayload as any).template?.components;
+          if (Array.isArray(components)) {
+              for (const component of components) {
+                  if (Array.isArray(component.parameters)) {
+                      for (const param of component.parameters) {
+                          if (param.type === "text" && param.text) {
+                              param.text = this.templateRenderer.render(param.text, contact);
+                          }
+                      }
+                  }
+              }
+          }
+      } else {
+          // Handle Standard Text Message
+          const textBody = (messagePayload as any)?.text?.body || "";
+          const renderedBody = this.templateRenderer.render(textBody, contact);
+          
+          renderedPayload = {
+            ...messagePayload,
+            text: {
+              ...(messagePayload as any).text,
+              body: renderedBody,
+            },
+          };
+      }
 
       const result = await this.whatsappService.sendMessage(
         tenantId,

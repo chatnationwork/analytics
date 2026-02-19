@@ -58,7 +58,7 @@ const navGroups = [
       { href: "/journey", label: "User Journeys", icon: Route },
       { href: "/journeys", label: "Self-Serve vs Assisted", icon: Zap },
       { href: "/whatsapp-analytics", label: "WhatsApp", icon: MessageCircle },
-      { href: "/whatsapp", label: "Campaigns", icon: Briefcase },
+      { href: "/campaign-analytics", label: "Campaigns", icon: Briefcase },
       { href: "/agent-analytics", label: "Agent Analytics", icon: BarChart2 },
       {
         href: "/team-management/agent-status",
@@ -116,6 +116,12 @@ const navGroups = [
         href: "/settings/system-messages",
         label: "System messages",
         icon: MessageCircle,
+        permission: "settings.manage",
+      },
+      {
+        href: "/settings/templates",
+        label: "Templates",
+        icon: FileText,
         permission: "settings.manage",
       },
       {

@@ -21,6 +21,7 @@ import {
 } from "./constants";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.module";
+import { TemplatesModule } from "../templates/templates.module";
 
 
 
@@ -57,6 +58,7 @@ import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.modu
     WhatsappModule,
     CrmIntegrationsModule,
     SchedulerModule,
+    TemplatesModule,
   ],
   controllers: [CampaignsController],
   providers: [

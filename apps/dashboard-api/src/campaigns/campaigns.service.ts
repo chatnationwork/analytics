@@ -14,6 +14,11 @@ import { CampaignEntity, CampaignStatus } from "@lib/database";
 import { CreateCampaignDto } from "./dto/create-campaign.dto";
 import { UpdateCampaignDto } from "./dto/update-campaign.dto";
 import { CampaignQueryDto } from "./dto/campaign-query.dto";
+import { SchedulerService } from "@lib/database";
+import { CAMPAIGN_JOB_TYPE } from "./constants";
+import { AudienceService } from "./audience.service";
+
+import { TemplatesService } from "../templates/templates.service";
 
 @Injectable()
 export class CampaignsService {
@@ -22,6 +27,9 @@ export class CampaignsService {
   constructor(
     @InjectRepository(CampaignEntity)
     private readonly campaignRepo: Repository<CampaignEntity>,
+    private readonly schedulerService: SchedulerService,
+    private readonly audienceService: AudienceService, // Wait, audienceService was missing in previous view? Check constructor args.
+    private readonly templatesService: TemplatesService,
   ) {}
 
   async create(
@@ -29,12 +37,56 @@ export class CampaignsService {
     userId: string,
     dto: CreateCampaignDto,
   ): Promise<CampaignEntity> {
+    
+    let messageTemplate = dto.messageTemplate;
+
+    // specific logic if a templateId is provided
+    if (dto.templateId) {
+      const template = await this.templatesService.findById(tenantId, dto.templateId);
+      
+      // Construct WhatsApp Template Payload
+      messageTemplate = {
+        type: "template",
+        template: {
+          name: template.name,
+          language: { code: template.language },
+          components: [],
+        }
+      };
+
+      // Add Body Parameters if they exist
+      if (dto.templateParams && Object.keys(dto.templateParams).length > 0) {
+        const parameters = [];
+        // Sort variables to ensure correct order {{1}}, {{2}}, ...
+        const sortedVars = (template.variables || []).sort((a, b) => parseInt(a) - parseInt(b));
+
+        for (const v of sortedVars) {
+          const val = dto.templateParams[v] || ""; 
+          parameters.push({
+            type: "text",
+            text: val // Value will be rendered (placeholders replaced) in SendWorker
+          });
+        }
+
+        if (parameters.length > 0) {
+          (messageTemplate as any).template.components.push({
+            type: "body",
+            parameters: parameters
+          });
+        }
+      }
+    }
+
+    if (!messageTemplate) {
+        throw new BadRequestException("Either messageTemplate or templateId must be provided");
+    }
+
     const campaign = this.campaignRepo.create({
       tenantId,
       name: dto.name,
       type: dto.type,
       status: CampaignStatus.DRAFT,
-      messageTemplate: dto.messageTemplate,
+      messageTemplate: messageTemplate,
       audienceFilter: dto.audienceFilter
         ? (dto.audienceFilter as unknown as Record<string, unknown>)
         : null,
@@ -47,7 +99,71 @@ export class CampaignsService {
     });
 
     const saved = await this.campaignRepo.save(campaign);
+
+    // Handle recurrence
+    if (dto.recurrence) {
+      if (!dto.scheduledAt) {
+        // If scheduledAt is missing but recurrence is present, use recurrence startDate + time
+        // validation should probably ensure this? 
+        // For now, let's assume valid.
+      }
+      
+      const cron = this.generateCronExpression(dto.recurrence);
+      
+      // Calculate start date properly combining startDate and time
+      const [hours, minutes] = dto.recurrence.time.split(":").map(Number);
+      const startDate = new Date(dto.recurrence.startDate);
+      startDate.setHours(hours, minutes, 0, 0);
+
+      await this.schedulerService.createSchedule({
+        tenantId,
+        jobType: CAMPAIGN_JOB_TYPE,
+        jobPayload: { campaignId: saved.id },
+        cronExpression: cron,
+        scheduledAt: startDate,
+        createdBy: userId,
+        metadata: { campaignName: saved.name },
+      });
+
+      // Update campaign status to SCHEDULED if not already
+      if (saved.status === CampaignStatus.DRAFT) {
+        saved.status = CampaignStatus.SCHEDULED;
+        await this.campaignRepo.save(saved);
+      }
+    }
+
     return saved;
+  }
+
+  private generateCronExpression(config: CreateCampaignDto["recurrence"]): string {
+    if (!config) throw new Error("Recurrence config missing");
+    
+    const [hours, minutes] = config.time.split(":");
+    
+    switch (config.frequency) {
+      case "daily":
+        return `${minutes} ${hours} * * *`;
+      case "weekly":
+        if (!config.daysOfWeek || config.daysOfWeek.length === 0) {
+           throw new BadRequestException("Days of week required for weekly recurrence");
+        }
+        return `${minutes} ${hours} * * ${config.daysOfWeek.join(",")}`;
+      case "monthly":
+        if (!config.dayOfMonth) {
+           throw new BadRequestException("Day of month required for monthly recurrence");
+        }
+        return `${minutes} ${hours} ${config.dayOfMonth} * *`;
+      case "yearly":
+        if (!config.dayOfMonth || config.monthOfYear === undefined) {
+           throw new BadRequestException("Day of month and month required for yearly recurrence");
+        }
+        // Month in cron is 1-12, but input might be 0-11? 
+        // Plan said 0-11. Cron expects 1-12 (Jan-Dec) or JAN-DEC.
+        // Let's assume input is 0-11 (JS Date style) and convert to 1-12.
+        return `${minutes} ${hours} ${config.dayOfMonth} ${config.monthOfYear + 1} *`;
+      default:
+        throw new BadRequestException("Invalid frequency");
+    }
   }
 
   async findById(

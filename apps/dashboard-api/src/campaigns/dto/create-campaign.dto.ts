@@ -9,6 +9,9 @@ import {
   IsArray,
   IsNotEmpty,
   Allow,
+  IsInt,
+  Min,
+  Max,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { CampaignType } from "@lib/database";
@@ -37,6 +40,40 @@ export class AudienceFilterDto {
   logic: "AND" | "OR";
 }
 
+export class RecurrenceConfigDto {
+  @IsString()
+  @IsNotEmpty()
+  @IsEnum(["daily", "weekly", "monthly", "yearly"])
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
+
+  @IsDateString()
+  startDate: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  time: string; // HH:mm
+
+  @IsOptional()
+  @IsArray()
+  daysOfWeek?: number[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  dayOfMonth?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(11)
+  monthOfYear?: number;
+}
+
 export class CreateCampaignDto {
   @IsString()
   @IsNotEmpty()
@@ -48,7 +85,16 @@ export class CreateCampaignDto {
 
   @IsObject()
   @IsNotEmpty()
-  messageTemplate: Record<string, unknown>;
+  @IsOptional() // Made optional because it can be derived from templateId
+  messageTemplate?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  templateId?: string;
+
+  @IsOptional()
+  @IsObject()
+  templateParams?: Record<string, string>;
 
   @IsOptional()
   @ValidateNested()
@@ -68,6 +114,11 @@ export class CreateCampaignDto {
   @IsOptional()
   @IsDateString()
   scheduledAt?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RecurrenceConfigDto)
+  recurrence?: RecurrenceConfigDto;
 
   @IsOptional()
   @IsString()

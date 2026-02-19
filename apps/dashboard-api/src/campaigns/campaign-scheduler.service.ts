@@ -21,8 +21,9 @@ import {
 } from "@lib/database";
 import { CampaignOrchestratorService } from "./campaign-orchestrator.service";
 
-/** Job type constant for campaign execution via the generic scheduler. */
-export const CAMPAIGN_JOB_TYPE = "campaign.execute";
+import {
+  CAMPAIGN_JOB_TYPE,
+} from "./constants";
 
 @Injectable()
 export class CampaignSchedulerService implements OnModuleInit {

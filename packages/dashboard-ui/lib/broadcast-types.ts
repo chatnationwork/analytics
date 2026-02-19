@@ -115,14 +115,27 @@ export interface CampaignError {
   count: number;
 }
 
+export interface RecurrenceConfig {
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  startDate: string;
+  endDate?: string;
+  time: string; // "HH:mm"
+  daysOfWeek?: number[]; // 0-6 for weekly (0=Sunday)
+  dayOfMonth?: number; // 1-31 for monthly/yearly
+  monthOfYear?: number; // 0-11 for yearly
+}
+
 export interface CreateCampaignDto {
   name: string;
   type: CampaignType;
-  messageTemplate: Record<string, any>;
+  messageTemplate?: Record<string, any>;
+  templateId?: string;
+  templateParams?: Record<string, string>;
   audienceFilter?: AudienceFilter;
   sourceModule?: string;
   sourceReferenceId?: string;
   scheduledAt?: string;
+  recurrence?: RecurrenceConfig;
   triggerType?: string;
   triggerConfig?: Record<string, any>;
 }

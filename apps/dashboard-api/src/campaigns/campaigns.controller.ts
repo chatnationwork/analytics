@@ -12,6 +12,7 @@ import {
   Query,
   Req,
   ParseUUIDPipe,
+  ParseIntPipe,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -55,6 +56,19 @@ export class CampaignsController {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
     return this.analytics.getOverview(tenantId);
+  }
+
+  /** List campaigns with delivery metrics. */
+  @Get("analytics/list")
+  async listWithStats(
+    @Req() req: any,
+    @Query("page", new ParseIntPipe({ optional: true })) page?: number,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) throw new Error("Tenant context required");
+    console.log(`[CampaignAnalytics] Listing campaigns for tenant ${tenantId}, page=${page}, limit=${limit}`);
+    return this.analytics.listWithStats(tenantId, page ?? 1, limit ?? 20);
   }
 
   /** Get current 24h conversation quota status. */

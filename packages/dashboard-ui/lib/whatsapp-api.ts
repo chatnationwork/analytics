@@ -2,35 +2,52 @@
 
 const API_BASE_URL = ''; // Relative path for proxy
 
-export interface WhatsappOverview {
-  totalContacts: number;
+/** Matches CampaignOverview returned by GET /campaigns/analytics/overview */
+export interface CampaignOverview {
   totalCampaigns: number;
   activeCampaigns: number;
-  
-  customerInsights: {
-      totalContacts: number;
-  };
-  campaignOptimization: {
-      funnel: {
-          sent: number;
-          delivered: number;
-          read: number;
-          replied: number;
-      };
-      topCampaigns: { name: string; readRate: number; replyRate: number }[];
-  };
-  engagement: {
-      conversionRate: number;
-  };
+  totalMessagesSent: number;
+  totalDelivered: number;
+  totalRead: number;
+  totalFailed: number;
+  avgDeliveryRate: number;
+  avgReadRate: number;
 }
 
+/** @deprecated Use CampaignOverview */
+export type WhatsappOverview = CampaignOverview;
+
 export interface Campaign {
-  campaign_id: string;
+  id: string;
   name: string;
   status: string;
-  created_at: string;
-  scheduled_at: string | null;
-  total_recipients?: number;
+  createdAt: string;
+  scheduledAt: string | null;
+  recipientCount: number;
+}
+
+export interface CampaignStats {
+  total: number;
+  pending: number;
+  queued: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  deliveryRate: number;
+  readRate: number;
+  failureRate: number;
+}
+
+export interface CampaignWithStats extends Campaign {
+  stats: CampaignStats;
+}
+
+export interface CampaignsListResponse {
+  data: CampaignWithStats[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 const getHeaders = () => {
