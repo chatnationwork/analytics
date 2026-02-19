@@ -1,19 +1,28 @@
-import { Injectable, BadRequestException, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  Logger,
+  OnModuleInit,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import { EosTicket } from "@lib/database";
+import { EosTicket, Payment } from "@lib/database";
 import { EosTicketType } from "@lib/database";
 import { EosEvent } from "@lib/database";
 import { ContactEntity } from "@lib/database";
 import { InitiatePurchaseDto } from "./dto/initiate-purchase.dto";
-import { PaymentService } from "../billing/payment.service";
 import { TriggerService } from "../campaigns/trigger.service";
 import { CampaignTrigger } from "../campaigns/constants";
+import { MpesaService } from "../billing/mpesa.service";
+import {
+  PaymentCallbackService,
+  PaymentFulfilledHandler,
+} from "../billing/payment-callback.service";
 
 @Injectable()
-export class EosTicketService {
+export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
   private readonly logger = new Logger(EosTicketService.name);
 
   constructor(
@@ -26,10 +35,16 @@ export class EosTicketService {
     @InjectRepository(ContactEntity)
     private readonly contactRepo: Repository<ContactEntity>,
     private readonly dataSource: DataSource,
-    private readonly paymentService: PaymentService,
+    private readonly mpesaService: MpesaService,
+    private readonly paymentCallbackService: PaymentCallbackService,
     private readonly triggerService: TriggerService,
     @InjectQueue("eos-hypecard-generation") private hypeCardQueue: Queue,
   ) {}
+
+  onModuleInit() {
+    this.paymentCallbackService.register("eos_ticket", this);
+    this.logger.log("Registered 'eos_ticket' payment handler");
+  }
 
   async initiatePurchase(
     organizationId: string,
@@ -55,7 +70,6 @@ export class EosTicketService {
       }
 
       // 2. Resolve Contact
-      // Simplified: Find by phone or create. In real app, might need more robust contact resolution
       let contact = await manager.findOne(ContactEntity, {
         where: { tenantId: organizationId, contactId: dto.phone },
       });
@@ -68,12 +82,10 @@ export class EosTicketService {
           email: dto.holderEmail,
           firstSeen: new Date(),
           lastSeen: new Date(),
-          // other required fields
         });
         contact = await manager.save(contact);
       }
 
-      // 3. Create Pending Ticket
       // 3. Create Pending Ticket
       const ticket = new EosTicket();
       Object.assign(ticket, {
@@ -85,6 +97,7 @@ export class EosTicketService {
         amountPaid: ticketType.price,
         ticketCode: `PENDING_${Date.now()}`,
         paymentStatus: "pending",
+        status: "reserved", // Changed from undefined/pending to reserved
       });
 
       await manager.save(ticket); // Save to get ID
@@ -95,12 +108,19 @@ export class EosTicketService {
 
       // 5. Initiate Payment
       if (ticketType.price > 0) {
-        const paymentRes = await this.paymentService.stkPush({
+        const payment = await this.mpesaService.initiateStkPush({
+          organizationId,
+          contactId: contact.id,
+          payableType: "eos_ticket",
+          payableId: ticket.id,
           phone: dto.phone,
           amount: ticketType.price,
-          reference: ticket.id,
+          currency: "KES",
+          description: `Ticket for ${ticketType.event.name}`,
         });
-        ticket.paymentReference = paymentRes.CheckoutRequestID;
+
+        // Store payment interaction reference
+        ticket.paymentReference = payment.checkoutRequestId;
         await manager.save(ticket);
       } else {
         // Free ticket
@@ -111,45 +131,60 @@ export class EosTicketService {
     });
   }
 
-  async processCallback(payload: any) {
-    // Simplified callback processing
-    const { CheckoutRequestID, ResultCode, MpesaReceiptNumber } = payload; // Adapt to actual M-Pesa payload structure
+  /**
+   * Called by PaymentCallbackService when payment is completed
+   */
+  async onPaymentFulfilled(payment: Payment): Promise<void> {
+    if (payment.payableType !== "eos_ticket") return;
+    this.logger.log(
+      `Fulfilling ticket ${payment.payableId} for payment ${payment.id}`,
+    );
 
-    if (ResultCode !== 0) {
-      // Handle failure
-      return;
-    }
-
-    const ticket = await this.ticketRepo.findOne({
-      where: { paymentReference: CheckoutRequestID },
-      relations: ["ticketType", "ticketType.event"],
-    });
-
-    if (!ticket) return;
-
-    if (ticket.paymentStatus === "completed") return;
-
-    // Fulfill
-    ticket.paymentMetadata = payload;
-    await this.fulfillTicket(ticket.id);
+    // Pass the mpesa receipt as metadata if needed
+    await this.fulfillTicket(
+      payment.payableId,
+      undefined,
+      payment.mpesaReceiptNumber,
+    );
   }
 
-  private async fulfillTicket(ticketId: string, externalManager?: any) {
+  private async fulfillTicket(
+    ticketId: string,
+    externalManager?: any,
+    receiptNumber?: string | null,
+  ) {
     const manager = externalManager || this.dataSource.manager;
     const ticket = await manager.findOne(EosTicket, {
       where: { id: ticketId },
       relations: ["ticketType", "ticketType.event"],
     });
 
-    if (!ticket) return;
+    if (!ticket) {
+      this.logger.error(`Ticket ${ticketId} not found for fulfillment`);
+      return;
+    }
+
+    if (ticket.status === "valid" || ticket.paymentStatus === "completed") {
+      this.logger.warn(`Ticket ${ticketId} already fulfilled`);
+      return;
+    }
 
     // 1. Generate Code (nanoid 8 chars - simplified here)
+    // TODO: Use better nanoid in Phase 3
     ticket.ticketCode = Math.random()
       .toString(36)
       .substring(2, 10)
       .toUpperCase();
     ticket.paymentStatus = "completed";
     ticket.status = "valid";
+
+    if (receiptNumber) {
+      ticket.paymentMetadata = {
+        ...ticket.paymentMetadata,
+        receipt: receiptNumber,
+      };
+    }
+
     // Generate QR URL stub
     ticket.qrCodeUrl = `https://chart.googleapis.com/chart?cht=qr&chl=${ticket.ticketCode}&chs=180x180&choe=UTF-8&chld=L|2`;
 
@@ -157,32 +192,36 @@ export class EosTicketService {
 
     // 2. HypeCard
     if (ticket.ticketType.event.settings?.hype_card_on_reg) {
-      await this.hypeCardQueue.add("generate", {
-        ticketId: ticket.id,
-        templateId: "default", // would need resolution logic
-        inputData: {
-          name: ticket.holderName,
-          event: ticket.ticketType.event.name,
-        },
-      });
+      try {
+        await this.hypeCardQueue.add("generate", {
+          ticketId: ticket.id,
+          templateId: "default",
+          inputData: {
+            name: ticket.holderName,
+            event: ticket.ticketType.event.name,
+          },
+        });
+      } catch (e) {
+        this.logger.error(`Failed to queue hype card: ${e.message}`);
+      }
     }
 
     // 3. Trigger Campaign
-    // TICKET_ISSUED trigger
     try {
       await this.triggerService.fire(CampaignTrigger.TICKET_ISSUED, {
-        // String literal if enum not imported
         tenantId: ticket.ticketType.event.organizationId,
-        contactId: ticket.contactId, // Pass UUID as per brief
+        contactId: ticket.contactId,
         context: {
-          // payload in brief, context in TriggerService
           ticketCode: ticket.ticketCode,
           qrCodeUrl: ticket.qrCodeUrl,
+          eventName: ticket.ticketType.event.name,
         },
       });
     } catch (e) {
       this.logger.error(`Failed to fire trigger: ${e.message}`);
     }
+
+    this.logger.log(`Ticket ${ticket.ticketCode} fulfilled successfully`);
   }
 
   async getStatus(ticketId: string) {

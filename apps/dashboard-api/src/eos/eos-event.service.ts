@@ -111,4 +111,11 @@ export class EosEventService {
 
     return this.eventRepo.save(event);
   }
+
+  async findAll(organizationId: string): Promise<EosEvent[]> {
+    return this.eventRepo.find({
+      where: { organizationId },
+      order: { createdAt: "DESC" },
+    });
+  }
 }

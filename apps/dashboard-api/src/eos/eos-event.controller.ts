@@ -38,6 +38,11 @@ export class EosEventController {
     return this.eventService.publishEvent(req.user.tenantId, id);
   }
 
+  @Get()
+  findAll(@Req() req: any) {
+    return this.eventService.findAll(req.user.tenantId);
+  }
+
   @Get(":id/venue-layout")
   getVenueLayout(@Req() req: any, @Param("id") id: string) {
     return this.eventService.getVenueLayout(req.user.tenantId, id);

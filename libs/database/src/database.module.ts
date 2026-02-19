@@ -71,6 +71,7 @@ import { EosTicketType } from "./entities/eos-ticket-type.entity";
 import { EosTicket } from "./entities/eos-ticket.entity";
 import { EosExhibitor } from "./entities/eos-exhibitor.entity";
 import { EosLead } from "./entities/eos-lead.entity";
+import { GeneratedCard } from "./entities/generated-card.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -125,6 +126,7 @@ const entities = [
   EosTicket,
   EosExhibitor,
   EosLead,
+  GeneratedCard,
 ];
 
 /**

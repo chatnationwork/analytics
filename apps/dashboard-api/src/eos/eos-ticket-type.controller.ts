@@ -1,24 +1,21 @@
 import {
   Controller,
   Post,
+  Get,
+  Patch,
+  Delete,
   Body,
   Param,
-  Request,
   UseGuards,
   Req,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { EosTicketType } from "@lib/database";
+import { EosTicketTypeService } from "./eos-ticket-type.service";
 
 @Controller("eos/events/:eventId/ticket-types")
 @UseGuards(JwtAuthGuard)
 export class EosTicketTypeController {
-  constructor(
-    @InjectRepository(EosTicketType)
-    private readonly repo: Repository<EosTicketType>,
-  ) {}
+  constructor(private readonly service: EosTicketTypeService) {}
 
   @Post()
   create(
@@ -26,9 +23,21 @@ export class EosTicketTypeController {
     @Param("eventId") eventId: string,
     @Body() body: any,
   ) {
-    // Basic CRUD stub for now, as no specific service method was mandated in brief for this,
-    // but endpoint was listed.
-    const entity = this.repo.create({ ...body, eventId });
-    return this.repo.save(entity);
+    return this.service.create(eventId, body);
+  }
+
+  @Get()
+  findAll(@Param("eventId") eventId: string) {
+    return this.service.findAll(eventId);
+  }
+
+  @Patch(":id")
+  update(@Param("id") id: string, @Body() body: any) {
+    return this.service.update(id, body);
+  }
+
+  @Delete(":id")
+  remove(@Param("id") id: string) {
+    return this.service.remove(id);
   }
 }

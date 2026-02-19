@@ -21,6 +21,7 @@ import { EosLeadController } from "./eos-lead.controller";
 import { EosEventService } from "./eos-event.service";
 import { EosTicketService } from "./eos-ticket.service";
 import { EosLeadService } from "./eos-lead.service";
+import { EosTicketTypeService } from "./eos-ticket-type.service";
 
 import { LeadProcessorWorker } from "./workers/lead-processor.worker";
 import { HypeCardWorker } from "./workers/hypecard.worker";
@@ -58,6 +59,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     EosEventService,
     EosTicketService,
     EosLeadService,
+    EosTicketTypeService,
     LeadProcessorWorker,
     HypeCardWorker,
   ],

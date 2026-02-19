@@ -25,7 +25,7 @@ export class EosTicketController {
     @Param("eventId") eventId: string,
     @Body() dto: InitiatePurchaseDto,
   ) {
-    const organizationId = req.user.organizationId; // Or derive from eventId? Service validates event ownership.
+    const organizationId = req.user.tenantId; // Use tenantId from JWT
     // Actually, initiatePurchase validates ticketType -> event -> organizationId matching.
     // Attendee might not belong to Org. This usually implies public access.
     // Sticking to brief "All endpoints require a JWT". Maybe user logs in as "Attendee"?

@@ -9,6 +9,7 @@ import {
 } from "typeorm";
 import { EosTicketType } from "@lib/database/entities/eos-ticket-type.entity";
 import { ContactEntity } from "@lib/database/entities/contact.entity";
+import { GeneratedCard } from "@lib/database/entities/generated-card.entity";
 
 @Entity("eos_tickets")
 export class EosTicket {
@@ -67,9 +68,9 @@ export class EosTicket {
   hypeCardId: string;
 
   // Assuming GeneratedCard entity exists or we leave it loose for now if not imported
-  // @ManyToOne(() => GeneratedCard, { nullable: true })
-  // @JoinColumn({ name: 'hype_card_id' })
-  // hypeCard: GeneratedCard;
+  @ManyToOne(() => GeneratedCard, { nullable: true })
+  @JoinColumn({ name: "hype_card_id" })
+  hypeCard: Relation<GeneratedCard>;
 
   @Column({ length: 20, default: "valid" })
   status: "valid" | "used" | "cancelled" | "refunded";
