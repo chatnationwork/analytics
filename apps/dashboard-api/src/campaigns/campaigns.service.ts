@@ -96,6 +96,8 @@ export class CampaignsService {
       triggerType: dto.triggerType ?? null,
       triggerConfig: dto.triggerConfig ?? null,
       createdBy: userId,
+      templateId: dto.templateId ?? null,
+      templateParams: dto.templateParams ?? null,
     });
 
     const saved = await this.campaignRepo.save(campaign);
@@ -233,6 +235,10 @@ export class CampaignsService {
       campaign.triggerType = dto.triggerType ?? null;
     if (dto.triggerConfig !== undefined)
       campaign.triggerConfig = dto.triggerConfig ?? null;
+    if (dto.templateId !== undefined)
+      campaign.templateId = dto.templateId ?? null;
+    if (dto.templateParams !== undefined)
+      campaign.templateParams = dto.templateParams ?? null;
 
     return this.campaignRepo.save(campaign);
   }

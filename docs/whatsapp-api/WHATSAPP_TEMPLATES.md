@@ -154,3 +154,22 @@ Returns a list of all templates for the business account, including their status
 *   **Client**: `pkg/whatsapp/client.go` handles the low-level HTTP requests and authentication.
 *   **Template Logic**: `pkg/whatsapp/template.go` constructs the complex `components` structure, including mapping local `sample_values` to Meta's expected `example` format.
 *   **Variable Handling**: The system supports both positional (`{{1}}`) and named (`{{name}}`) parameters. Named parameters are converted to Meta's format automatically.
+
+## 6. Using Variables in Templates
+
+WhatsApp templates use numbered placeholders like `{{1}}`, `{{2}}`, etc.
+
+### Designing a Template
+When creating a template, use `{{1}}` where you want dynamic content.
+**Example Body**:
+```
+Hello {{1}},
+Your order {{2}} is ready for pickup.
+```
+
+### Sending a Template
+When sending a campaign using this template, you must map each variable number to a value.
+- **Variable {{1}}**: Mapped to `{{name}}` (Extracts contact's name)
+- **Variable {{2}}**: Mapped to `{{metadata.orderId}}` (Extracts custom order ID)
+
+The system resolves these mappings at send time using the [Message Placeholders](../features/message-placeholders.md) system.

@@ -36,4 +36,12 @@ export class UpdateCampaignDto {
   @IsOptional()
   @IsObject()
   triggerConfig?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  templateId?: string;
+
+  @IsOptional()
+  @IsObject()
+  templateParams?: Record<string, string>;
 }
