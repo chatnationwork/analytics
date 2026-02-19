@@ -563,6 +563,7 @@ export class WhatsappAnalyticsService {
           row,
           "contactId",
           "contactid",
+          "contact_id",
           "c_contactId",
           "ContactEntity_contactId",
         ) as string) ?? "";
@@ -798,7 +799,15 @@ export class WhatsappAnalyticsService {
         } else if (targetField === "tags") {
           // Split by comma, trim
           const tags = value.split(",").map((t) => t.trim()).filter(Boolean);
-          if (tags.length > 0) contactData.tags = tags;
+          if (tags.length > 0) {
+             contactData.tags = [...(contactData.tags || []), ...tags];
+          }
+        } else if (targetField.startsWith("tag:")) {
+          // Treat value as a tag
+          const tagValue = value.trim();
+          if (tagValue) {
+             contactData.tags = [...(contactData.tags || []), tagValue];
+          }
         } else if (targetField === "yearOfBirth") {
           const yob = parseInt(value, 10);
           if (!isNaN(yob)) contactData.yearOfBirth = yob;

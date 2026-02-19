@@ -237,7 +237,7 @@ export class ContactRepository {
       .createQueryBuilder("c")
       .select([
         "c.name AS name",
-        "c.contactId AS contactId",
+        'c.contactId AS "contactId"',
         "c.messageCount AS messageCount",
         "c.firstSeen AS firstSeen",
         "c.lastSeen AS lastSeen",

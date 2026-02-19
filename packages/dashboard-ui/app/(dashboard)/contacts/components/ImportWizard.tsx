@@ -86,6 +86,17 @@ export function ImportWizard({ open, onOpenChange }: ImportWizardProps) {
         await saveTemplateMutation.mutateAsync();
       }
 
+      // Transform mapping for backend:
+      // The backend expects: 
+      // 1. A mapping object for standard fields (colName -> fieldName)
+      // 2. A separate way to handle tags? 
+      // Wait, let's check whatsappAnalyticsApi.importContactsMapped signature.
+      // If it only takes a mapping object, we might need to conform to what it expects 
+      // OR update it to handle our new "tag:tagName" format.
+      //
+      // Assuming for now we pass the mapping as is, and the backend (or API wrapper) needs to handle it.
+      // Let's look at `whatsappAnalyticsApi.importContactsMapped`.
+      
       return whatsappAnalyticsApi.importContactsMapped(
         file,
         mapping,
@@ -96,7 +107,9 @@ export function ImportWizard({ open, onOpenChange }: ImportWizardProps) {
       setImportResult(data);
       setStep("success");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-analytics-contacts"] });
-      toast.success(`Imported ${data.importedCount} contacts successfully`);
+      // Show more detailed success message
+      const tagCount = Object.values(mapping).filter(v => v.startsWith("tag:")).length;
+      toast.success(`Imported ${data.importedCount} contacts successfully. ${tagCount > 0 ? `Applied ${tagCount} tags.` : ""}`);
     },
     onError: (err: any) => {
       toast.error(err.message || "Import failed");
