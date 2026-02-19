@@ -95,14 +95,6 @@ export class EosEventService {
   ): Promise<EosEvent> {
     const event = await this.findOne(organizationId, eventId);
 
-    // Validate at least one ticket type
-    const ticketCount = await this.ticketTypeRepo.count({ where: { eventId } });
-    if (ticketCount === 0) {
-      throw new BadRequestException(
-        "Cannot publish event without ticket types",
-      );
-    }
-
     event.status = "published";
     event.publishedAt = new Date();
     return this.eventRepo.save(event);

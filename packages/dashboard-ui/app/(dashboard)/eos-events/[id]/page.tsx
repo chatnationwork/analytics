@@ -3,18 +3,81 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { eventsApi } from "@/lib/eos-events-api";
-import { EosEvent, EosExhibitor } from "@/types/eos-events";
+import { EosEvent, EosExhibitor, EosTicketType } from "@/types/eos-events";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VenueGrid } from "@/components/eos-events/VenueGrid";
 import { TicketTypeManager } from "@/components/eos-events/TicketTypeManager";
 import { ExhibitorManager } from "@/components/eos-events/ExhibitorManager";
 import { TicketManager } from "@/components/eos-events/TicketManager";
 import { VenueMapEditor } from "@/components/eos-events/VenueMapEditor";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Circle } from "lucide-react";
 import { toast } from "sonner";
+
+interface ReadinessItem {
+  label: string;
+  done: boolean;
+  tab?: string;
+  required?: boolean;
+}
+
+function PublishReadinessCard({
+  items,
+  onTabChange,
+}: {
+  items: ReadinessItem[];
+  onTabChange: (tab: string) => void;
+}) {
+  const warnings = items.filter((i) => !i.done && !i.required);
+  if (warnings.length === 0) return null;
+
+  return (
+    <Card className="border-yellow-500/30 bg-yellow-500/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+          <AlertCircle className="h-4 w-4" />
+          Publish Readiness
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <p className="text-xs text-muted-foreground mb-3">
+          Your event can be published now. These optional items can be added any
+          time:
+        </p>
+        <ul className="space-y-2">
+          {items.map((item) => (
+            <li key={item.label} className="flex items-center gap-2 text-sm">
+              {item.done ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+              ) : item.required ? (
+                <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+              ) : (
+                <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              <span
+                className={
+                  item.done ? "text-muted-foreground line-through" : ""
+                }
+              >
+                {item.label}
+              </span>
+              {!item.done && item.tab && (
+                <button
+                  onClick={() => onTabChange(item.tab!)}
+                  className="text-xs text-blue-500 hover:underline ml-auto"
+                >
+                  Add →
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function EosEventDetailsPage() {
   const params = useParams();
@@ -26,16 +89,23 @@ export default function EosEventDetailsPage() {
     exhibitors: any[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [ticketTypes, setTicketTypes] = useState<EosTicketType[]>([]);
+  const [exhibitors, setExhibitors] = useState<EosExhibitor[]>([]);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [eventData, layoutData] = await Promise.all([
+        const [eventData, layoutData, ttData, exData] = await Promise.all([
           eventsApi.get(eventId),
           eventsApi.getVenueLayout(eventId),
+          eventsApi.listTicketTypes(eventId),
+          eventsApi.listExhibitors(eventId),
         ]);
         setEvent(eventData);
         setVenueLayout(layoutData);
+        setTicketTypes(ttData ?? []);
+        setExhibitors(exData ?? []);
       } catch (e) {
         console.error("Failed to load event", e);
       } finally {
@@ -67,6 +137,29 @@ export default function EosEventDetailsPage() {
     );
   if (!event) return <div className="p-8">Event not found</div>;
 
+  const readinessItems: ReadinessItem[] = [
+    {
+      label: "Ticket types created",
+      done: ticketTypes.length > 0,
+      tab: "ticket-types",
+    },
+    {
+      label: "Exhibitors invited",
+      done: exhibitors.length > 0,
+      tab: "exhibitors",
+    },
+    {
+      label: "Venue map configured",
+      done: !!venueLayout?.slots?.length,
+      tab: "venue",
+    },
+    {
+      label: "Cover image uploaded",
+      done: !!event?.coverImageUrl,
+      tab: "overview",
+    },
+  ];
+
   return (
     <div className="p-8 space-y-6">
       <div className="flex justify-between items-start">
@@ -86,7 +179,14 @@ export default function EosEventDetailsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview">
+      {event.status === "draft" && (
+        <PublishReadinessCard
+          items={readinessItems}
+          onTabChange={setActiveTab}
+        />
+      )}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="ticket-types">Ticket Types</TabsTrigger>

@@ -33,6 +33,7 @@ export const eventsApi = {
   publish: async (id: string) => {
     return fetchWithAuth<EosEvent>(`/eos/events/${id}/publish`, {
       method: "POST",
+      body: JSON.stringify({}),
     });
   },
 
@@ -112,6 +113,7 @@ export const eventsApi = {
       `/eos/events/${eventId}/exhibitors/${id}/approve`,
       {
         method: "PATCH",
+        body: JSON.stringify({}),
       },
     );
   },
@@ -120,6 +122,7 @@ export const eventsApi = {
       `/eos/events/${eventId}/exhibitors/${id}/reject`,
       {
         method: "PATCH",
+        body: JSON.stringify({}),
       },
     );
   },
@@ -147,11 +150,13 @@ export const eventsApi = {
   cancel: async (id: string) => {
     return fetchWithAuth<EosEvent>(`/eos/events/${id}/cancel`, {
       method: "POST",
+      body: JSON.stringify({}),
     });
   },
   complete: async (id: string) => {
     return fetchWithAuth<EosEvent>(`/eos/events/${id}/complete`, {
       method: "POST",
+      body: JSON.stringify({}),
     });
   },
 

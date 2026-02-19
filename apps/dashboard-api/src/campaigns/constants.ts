@@ -19,6 +19,7 @@ export enum CampaignTrigger {
   TICKET_ISSUED = "ticket.issued",
   EVENT_CHECKIN = "event.checkin",
   EVENT_REGISTRATION = "event.registration",
+  EVENT_PUBLISHED = "event.published",
 
   // Surveys module
   SURVEY_COMPLETED = "survey.completed",
