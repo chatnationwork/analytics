@@ -67,6 +67,7 @@ import { CampaignEntity } from "./entities/campaign.entity";
 import { CampaignMessageEntity } from "./entities/campaign-message.entity";
 import { CampaignScheduleEntity } from "./entities/campaign-schedule.entity";
 import { ImportMappingTemplate } from "./entities/import-mapping-template.entity";
+import { ScheduleEntity } from "./scheduler/schedule.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -119,6 +120,7 @@ const entities = [
   CampaignMessageEntity,
   CampaignScheduleEntity,
   ImportMappingTemplate,
+  ScheduleEntity,
 ];
 
 /**

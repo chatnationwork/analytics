@@ -39,3 +39,7 @@ export {
 } from "./helpers/inbox-session.helper";
 export * from "./segmentation/segment-filter.types";
 export * from "./segmentation/segmentation.service";
+export * from "./scheduler/schedule.entity";
+export * from "./scheduler/schedule.types";
+export * from "./scheduler/scheduler.service";
+export * from "./scheduler/scheduler.module";
