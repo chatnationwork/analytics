@@ -11,6 +11,7 @@ import {
   IsUrl,
   IsOptional,
   IsBoolean,
+  IsObject,
   MaxLength,
   MinLength,
 } from "class-validator";
@@ -46,6 +47,7 @@ export class CreateCrmIntegrationDto {
 
   /** Provider-specific config (e.g. WhatsApp IDs) */
   @IsOptional()
+  @IsObject()
   config?: Record<string, any>;
 }
 
@@ -81,6 +83,7 @@ export class UpdateCrmIntegrationDto {
   isActive?: boolean;
 
   @IsOptional()
+  @IsObject()
   config?: Record<string, any>;
 }
 

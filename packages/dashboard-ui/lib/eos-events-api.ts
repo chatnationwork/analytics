@@ -170,7 +170,8 @@ export const eventsApi = {
     id: string,
     data: {
       name: string;
-      templateId: string;
+      templateId?: string;
+      rawTemplate?: any;
       audienceFilter?: any;
       templateParams?: Record<string, string>;
     },

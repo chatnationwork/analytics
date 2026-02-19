@@ -19,11 +19,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { templatesApi, Template } from "@/lib/templates-api";
 import { eventsApi } from "@/lib/eos-events-api";
 import { EosEvent } from "@/types/eos-events";
 import { toast } from "sonner";
-import { Loader2, Users, Send, AlertCircle } from "lucide-react";
+import {
+  Loader2,
+  Users,
+  Send,
+  AlertCircle,
+  Code,
+  FileText,
+} from "lucide-react";
 
 interface InviteModalProps {
   event: EosEvent;
@@ -40,12 +49,20 @@ export default function InviteModal({
 }: InviteModalProps) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [method, setMethod] = useState<"template" | "manual">("template");
+  const [rawJson, setRawJson] = useState("");
+  const [rawBodyText, setRawBodyText] = useState("");
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [manualVariables, setManualVariables] = useState<string[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [audienceType, setAudienceType] = useState<"all" | "tags">("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [templateParams, setTemplateParams] = useState<Record<string, string>>({});
+  const [templateParams, setTemplateParams] = useState<Record<string, string>>(
+    {},
+  );
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
 
@@ -60,6 +77,31 @@ export default function InviteModal({
       });
     }
   }, [isOpen, event]);
+
+  // Handle JSON parsing and metadata extraction
+  useEffect(() => {
+    if (method === "manual" && rawJson.trim()) {
+      try {
+        JSON.parse(rawJson);
+        setJsonError(null);
+      } catch (e) {
+        setJsonError("Invalid JSON syntax");
+      }
+    } else {
+      setJsonError(null);
+    }
+  }, [rawJson, method]);
+
+  // Extract variables from manual body text
+  useEffect(() => {
+    if (method === "manual" && rawBodyText.trim()) {
+      const matches = rawBodyText.match(/\{\{\d+\}\}/g) || [];
+      const vars = matches.map((v) => v.replace(/\{\{|\}\}/g, ""));
+      setManualVariables([...new Set(vars)]);
+    } else {
+      setManualVariables([]);
+    }
+  }, [rawBodyText, method]);
 
   async function loadTemplates() {
     setLoading(true);
@@ -85,9 +127,20 @@ export default function InviteModal({
   };
 
   const handleSend = async () => {
-    if (!selectedTemplateId) {
+    if (method === "template" && !selectedTemplateId) {
       toast.error("Please select a template");
       return;
+    }
+
+    if (method === "manual") {
+      if (!rawJson.trim() || jsonError) {
+        toast.error("Please provide a valid JSON payload");
+        return;
+      }
+      if (!rawBodyText.trim()) {
+        toast.error("Please provide message body text for preview");
+        return;
+      }
     }
 
     setSending(true);
@@ -106,9 +159,13 @@ export default function InviteModal({
 
       await eventsApi.sendInvites(event.id, {
         name: `Invite: ${event.name} - ${new Date().toLocaleDateString()}`,
-        templateId: selectedTemplateId,
+        templateId: method === "template" ? selectedTemplateId : undefined,
+        rawTemplate: method === "manual" ? JSON.parse(rawJson) : undefined,
         audienceFilter,
-        templateParams,
+        templateParams: {
+          ...templateParams,
+          // If manual, we might want to ensure params for detected variables exist
+        },
       });
 
       toast.success("Invitation campaign launched successfully");
@@ -119,7 +176,7 @@ export default function InviteModal({
     } finally {
       setSending(false);
     }
-  }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -128,55 +185,140 @@ export default function InviteModal({
           <DialogTitle>Send Event Invitations</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Template Selection */}
-          <div className="space-y-2">
-            <Label>WhatsApp Template</Label>
-            <Select
-              value={selectedTemplateId}
-              onValueChange={setSelectedTemplateId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select an approved template" />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name} ({t.language})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {loading && <Loader2 className="h-4 w-4 animate-spin mt-1" />}
-          </div>
+        <div className="py-4 overflow-y-auto max-h-[70vh] px-1 -mx-1 space-y-6">
+          <Tabs value={method} onValueChange={(v) => setMethod(v as any)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="template" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Select Template
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="flex items-center gap-2">
+                <Code className="h-4 w-4" />
+                Paste JSON
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Template Variables */}
-          {selectedTemplate && selectedTemplate.variables?.length > 0 && (
-            <div className="space-y-3 p-3 bg-muted rounded-md">
-              <Label className="text-xs font-bold uppercase text-muted-foreground">
-                Template Variables
-              </Label>
-              {selectedTemplate.variables.map((v) => (
-                <div key={v} className="space-y-1">
-                  <Label htmlFor={`var-${v}`} className="text-xs">
-                    Variable {v}
+            <TabsContent value="template" className="space-y-4 pt-4">
+              {/* Template Selection */}
+              <div className="space-y-2">
+                <Label>WhatsApp Template</Label>
+                <Select
+                  value={selectedTemplateId}
+                  onValueChange={setSelectedTemplateId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an approved template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name} ({t.language})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {loading && <Loader2 className="h-4 w-4 animate-spin mt-1" />}
+              </div>
+
+              {/* Template Variables */}
+              {selectedTemplate && selectedTemplate.variables?.length > 0 && (
+                <div className="space-y-3 p-3 bg-muted rounded-md border">
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">
+                    Template Variables
                   </Label>
-                  <Input
-                    id={`var-${v}`}
-                    value={templateParams[v] || ""}
-                    onChange={(e) =>
-                      setTemplateParams({
-                        ...templateParams,
-                        [v]: e.target.value,
-                      })
-                    }
-                    placeholder={`Value for ${v}`}
-                    className="h-8 text-sm"
-                  />
+                  {selectedTemplate.variables.map((v) => (
+                    <div key={v} className="space-y-1">
+                      <Label
+                        htmlFor={`var-${v}`}
+                        className="text-xs font-medium"
+                      >
+                        Variable {"{{" + v + "}}"}
+                      </Label>
+                      <Input
+                        id={`var-${v}`}
+                        value={templateParams[v] || ""}
+                        onChange={(e) =>
+                          setTemplateParams({
+                            ...templateParams,
+                            [v]: e.target.value,
+                          })
+                        }
+                        placeholder={`Value for ${v}`}
+                        className="h-8 text-sm bg-background"
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              )}
+            </TabsContent>
+
+            <TabsContent value="manual" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="rawJson">JSON Payload</Label>
+                  {jsonError && (
+                    <span className="text-[10px] text-red-500 font-medium">
+                      {jsonError}
+                    </span>
+                  )}
+                </div>
+                <Textarea
+                  id="rawJson"
+                  value={rawJson}
+                  onChange={(e) => setRawJson(e.target.value)}
+                  placeholder="Paste WhatsApp JSON here..."
+                  className="font-mono text-[10px] h-[120px] resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="rawBodyText">
+                  Message Body (for variables)
+                </Label>
+                <Textarea
+                  id="rawBodyText"
+                  value={rawBodyText}
+                  onChange={(e) => setRawBodyText(e.target.value)}
+                  placeholder="e.g. Hello {{1}}, welcome to {{2}}!"
+                  className="text-sm h-[80px] resize-none"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Include variables like {"{{1}}"}, {"{{2}}"} to enable the
+                  inputs below.
+                </p>
+              </div>
+
+              {manualVariables.length > 0 && (
+                <div className="space-y-3 p-3 bg-muted rounded-md border">
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">
+                    Detected Variables
+                  </Label>
+                  {manualVariables.map((v) => (
+                    <div key={v} className="space-y-1">
+                      <Label
+                        htmlFor={`manual-var-${v}`}
+                        className="text-xs font-medium"
+                      >
+                        Variable {"{{" + v + "}}"}
+                      </Label>
+                      <Input
+                        id={`manual-var-${v}`}
+                        value={templateParams[v] || ""}
+                        onChange={(e) =>
+                          setTemplateParams({
+                            ...templateParams,
+                            [v]: e.target.value,
+                          })
+                        }
+                        placeholder={`Value for ${v}`}
+                        className="h-8 text-sm bg-background"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
 
           {/* Audience Selection */}
           <div className="space-y-3">
@@ -213,7 +355,11 @@ export default function InviteModal({
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
                   />
-                  <Button type="button" variant="outline" onClick={handleAddTag}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAddTag}
+                  >
                     Add
                   </Button>
                 </div>
@@ -232,12 +378,13 @@ export default function InviteModal({
             )}
           </div>
 
-          <div className="rounded-md bg-blue-50 p-3 border border-blue-200">
-            <div className="flex gap-2 text-blue-800 text-xs">
+          <div className="rounded-md bg-blue-900/10 p-3 border border-blue-900/30">
+            <div className="flex gap-2 text-blue-400 text-xs">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <p>
-                This will create a new campaign in the Broadcast module. Recipient
-                counts and delivery tracking will be available in the Invitations tab.
+                This will create a new campaign in the Broadcast module.
+                Recipient counts and delivery tracking will be available in the
+                Invitations tab.
               </p>
             </div>
           </div>
@@ -247,7 +394,15 @@ export default function InviteModal({
           <Button variant="outline" onClick={onClose} disabled={sending}>
             Cancel
           </Button>
-          <Button onClick={handleSend} disabled={sending || !selectedTemplateId}>
+          <Button
+            onClick={handleSend}
+            disabled={
+              sending ||
+              (method === "template" && !selectedTemplateId) ||
+              (method === "manual" &&
+                (!rawJson.trim() || !!jsonError || !rawBodyText.trim()))
+            }
+          >
             {sending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
