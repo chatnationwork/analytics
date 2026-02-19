@@ -75,8 +75,20 @@ export class EosEvent {
   @Column({ type: "jsonb", default: "{}" })
   settings: Record<string, any>;
 
+  @Column({ name: "grace_period_hours", default: 24 })
+  gracePeriodHours: number;
+
+  @Column({ name: "grace_period_ends_at", nullable: true, type: "timestamptz" })
+  gracePeriodEndsAt: Date;
+
   @Column({ length: 20, default: "draft" })
-  status: "draft" | "published" | "cancelled" | "completed";
+  status:
+    | "draft"
+    | "published"
+    | "ended"
+    | "grace_period"
+    | "completed"
+    | "cancelled";
 
   @Column({ name: "published_at", nullable: true, type: "timestamptz" })
   publishedAt: Date;

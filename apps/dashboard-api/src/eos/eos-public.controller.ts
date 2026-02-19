@@ -52,4 +52,37 @@ export class EosPublicController {
       invitationToken: null, // Clear token after use
     });
   }
+
+  @Get("exhibitors/booth/:token")
+  async getBoothInfo(@Param("token") token: string) {
+    const exhibitor = await this.exhibitorService.findByBoothToken(token);
+    if (!exhibitor) throw new NotFoundException("Booth not found");
+
+    return {
+      exhibitor: {
+        id: exhibitor.id,
+        name: exhibitor.name,
+        boothNumber: exhibitor.boothNumber,
+      },
+      event: {
+        id: exhibitor.event.id,
+        name: exhibitor.event.name,
+      },
+    };
+  }
+
+  @Post("exhibitors/booth/:token/capture-lead")
+  async captureLead(
+    @Param("token") token: string,
+    @Body() body: { ticketCode: string; notes?: string },
+  ) {
+    const exhibitor = await this.exhibitorService.findByBoothToken(token);
+    if (!exhibitor) throw new NotFoundException("Booth not found");
+
+    return this.exhibitorService.captureLead(
+      exhibitor.id,
+      body.ticketCode,
+      body.notes,
+    );
+  }
 }

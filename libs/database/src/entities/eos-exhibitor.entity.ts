@@ -81,6 +81,14 @@ export class EosExhibitor {
   @Column({ name: "invited_at", nullable: true, type: "timestamptz" })
   invitedAt: Date;
 
+  @Column({
+    name: "booth_token",
+    nullable: true,
+    unique: true,
+    length: 255,
+  })
+  boothToken: string;
+
   @Column({ length: 20, default: "pending" })
   status: "invited" | "pending" | "approved" | "rejected";
 

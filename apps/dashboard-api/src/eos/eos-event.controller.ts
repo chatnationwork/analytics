@@ -55,6 +55,6 @@ export class EosEventController {
 
   @Post(":id/complete")
   complete(@Req() req: any, @Param("id") id: string) {
-    return this.eventService.completeEvent(req.user.tenantId, id);
+    return this.eventService.endEvent(req.user.tenantId, id);
   }
 }

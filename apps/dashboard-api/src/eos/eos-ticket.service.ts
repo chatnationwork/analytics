@@ -129,7 +129,14 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
         await this.fulfillTicket(ticket.id, manager);
       }
 
-      return ticket;
+      // Warn buyer: reservation expires in 30 minutes if not paid
+      return Object.assign(ticket, {
+        reservationExpiresAt: new Date(
+          ticket.createdAt.getTime() + 30 * 60 * 1000,
+        ),
+        reservationWarning:
+          "Your ticket is reserved for 30 minutes. Please complete payment to confirm.",
+      });
     });
   }
 

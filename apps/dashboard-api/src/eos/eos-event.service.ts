@@ -1,10 +1,12 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { EosEvent, IdentityEntity } from "@lib/database";
+import { EosEvent, IdentityEntity, EosTicket } from "@lib/database";
 import { EosExhibitor } from "@lib/database";
 import { EosTicketType } from "@lib/database";
 import { CreateEventDto } from "./dto/create-event.dto";
+import { TriggerService } from "../campaigns/trigger.service";
+import { CampaignTrigger } from "../campaigns/constants";
 
 @Injectable()
 export class EosEventService {
@@ -17,6 +19,9 @@ export class EosEventService {
     private readonly ticketTypeRepo: Repository<EosTicketType>,
     @InjectRepository(IdentityEntity)
     private readonly identityRepo: Repository<IdentityEntity>,
+    @InjectRepository(EosTicket)
+    private readonly ticketRepo: Repository<EosTicket>,
+    private readonly triggerService: TriggerService,
   ) {}
 
   async createEvent(
@@ -131,9 +136,60 @@ export class EosEventService {
     return this.eventRepo.save(event);
   }
 
-  async completeEvent(organizationId: string, id: string): Promise<EosEvent> {
+  async endEvent(organizationId: string, id: string): Promise<EosEvent> {
     const event = await this.findOne(organizationId, id);
-    event.status = "completed";
+
+    // Move to grace period
+    event.status = "grace_period";
+    event.gracePeriodEndsAt = new Date(
+      Date.now() + event.gracePeriodHours * 60 * 60 * 1000,
+    );
+
     return this.eventRepo.save(event);
+  }
+
+  async finalizeEvent(id: string): Promise<void> {
+    const event = await this.eventRepo.findOne({
+      where: { id },
+    });
+    if (!event) return;
+
+    // 1. Mark as completed
+    event.status = "completed";
+    await this.eventRepo.save(event);
+
+    // 2. Identify attendees (used tickets)
+    const tickets = await this.ticketRepo.find({
+      where: {
+        ticketType: { eventId: id },
+        status: "used",
+      },
+      relations: ["contact"],
+    });
+
+    // 3. Fire EVENT_COMPLETED for each attendee
+    for (const ticket of tickets) {
+      if (ticket.contact?.contactId) {
+        await this.triggerService
+          .fire(CampaignTrigger.EVENT_COMPLETED, {
+            tenantId: event.organizationId,
+            contactId: ticket.contact.contactId,
+            context: {
+              eventName: event.name,
+              attendeeName: ticket.holderName || ticket.contact.name,
+            },
+          })
+          .catch((err) =>
+            new Logger(EosEventService.name).error(
+              `Failed to fire EVENT_COMPLETED for ticket ${ticket.id}: ${err.message}`,
+            ),
+          );
+      }
+    }
+
+    // 4. (Future) Trigger AI reports
+    new Logger(EosEventService.name).log(
+      `Event ${event.name} finalized. ${tickets.length} attendees processed.`,
+    );
   }
 }

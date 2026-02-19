@@ -60,4 +60,12 @@ export class EosExhibitorController {
   remove(@Param("id") id: string) {
     return this.service.remove(id);
   }
+
+  @Post(":id/capture-lead")
+  captureLead(
+    @Param("id") id: string,
+    @Body() body: { ticketCode: string; notes?: string },
+  ) {
+    return this.service.captureLead(id, body.ticketCode, body.notes);
+  }
 }

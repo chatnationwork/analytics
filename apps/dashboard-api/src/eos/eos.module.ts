@@ -29,6 +29,8 @@ import { GeneratedCardService } from "./generated-card.service";
 
 import { LeadProcessorWorker } from "./workers/lead-processor.worker";
 import { HypeCardWorker } from "./workers/hypecard.worker";
+import { EosTicketCleanupCron } from "./eos-ticket-cleanup.cron";
+import { EosEventLifecycleCron } from "./eos-event-lifecycle.cron";
 
 import { BillingModule } from "../billing/billing.module";
 import { CampaignsModule } from "../campaigns/campaigns.module";
@@ -70,6 +72,8 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     GeneratedCardService,
     LeadProcessorWorker,
     HypeCardWorker,
+    EosTicketCleanupCron,
+    EosEventLifecycleCron,
   ],
   exports: [
     EosEventService, // Export if needed by other modules

@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { EosExhibitor, ContactEntity, EosEvent } from "@lib/database";
+import {
+  EosExhibitor,
+  ContactEntity,
+  EosEvent,
+  EosLead,
+  EosTicket,
+} from "@lib/database";
 import { CreateExhibitorDto } from "./dto/create-exhibitor.dto";
 import { nanoid } from "nanoid";
 import { TriggerService } from "../campaigns/trigger.service";
@@ -16,6 +22,10 @@ export class EosExhibitorService {
     private readonly contactRepo: Repository<ContactEntity>,
     @InjectRepository(EosEvent)
     private readonly eventRepo: Repository<EosEvent>,
+    @InjectRepository(EosLead)
+    private readonly leadRepo: Repository<EosLead>,
+    @InjectRepository(EosTicket)
+    private readonly ticketRepo: Repository<EosTicket>,
     private readonly triggerService: TriggerService,
   ) {}
 
@@ -140,6 +150,13 @@ export class EosExhibitorService {
     });
   }
 
+  async findByBoothToken(token: string) {
+    return this.exhibitorRepo.findOne({
+      where: { boothToken: token },
+      relations: ["contact", "event"],
+    });
+  }
+
   async update(id: string, updates: any) {
     const exhibitor = await this.findOne(id);
     Object.assign(exhibitor, updates);
@@ -149,10 +166,67 @@ export class EosExhibitorService {
   async updateStatus(id: string, status: "approved" | "rejected") {
     const exhibitor = await this.findOne(id);
     exhibitor.status = status;
-    return this.exhibitorRepo.save(exhibitor);
+
+    if (status === "approved" && !exhibitor.boothToken) {
+      exhibitor.boothToken = nanoid(32);
+    }
+
+    const saved = await this.exhibitorRepo.save(exhibitor);
+
+    if (status === "approved" && exhibitor.contactPhone) {
+      await this.triggerService.fire(CampaignTrigger.EXHIBITOR_APPROVED, {
+        tenantId: exhibitor.organizationId,
+        contactId: exhibitor.contactPhone,
+        context: {
+          exhibitorName: exhibitor.name,
+          eventName: (exhibitor as any).event?.name || "the event",
+          boothNumber: exhibitor.boothNumber,
+          boothLink: `https://dashboard.chatnation.app/eos/booth/${exhibitor.boothToken}`,
+        },
+      });
+    }
+
+    return saved;
   }
 
   async remove(id: string) {
     return this.exhibitorRepo.delete(id);
+  }
+
+  async captureLead(exhibitorId: string, ticketCode: string, notes?: string) {
+    const exhibitor = await this.findOne(exhibitorId);
+
+    // Resolve ticket by code
+    const ticket = await this.ticketRepo.findOne({
+      where: { ticketCode },
+      relations: ["ticketType", "ticketType.event"],
+    });
+
+    if (!ticket) throw new NotFoundException("Invalid ticket code");
+
+    // Create lead
+    const lead = this.leadRepo.create({
+      exhibitorId,
+      contactId: ticket.contactId,
+      notes,
+      source: "qr_scan",
+      interestLevel: "hot", // Defaulting to hot for now as per scan intent
+    });
+
+    const savedLead = await this.leadRepo.save(lead);
+
+    // Fire trigger
+    await this.triggerService.fire(CampaignTrigger.HOT_LEAD_CAPTURED, {
+      tenantId: exhibitor.organizationId,
+      contactId: ticket.contactId,
+      context: {
+        exhibitorName: exhibitor.name,
+        attendeeName: ticket.holderName,
+        eventName: ticket.ticketType.event.name,
+        notes,
+      },
+    });
+
+    return savedLead;
   }
 }
