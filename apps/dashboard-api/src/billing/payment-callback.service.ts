@@ -64,7 +64,7 @@ export class PaymentCallbackService {
     if (ResultCode === 0) {
       payment.status = "completed";
       payment.completedAt = new Date();
-      payment.mpesaReceiptNumber = this.extractReceipt(stkCallback);
+      payment.mpesaReceiptNumber = this.extractReceipt(stkCallback) || "";
     } else {
       payment.status = "failed";
       payment.failureReason = ResultDesc;
