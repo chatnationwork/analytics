@@ -3,7 +3,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
 import { redisConfig } from "@lib/common";
-import { DatabaseModule } from "@lib/database";
+import { DatabaseModule, SchedulerModule } from "@lib/database";
 import { CampaignsController } from "./campaigns.controller";
 import { CampaignsService } from "./campaigns.service";
 import { AudienceService } from "./audience.service";
@@ -21,6 +21,7 @@ import {
 } from "./constants";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.module";
+import { TemplatesModule } from "../templates/templates.module";
 
 
 
@@ -56,6 +57,8 @@ import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.modu
 
     WhatsappModule,
     CrmIntegrationsModule,
+    SchedulerModule,
+    TemplatesModule,
   ],
   controllers: [CampaignsController],
   providers: [

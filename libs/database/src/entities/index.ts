@@ -60,3 +60,5 @@ export * from "./eos-ticket-type.entity";
 export * from "./eos-ticket.entity";
 export * from "./eos-exhibitor.entity";
 export * from "./eos-lead.entity";
+export * from "./import-mapping-template.entity";
+export * from "./template.entity";

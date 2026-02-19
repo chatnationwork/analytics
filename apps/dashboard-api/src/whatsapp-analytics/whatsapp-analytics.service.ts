@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
-import { EventRepository, ContactRepository } from "@lib/database";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { EventRepository, ContactRepository, ImportMappingTemplate } from "@lib/database";
 
 @Injectable()
 export class WhatsappAnalyticsService {
   constructor(
     private readonly eventRepository: EventRepository,
     private readonly contactRepository: ContactRepository,
+    @InjectRepository(ImportMappingTemplate)
+    private readonly mappingTemplateRepo: Repository<ImportMappingTemplate>,
   ) {}
 
   async getStats(tenantId: string, startDate?: Date, endDate?: Date) {
@@ -559,6 +563,7 @@ export class WhatsappAnalyticsService {
           row,
           "contactId",
           "contactid",
+          "contact_id",
           "c_contactId",
           "ContactEntity_contactId",
         ) as string) ?? "";
@@ -601,6 +606,53 @@ export class WhatsappAnalyticsService {
         lastSeenIso,
         dateCreatedIso,
       ]);
+    });
+
+    dbStream.on("end", () => {
+      stringifier.end();
+    });
+
+    dbStream.on("error", (err) => {
+      stringifier.emit("error", err);
+    });
+
+    return stringifier;
+  }
+
+  async exportContactsConfigured(
+    tenantId: string,
+    columns: string[],
+    filters?: { tags?: string[] },
+  ) {
+    const { stringify } = await import("csv-stringify");
+
+    const dbStream = await this.contactRepository.getExportStream(
+      tenantId,
+      filters,
+    );
+
+    const stringifier = stringify({
+      header: true,
+      columns: columns,
+    });
+
+    dbStream.on("data", (row: any) => {
+      const csvRow: Record<string, any> = {};
+
+      columns.forEach((col) => {
+        if (col.startsWith("metadata.")) {
+          const key = col.replace("metadata.", "");
+          csvRow[col] = row.metadata?.[key] || "";
+        } else if (col === "tags") {
+          csvRow[col] = row.tags ? row.tags.join(", ") : "";
+        } else if (col === "firstSeen" || col === "lastSeen") {
+          csvRow[col] = row[col] ? row[col].toISOString() : "";
+        } else {
+          csvRow[col] = row[col];
+        }
+      });
+
+      stringifier.write(csvRow);
     });
 
     dbStream.on("end", () => {
@@ -695,11 +747,167 @@ export class WhatsappAnalyticsService {
     };
   }
 
+  async importContactsMapped(
+    tenantId: string,
+    buffer: Buffer,
+    mapping: Record<string, string>,
+    strategy: "first" | "last" | "reject" = "last",
+  ) {
+    const { parse } = await import("csv-parse/sync");
+    const { normalizeContactIdDigits } = await import("@lib/database");
+
+    const records = parse(buffer, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    });
+
+    // Valid mapping keys: contactId, name, email, pin, yearOfBirth, tags, paymentStatus, metadata.{key}
+    const contactsMap = new Map<
+      string,
+      {
+        contactId: string;
+        name?: string;
+        email?: string;
+        pin?: string;
+        yearOfBirth?: number;
+        tags?: string[];
+        paymentStatus?: string;
+        metadata: Record<string, string>;
+      }
+    >();
+
+    let skippedCount = 0;
+    const errors: string[] = [];
+
+    for (const row of records as Array<Record<string, string>>) {
+      const contactData: any = {
+        metadata: {
+          imported: "true",
+          importDate: new Date().toISOString(),
+        },
+      };
+
+      // Apply mapping
+      let rawPhone = "";
+      for (const [csvHeader, targetField] of Object.entries(mapping)) {
+        const value = row[csvHeader];
+        if (!value) continue;
+
+        if (targetField === "contactId") {
+          rawPhone = value;
+        } else if (targetField === "tags") {
+          // Split by comma, trim
+          const tags = value.split(",").map((t) => t.trim()).filter(Boolean);
+          if (tags.length > 0) {
+             contactData.tags = [...(contactData.tags || []), ...tags];
+          }
+        } else if (targetField.startsWith("tag:")) {
+          // Treat value as a tag
+          const tagValue = value.trim();
+          if (tagValue) {
+             contactData.tags = [...(contactData.tags || []), tagValue];
+          }
+        } else if (targetField === "yearOfBirth") {
+          const yob = parseInt(value, 10);
+          if (!isNaN(yob)) contactData.yearOfBirth = yob;
+        } else if (targetField.startsWith("metadata.")) {
+          const key = targetField.replace("metadata.", "");
+          contactData.metadata[key] = value;
+        } else {
+          // name, email, pin, paymentStatus
+          contactData[targetField] = value;
+        }
+      }
+
+      if (!rawPhone) {
+        skippedCount++;
+        continue;
+      }
+
+      const normalized = normalizeContactIdDigits(rawPhone);
+      if (!normalized) {
+        skippedCount++;
+        continue;
+      }
+
+      contactData.contactId = normalized;
+
+      if (contactsMap.has(normalized)) {
+        if (strategy === "reject") {
+          throw new BadRequestException(
+            `Duplicate contact found in import: ${rawPhone} (normalized: ${normalized}). duplicates are not allowed with 'reject' strategy.`,
+          );
+        }
+        if (strategy === "first") {
+          continue; // Keep existing
+        }
+        if (strategy === "last") {
+          contactsMap.set(normalized, contactData); // Overwrite
+        }
+      } else {
+        contactsMap.set(normalized, contactData);
+      }
+    }
+
+    const contactsToUpsert = Array.from(contactsMap.values());
+
+    if (contactsToUpsert.length > 0) {
+      const chunkSize = 500;
+      for (let i = 0; i < contactsToUpsert.length; i += chunkSize) {
+        await this.contactRepository.bulkUpsert(
+          tenantId,
+          contactsToUpsert.slice(i, i + chunkSize),
+        );
+      }
+    }
+
+    return {
+      success: true,
+      importedCount: contactsToUpsert.length,
+      skippedCount,
+      errors,
+    };
+  }
+
   async deactivateContact(tenantId: string, contactId: string) {
     const contact = await this.contactRepository.deactivate(tenantId, contactId);
     if (!contact) {
       throw new NotFoundException("Contact not found");
     }
     return { success: true, contactId: contact.contactId };
+  }
+
+  async getMappingTemplates(tenantId: string) {
+    return this.mappingTemplateRepo.find({
+      where: { tenantId },
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  async createMappingTemplate(
+    tenantId: string,
+    name: string,
+    mapping: Record<string, string>,
+    createdBy: string,
+  ) {
+    const template = this.mappingTemplateRepo.create({
+      tenantId,
+      name,
+      mapping,
+      createdBy,
+    });
+    return this.mappingTemplateRepo.save(template);
+  }
+
+  async deleteMappingTemplate(tenantId: string, id: string) {
+    const result = await this.mappingTemplateRepo.delete({
+      id,
+      tenantId,
+    });
+    if (result.affected === 0) {
+      throw new NotFoundException("Template not found");
+    }
+    return { success: true };
   }
 }

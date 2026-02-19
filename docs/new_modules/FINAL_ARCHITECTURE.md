@@ -48,7 +48,7 @@ ChatNation is a **multi-tenant AI-powered platform** that enables organizations 
 | ------------------------------------ | ---------------------------------------- | ------------------------------------------ |
 | **EOS** (Events & Exhibitor OS)      | Event management & exhibitor storefronts | Ticketing, booth management, HypeCards     |
 | **USI** (Universal Survey & Insight) | Data collection & analysis               | AI surveys, multimedia responses, insights |
-| **MPCE** (Content & Engagement)      | Scheduled content & broadcasts           | Programs, polls, personalization           |
+| **Campaigns & Templates**           | Scheduled content & broadcasts           | Recurring campaigns, WhatsApp templates, personalization |
 | **HypeCard**                         | Viral image generation                   | AI backgrounds, photo processing           |
 | **Billing**                          | B2B token economy                        | Prepaid wallets, auto-refill, analytics    |
 
@@ -129,7 +129,7 @@ graph TB
     subgraph "Module Layer"
         EOS[Events & Exhibitor OS]
         USI[Survey & Insight Engine]
-        MPCE[Content & Engagement]
+        Campaigns[Campaigns & Templates]
         Hype[HypeCard Engine]
         Billing[Billing Service]
     end
@@ -352,20 +352,20 @@ graph LR
 
 ---
 
-### **4.3 Module III — Content & Engagement Engine (MPCE)**
+### **4.3 Module III — Campaigns & Templates Engine**
 
-**Purpose:** Scheduled content delivery and real-time engagement
+**Purpose:** Scheduled content delivery, recurring campaigns, and template management.
 
 #### **Sub-Components**
 
 | Component              | Responsibility                   |
 | ---------------------- | -------------------------------- |
-| Program Scheduler      | Daily/weekly content calendars   |
-| Content Library        | Media asset management           |
-| Broadcast Engine       | Mass message delivery            |
-| Poll Service           | Real-time voting and aggregation |
-| Personalization Engine | User preference learning         |
-| Subscription Manager   | Premium content, paywalls        |
+| Campaign Scheduler     | One-time and recurring (cron)    |
+| Template Hub           | WhatsApp template management     |
+| Broadcast Engine       | Mass message delivery (BullMQ)   |
+| Analytics Engine       | Delivery status tracking         |
+| Personalization Engine | Contact field placeholder filling|
+| Message Delivery (WA)  | WhatsApp Business API integration|
 
 #### **Content Types**
 
@@ -586,8 +586,8 @@ exhibitors, exhibitor_staff, products, leads
 -- Module II: Surveys
 surveys, questions, question_logic, responses, response_items
 
--- Module III: Content
-programs, segments, content_items, broadcasts, polls, poll_votes
+-- Module III: Campaigns
+campaigns, campaign_messages, campaign_schedules, templates
 
 -- Module IV: HypeCard
 hypecard_templates, template_layers, generated_cards
@@ -1044,10 +1044,12 @@ Surveys:
   POST /surveys/{id}/send
   GET  /surveys/{id}/responses
 
-Content:
-  CRUD /programs
-  POST /broadcasts
-  GET  /analytics
+Campaigns:
+  CRUD /campaigns
+  POST /campaigns/{id}/send
+  GET  /campaigns/analytics
+  CRUD /templates
+  POST /templates/import
 
 HypeCards:
   CRUD /templates
@@ -1080,9 +1082,12 @@ HypeCards:
 │   │   ├── builder/[id]/      # DnD Builder
 │   │   └── results/[id]/      # Analytics
 │   │
-│   ├── content/               # Module III
-│   │   ├── scheduler/         # Calendar view
-│   │   └── inbox/             # WhatsApp inbox
+│   ├── campaigns/             # Module III
+│   │   ├── scheduler/         # Calendar/Schedule view
+│   │   ├── new/               # Campaign Wizard
+│   │   └── analytics/         # Delivery reports
+│   │
+│   ├── templates/             # Template Hub
 │   │
 │   ├── hypecards/             # Module IV
 │   │   ├── studio/[id]/       # Visual editor
@@ -1138,7 +1143,7 @@ Server State (TanStack Query):
 - [ ] LangGraph AI router
 - [ ] Module I: Events (Basic CRUD, Ticketing)
 - [ ] Module II: Surveys (Builder, Basic responses)
-- [ ] Module III: Content (Programs, Broadcasts)
+- [x] Module III: Campaigns (Templates, Recurring, Analytics)
 - [ ] Module IV: HypeCard (Templates, Generation)
 
 ### **Phase 3: Billing & AI**
@@ -1175,7 +1180,7 @@ Server State (TanStack Query):
 | ------- | ----------------------------------------- |
 | EOS     | Events & Exhibitor Operating System       |
 | USI     | Universal Survey & Insight Engine         |
-| MPCE    | Multi-Purpose Content & Engagement Engine |
+| Campaigns | Campaigns & WhatsApp Template Engine |
 | WABA    | WhatsApp Business API                     |
 | RAG     | Retrieval-Augmented Generation            |
 | RLS     | Row-Level Security                        |

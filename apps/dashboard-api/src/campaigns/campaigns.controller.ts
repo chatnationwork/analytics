@@ -12,6 +12,7 @@ import {
   Query,
   Req,
   ParseUUIDPipe,
+  ParseIntPipe,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -55,6 +56,19 @@ export class CampaignsController {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
     return this.analytics.getOverview(tenantId);
+  }
+
+  /** List campaigns with delivery metrics. */
+  @Get("analytics/list")
+  async listWithStats(
+    @Req() req: any,
+    @Query("page", new ParseIntPipe({ optional: true })) page?: number,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) throw new Error("Tenant context required");
+    console.log(`[CampaignAnalytics] Listing campaigns for tenant ${tenantId}, page=${page}, limit=${limit}`);
+    return this.analytics.listWithStats(tenantId, page ?? 1, limit ?? 20);
   }
 
   /** Get current 24h conversation quota status. */
@@ -119,13 +133,14 @@ export class CampaignsController {
   /** Preview audience count with 24h window split and quota check. */
   @Post("audience/preview")
   @HttpCode(HttpStatus.OK)
-  async previewAudience(@Req() req: any, @Body() body: { audienceFilter: any }) {
+  async previewAudience(@Req() req: any, @Body() filter: any) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
 
+    // Fix: Frontend sends the filter directly as body, not wrapped in { audienceFilter }
     const split = await this.audienceService.countContactsWithWindowSplit(
       tenantId,
-      body.audienceFilter ?? null,
+      filter ?? null,
     );
 
     const quotaCheck = await this.rateTracker.checkQuota(
@@ -133,13 +148,11 @@ export class CampaignsController {
       split.outOfWindow,
     );
 
+    // Fix: Reshape response to match AudiencePreview interface
     return {
       ...split,
-      quotaRemaining: quotaCheck.quotaStatus.remaining,
-      tierLimit: quotaCheck.quotaStatus.tierLimit,
-      businessSent24h: quotaCheck.quotaStatus.businessSent24h,
-      canProceed: quotaCheck.canProceed,
-      warning: quotaCheck.warning,
+      quotaStatus: quotaCheck.quotaStatus,
+      sampleContacts: [], // Placeholder for now
     };
   }
 

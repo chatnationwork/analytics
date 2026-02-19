@@ -55,7 +55,7 @@ import { AgentInboxAnalyticsModule } from "./agent-inbox-analytics/agent-inbox-a
 import { CsatAnalyticsModule } from "./csat-analytics/csat-analytics.module";
 import { DangerZoneModule } from "./danger-zone/danger-zone.module";
 import { AuditModule } from "./audit/audit.module";
-import { MediaModule } from "./media/media.module";
+import { TemplatesModule } from "./templates/templates.module";
 import { EmailModule } from "./email/email.module";
 import { CampaignsModule } from "./campaigns/campaigns.module";
 import { EosModule } from "./eos/eos.module";
@@ -121,7 +121,7 @@ import { BillingModule } from "./billing/billing.module";
     CsatAnalyticsModule, // GET /api/dashboard/csat-analytics/*
     DangerZoneModule, // POST /api/dashboard/settings/danger-zone/*
     AuditModule, // GET /api/dashboard/audit-logs
-    MediaModule, // POST /api/dashboard/media/upload, GET /api/dashboard/media/:filename
+    TemplatesModule, // POST /api/dashboard/media/upload, GET /api/dashboard/media/:filename
     EmailModule,
     CampaignsModule, // Campaign broadcasting, scheduling, triggers, analytics
     EosModule,
