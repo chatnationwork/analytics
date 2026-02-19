@@ -252,6 +252,23 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
       this.logger.error(`Failed to fire trigger: ${e.message}`);
     }
 
+    // 4. Sync Metadata
+    try {
+      const contact = await manager.findOne(ContactEntity, {
+        where: { id: ticket.contactId },
+      });
+      if (contact) {
+        contact.metadata = {
+          ...(contact.metadata || {}),
+          ticketCode: ticket.ticketCode,
+          eventName: ticket.ticketType.event.name,
+        };
+        await manager.save(contact);
+      }
+    } catch (e) {
+      this.logger.error(`Failed to sync ticket metadata: ${e.message}`);
+    }
+
     this.logger.log(`Ticket ${ticket.ticketCode} fulfilled successfully`);
   }
 

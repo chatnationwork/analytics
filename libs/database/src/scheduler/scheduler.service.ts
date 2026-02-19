@@ -17,7 +17,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThanOrEqual, Repository, In } from "typeorm";
-import { CronExpressionParser } from "cron-parser";
+import * as parser from "cron-parser";
 
 import { ScheduleEntity } from "./schedule.entity";
 import {
@@ -50,9 +50,7 @@ export class SchedulerService {
    */
   registerHandler(jobType: string, handler: ScheduleJobHandler): void {
     if (this.handlers.has(jobType)) {
-      this.logger.warn(
-        `Handler for jobType "${jobType}" is being overwritten`,
-      );
+      this.logger.warn(`Handler for jobType "${jobType}" is being overwritten`);
     }
     this.handlers.set(jobType, handler);
     this.logger.log(`Registered handler for jobType: ${jobType}`);
@@ -111,9 +109,7 @@ export class SchedulerService {
       schedule.cronExpression = dto.cronExpression ?? null;
     }
     if (dto.scheduledAt !== undefined) {
-      schedule.scheduledAt = dto.scheduledAt
-        ? new Date(dto.scheduledAt)
-        : null;
+      schedule.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
     }
     if (dto.jobPayload !== undefined) {
       schedule.jobPayload = dto.jobPayload;
@@ -230,10 +226,7 @@ export class SchedulerService {
 
     try {
       // Check maxRuns before execution
-      if (
-        schedule.maxRuns !== null &&
-        schedule.runCount >= schedule.maxRuns
-      ) {
+      if (schedule.maxRuns !== null && schedule.runCount >= schedule.maxRuns) {
         schedule.status = ScheduleStatus.COMPLETED;
         await this.scheduleRepo.save(schedule);
         this.logger.log(
@@ -258,10 +251,7 @@ export class SchedulerService {
       }
 
       // Check maxRuns after execution
-      if (
-        schedule.maxRuns !== null &&
-        schedule.runCount >= schedule.maxRuns
-      ) {
+      if (schedule.maxRuns !== null && schedule.runCount >= schedule.maxRuns) {
         schedule.status = ScheduleStatus.COMPLETED;
         this.logger.log(
           `Schedule ${schedule.id} reached maxRuns after execution`,
@@ -274,9 +264,7 @@ export class SchedulerService {
       );
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Failed to execute schedule ${schedule.id}: ${errMsg}`,
-      );
+      this.logger.error(`Failed to execute schedule ${schedule.id}: ${errMsg}`);
 
       // Record the failure but don't deactivate — let it retry on next poll
       schedule.lastRunAt = new Date();
@@ -290,7 +278,7 @@ export class SchedulerService {
    */
   computeNextRun(cronExpression: string): Date {
     try {
-      const interval = CronExpressionParser.parse(cronExpression);
+      const interval = parser.parseExpression(cronExpression);
       return interval.next().toDate();
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);

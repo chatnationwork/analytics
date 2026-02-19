@@ -24,8 +24,6 @@ import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.module";
 import { TemplatesModule } from "../templates/templates.module";
 
-
-
 @Module({
   imports: [
     ConfigModule.forFeature(redisConfig),
@@ -89,6 +87,11 @@ import { TemplatesModule } from "../templates/templates.module";
     TemplateRendererService,
     SendWorker,
   ],
-  exports: [CampaignsService, TriggerService, RateTrackerService],
+  exports: [
+    CampaignsService,
+    TriggerService,
+    RateTrackerService,
+    CampaignOrchestratorService,
+  ],
 })
 export class CampaignsModule {}

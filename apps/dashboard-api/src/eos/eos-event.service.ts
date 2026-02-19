@@ -1,15 +1,29 @@
-import { Injectable, BadRequestException, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  Logger,
+  OnModuleInit,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { EosEvent, IdentityEntity, EosTicket } from "@lib/database";
+import {
+  EosEvent,
+  IdentityEntity,
+  EosTicket,
+  ContactEntity,
+  CampaignType,
+} from "@lib/database";
 import { EosExhibitor } from "@lib/database";
 import { EosTicketType } from "@lib/database";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { TriggerService } from "../campaigns/trigger.service";
 import { CampaignTrigger } from "../campaigns/constants";
+import { CampaignsService } from "../campaigns/campaigns.service";
+import { CampaignOrchestratorService } from "../campaigns/campaign-orchestrator.service";
+import { SchedulerService } from "@lib/database";
 
 @Injectable()
-export class EosEventService {
+export class EosEventService implements OnModuleInit {
   constructor(
     @InjectRepository(EosEvent)
     private readonly eventRepo: Repository<EosEvent>,
@@ -22,7 +36,25 @@ export class EosEventService {
     @InjectRepository(EosTicket)
     private readonly ticketRepo: Repository<EosTicket>,
     private readonly triggerService: TriggerService,
+    private readonly campaignsService: CampaignsService,
+    private readonly campaignOrchestrator: CampaignOrchestratorService,
+    private readonly schedulerService: SchedulerService,
+    @InjectRepository(ContactEntity)
+    private readonly contactRepo: Repository<ContactEntity>,
   ) {}
+
+  onModuleInit() {
+    this.schedulerService.registerHandler(
+      "eos.event_reminder",
+      async (tenantId, payload) => {
+        const { eventId, userId, message } = payload as any;
+        await this.bulkBroadcast(tenantId, eventId, userId, message);
+      },
+    );
+    new Logger(EosEventService.name).log(
+      "Registered 'eos.event_reminder' handler",
+    );
+  }
 
   async createEvent(
     user: { id: string; tenantId: string },
@@ -102,7 +134,25 @@ export class EosEventService {
 
     event.status = "published";
     event.publishedAt = new Date();
-    return this.eventRepo.save(event);
+    const saved = await this.eventRepo.save(event);
+
+    // Fire Trigger
+    await this.triggerService.fire(CampaignTrigger.EVENT_PUBLISHED, {
+      tenantId: organizationId,
+      contactId: "SYSTEM", // Event-wide triggers often don't have a single contact,
+      // but the trigger service needs one to resolve.
+      // Actually, EVENT_PUBLISHED might be intended for all contacts?
+      // The current triggerService.fire requires a contactId.
+      // If the user wants to notify everyone, they should use a manual campaign.
+      // However, we can use this to notify the event owner or a specific group.
+      context: {
+        eventId: event.id,
+        eventName: event.name,
+        startsAt: event.startsAt.toISOString(),
+      },
+    });
+
+    return saved;
   }
 
   async update(
@@ -191,5 +241,157 @@ export class EosEventService {
     new Logger(EosEventService.name).log(
       `Event ${event.name} finalized. ${tickets.length} attendees processed.`,
     );
+  }
+
+  /**
+   * Bulk Broadcast: Creates and launches a manual campaign targeting all contacts
+   * who have tickets for this event or are exhibitors.
+   */
+  async bulkBroadcast(
+    organizationId: string,
+    eventId: string,
+    userId: string,
+    messageBody: string,
+  ) {
+    const event = await this.findOne(organizationId, eventId);
+
+    // 1. Create a Manual Campaign
+    const campaign = await this.campaignsService.create(
+      organizationId,
+      userId,
+      {
+        name: `Broadcast: ${event.name} - ${new Date().toLocaleDateString()}`,
+        type: CampaignType.MANUAL,
+        messageTemplate: { text: { body: messageBody } },
+        audienceFilter: {
+          logic: "OR",
+          conditions: [
+            { field: "metadata.eventName", operator: "eq", value: event.name },
+            // We could also filter by tags if we added them
+          ],
+        },
+      },
+    );
+
+    // 2. Launch it
+    return this.campaignOrchestrator.execute(organizationId, campaign.id);
+  }
+
+  /**
+   * Schedule a reminder for an event.
+   */
+  async scheduleReminder(
+    organizationId: string,
+    eventId: string,
+    userId: string,
+    scheduledAt: Date,
+    message: string,
+  ) {
+    return this.schedulerService.createSchedule({
+      tenantId: organizationId,
+      jobType: "eos.event_reminder",
+      jobPayload: { eventId, userId, message },
+      scheduledAt,
+    });
+  }
+
+  /**
+   * Retroactively sync metadata for all exhibitors and ticket holders of an event.
+   */
+  async syncMetadata(organizationId: string, eventId: string) {
+    const event = await this.findOne(organizationId, eventId);
+
+    // 1. Sync Exhibitors
+    const exhibitors = await this.exhibitorRepo.find({
+      where: { eventId },
+      relations: ["contact"],
+    });
+    for (const exhibitor of exhibitors) {
+      if (exhibitor.contact) {
+        exhibitor.contact.metadata = {
+          ...(exhibitor.contact.metadata || {}),
+          exhibitorName: exhibitor.name,
+          eventName: event.name,
+          boothNumber: exhibitor.boothNumber || "",
+          boothLink: exhibitor.boothToken
+            ? `https://dashboard.chatnation.app/eos/booth/${exhibitor.boothToken}`
+            : "",
+        };
+        await this.contactRepo.save(exhibitor.contact);
+      }
+    }
+
+    // 2. Sync Tickets
+    const tickets = await this.ticketRepo.find({
+      where: { ticketType: { eventId: eventId } },
+      relations: ["contact"],
+    });
+    for (const ticket of tickets) {
+      if (ticket.contact) {
+        ticket.contact.metadata = {
+          ...(ticket.contact.metadata || {}),
+          ticketCode: ticket.ticketCode,
+          eventName: event.name,
+        };
+        await this.contactRepo.save(ticket.contact);
+      }
+    }
+
+    return {
+      syncedExhibitors: exhibitors.length,
+      syncedTickets: tickets.length,
+    };
+  }
+
+  /**
+   * Global catch-up: Sync metadata for all published and ended events.
+   */
+  async backfillAllPublishedEvents() {
+    const events = await this.eventRepo.find({
+      where: [{ status: "published" }, { status: "ended" }],
+    });
+
+    let totalExhibitors = 0;
+    let totalTickets = 0;
+
+    for (const event of events) {
+      const result = await this.syncMetadata(event.organizationId, event.id);
+      totalExhibitors += result.syncedExhibitors;
+      totalTickets += result.syncedTickets;
+    }
+
+    return {
+      processedEvents: events.length,
+      totalExhibitors,
+      totalTickets,
+    };
+  }
+
+  /**
+   * Batch notify all invited exhibitors who haven't received their invites yet.
+   */
+  async batchNotifyExhibitors(organizationId: string, eventId: string) {
+    const event = await this.findOne(organizationId, eventId);
+    const exhibitors = await this.exhibitorRepo.find({
+      where: { eventId, status: "invited" },
+    });
+
+    for (const exhibitor of exhibitors) {
+      if (exhibitor.contactPhone) {
+        await this.triggerService.fire(CampaignTrigger.EXHIBITOR_INVITED, {
+          tenantId: organizationId,
+          contactId: exhibitor.contactPhone,
+          context: {
+            eventName: event.name,
+            exhibitorName: exhibitor.name,
+            invitationLink: exhibitor.invitationToken
+              ? `https://dashboard.chatnation.app/eos/onboarding/${exhibitor.invitationToken}`
+              : "",
+          },
+        });
+      }
+    }
+
+    return { notifiedCount: exhibitors.length };
   }
 }

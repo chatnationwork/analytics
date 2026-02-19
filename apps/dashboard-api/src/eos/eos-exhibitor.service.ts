@@ -57,6 +57,14 @@ export class EosExhibitorService {
         contact = await this.contactRepo.save(contact);
       }
       contactId = contact.id;
+
+      // Sync Metadata
+      contact.metadata = {
+        ...(contact.metadata || {}),
+        exhibitorName: dto.name,
+        eventName: event.name,
+      };
+      await this.contactRepo.save(contact);
     }
 
     const exhibitor = this.exhibitorRepo.create({
@@ -113,6 +121,14 @@ export class EosExhibitorService {
         contact = await this.contactRepo.save(contact);
       }
       contactId = contact.id;
+
+      // Sync Metadata
+      contact.metadata = {
+        ...(contact.metadata || {}),
+        exhibitorName: dto.name,
+        eventName: event.name,
+      };
+      await this.contactRepo.save(contact);
     }
 
     // 3. Create Exhibitor
@@ -184,6 +200,16 @@ export class EosExhibitorService {
           boothLink: `https://dashboard.chatnation.app/eos/booth/${exhibitor.boothToken}`,
         },
       });
+
+      // Sync Metadata
+      if (exhibitor.contact) {
+        exhibitor.contact.metadata = {
+          ...(exhibitor.contact.metadata || {}),
+          boothNumber: exhibitor.boothNumber,
+          boothLink: `https://dashboard.chatnation.app/eos/booth/${exhibitor.boothToken}`,
+        };
+        await this.contactRepo.save(exhibitor.contact);
+      }
     }
 
     return saved;

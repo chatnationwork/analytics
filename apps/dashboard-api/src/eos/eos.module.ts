@@ -11,6 +11,7 @@ import {
   ContactEntity,
   IdentityEntity,
   GeneratedCard,
+  SchedulerModule,
 } from "@lib/database";
 
 import { EosEventController } from "./eos-event.controller";
@@ -54,6 +55,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     ),
     BillingModule,
     CampaignsModule, // For TriggerService
+    SchedulerModule,
   ],
   controllers: [
     EosEventController,
