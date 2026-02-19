@@ -104,15 +104,8 @@ export class CampaignsService {
 
     // Handle recurrence
     if (dto.recurrence) {
-      if (!dto.scheduledAt) {
-        // If scheduledAt is missing but recurrence is present, use recurrence startDate + time
-        // validation should probably ensure this? 
-        // For now, let's assume valid.
-      }
-      
       const cron = this.generateCronExpression(dto.recurrence);
-      
-      // Calculate start date properly combining startDate and time
+
       const [hours, minutes] = dto.recurrence.time.split(":").map(Number);
       const startDate = new Date(dto.recurrence.startDate);
       startDate.setHours(hours, minutes, 0, 0);
@@ -127,11 +120,12 @@ export class CampaignsService {
         metadata: { campaignName: saved.name },
       });
 
-      // Update campaign status to SCHEDULED if not already
-      if (saved.status === CampaignStatus.DRAFT) {
-        saved.status = CampaignStatus.SCHEDULED;
-        await this.campaignRepo.save(saved);
-      }
+      saved.status = CampaignStatus.SCHEDULED;
+      await this.campaignRepo.save(saved);
+    } else if (dto.scheduledAt) {
+      // One-time scheduled campaign: promote status so the cron picks it up
+      saved.status = CampaignStatus.SCHEDULED;
+      await this.campaignRepo.save(saved);
     }
 
     return saved;
