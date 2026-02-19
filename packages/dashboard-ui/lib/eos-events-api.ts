@@ -164,4 +164,23 @@ export const eventsApi = {
   listLeads: async (exhibitorId: string) => {
     return fetchWithAuth<EosLead[]>(`/eos/exhibitors/${exhibitorId}/leads`);
   },
+
+  // Invitations & Campaigns
+  sendInvites: async (
+    id: string,
+    data: {
+      name: string;
+      templateId: string;
+      audienceFilter?: any;
+      templateParams?: Record<string, string>;
+    },
+  ) => {
+    return fetchWithAuth<any>(`/eos/events/${id}/invite`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  getCampaignStats: async (id: string) => {
+    return fetchWithAuth<any>(`/eos/events/${id}/campaign-stats`);
+  },
 };

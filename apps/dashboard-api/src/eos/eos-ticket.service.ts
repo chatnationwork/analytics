@@ -232,24 +232,18 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
             event: ticket.ticketType.event.name,
           },
         });
+        this.logger.log(
+          `Queued hype card for ticket ${ticket.id}, fulfillment message delayed`,
+        );
       } catch (e) {
-        this.logger.error(`Failed to queue hype card: ${e.message}`);
+        this.logger.error(
+          `Failed to queue hype card: ${e.message}, falling back to immediate fulfillment`,
+        );
+        await this.sendFulfillmentMessage(ticket.id, manager);
       }
-    }
-
-    // 3. Trigger Campaign
-    try {
-      await this.triggerService.fire(CampaignTrigger.TICKET_ISSUED, {
-        tenantId: ticket.ticketType.event.organizationId,
-        contactId: ticket.contactId,
-        context: {
-          ticketCode: ticket.ticketCode,
-          qrCodeUrl: ticket.qrCodeUrl,
-          eventName: ticket.ticketType.event.name,
-        },
-      });
-    } catch (e) {
-      this.logger.error(`Failed to fire trigger: ${e.message}`);
+    } else {
+      // 3. Trigger Campaign Immediately if no hype card needed
+      await this.sendFulfillmentMessage(ticket.id, manager);
     }
 
     // 4. Sync Metadata
@@ -270,6 +264,37 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
     }
 
     this.logger.log(`Ticket ${ticket.ticketCode} fulfilled successfully`);
+  }
+
+  /**
+   * Sends the final WhatsApp fulfillment message (Ticket + HypeCard if available).
+   */
+  async sendFulfillmentMessage(ticketId: string, externalManager?: any) {
+    const manager = externalManager || this.dataSource.manager;
+    const ticket = await manager.findOne(EosTicket, {
+      where: { id: ticketId },
+      relations: ["ticketType", "ticketType.event", "hypeCard"],
+    });
+
+    if (!ticket) return;
+
+    try {
+      await this.triggerService.fire(CampaignTrigger.TICKET_ISSUED, {
+        tenantId: ticket.ticketType.event.organizationId,
+        contactId: ticket.contactId,
+        context: {
+          ticketCode: ticket.ticketCode,
+          qrCodeUrl: ticket.qrCodeUrl,
+          eventName: ticket.ticketType.event.name,
+          hypeCardUrl: ticket.hypeCard?.outputUrl || "", // Added HypeCard URL
+        },
+      });
+      this.logger.log(`Fulfillment message sent for ticket ${ticket.id}`);
+    } catch (e) {
+      this.logger.error(
+        `Failed to fire TICKET_ISSUED for ticket ${ticket.id}: ${e.message}`,
+      );
+    }
   }
 
   async getStatus(ticketId: string) {

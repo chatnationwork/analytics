@@ -1,11 +1,12 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
-import { Logger } from "@nestjs/common";
+import { Logger, Inject, forwardRef } from "@nestjs/common";
 import { WalletService } from "../../billing/wallet.service";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { EosTicket } from "@lib/database";
 import { GeneratedCardService } from "../generated-card.service";
+import { EosTicketService } from "../eos-ticket.service";
 
 @Processor("eos-hypecard-generation", { concurrency: 10 })
 export class HypeCardWorker extends WorkerHost {
@@ -16,6 +17,8 @@ export class HypeCardWorker extends WorkerHost {
     @InjectRepository(EosTicket)
     private readonly ticketRepo: Repository<EosTicket>,
     private readonly generatedCardService: GeneratedCardService,
+    @Inject(forwardRef(() => EosTicketService))
+    private readonly ticketService: EosTicketService,
   ) {
     super();
   }
@@ -69,5 +72,8 @@ export class HypeCardWorker extends WorkerHost {
     this.logger.log(
       `Hype card ${card.id} generated and linked to ticket ${ticket.id}`,
     );
+
+    // 5. Trigger final fulfillment message
+    await this.ticketService.sendFulfillmentMessage(ticket.id);
   }
 }

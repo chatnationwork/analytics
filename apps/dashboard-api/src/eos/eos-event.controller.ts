@@ -12,11 +12,16 @@ import {
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { EosEventService } from "./eos-event.service";
 import { CreateEventDto } from "./dto/create-event.dto";
+import { SendEventInviteDto } from "./dto/send-event-invite.dto";
+import { EosAnalyticsService } from "./eos-analytics.service";
 
 @Controller("eos/events")
 @UseGuards(JwtAuthGuard)
 export class EosEventController {
-  constructor(private readonly eventService: EosEventService) {}
+  constructor(
+    private readonly eventService: EosEventService,
+    private readonly analyticsService: EosAnalyticsService,
+  ) {}
 
   @Post()
   create(@Req() req: any, @Body() dto: CreateEventDto) {
@@ -70,6 +75,25 @@ export class EosEventController {
       req.user.id,
       body.message,
     );
+  }
+
+  @Post(":id/invite")
+  invite(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: SendEventInviteDto,
+  ) {
+    return this.eventService.sendEventInvites(
+      req.user.tenantId,
+      id,
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Get(":id/campaign-stats")
+  getCampaignStats(@Req() req: any, @Param("id") id: string) {
+    return this.analyticsService.getEventConversionStats(req.user.tenantId, id);
   }
 
   @Post(":id/reminder")

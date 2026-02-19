@@ -12,15 +12,20 @@ import {
   EosTicket,
   ContactEntity,
   CampaignType,
+  CampaignEntity,
+  CampaignStatus,
+  UserEntity,
 } from "@lib/database";
 import { EosExhibitor } from "@lib/database";
 import { EosTicketType } from "@lib/database";
 import { CreateEventDto } from "./dto/create-event.dto";
+import { SendEventInviteDto } from "./dto/send-event-invite.dto";
 import { TriggerService } from "../campaigns/trigger.service";
 import { CampaignTrigger } from "../campaigns/constants";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { CampaignOrchestratorService } from "../campaigns/campaign-orchestrator.service";
 import { SchedulerService } from "@lib/database";
+import { EosAnalyticsService } from "./eos-analytics.service";
 
 @Injectable()
 export class EosEventService implements OnModuleInit {
@@ -35,10 +40,15 @@ export class EosEventService implements OnModuleInit {
     private readonly identityRepo: Repository<IdentityEntity>,
     @InjectRepository(EosTicket)
     private readonly ticketRepo: Repository<EosTicket>,
+    @InjectRepository(CampaignEntity)
+    private readonly campaignRepo: Repository<CampaignEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepo: Repository<UserEntity>,
     private readonly triggerService: TriggerService,
     private readonly campaignsService: CampaignsService,
     private readonly campaignOrchestrator: CampaignOrchestratorService,
     private readonly schedulerService: SchedulerService,
+    private readonly analyticsService: EosAnalyticsService,
     @InjectRepository(ContactEntity)
     private readonly contactRepo: Repository<ContactEntity>,
   ) {}
@@ -238,8 +248,39 @@ export class EosEventService implements OnModuleInit {
     }
 
     // 4. (Future) Trigger AI reports
+    const aiSummary = await this.analyticsService.getAiSummaryData(id);
+
+    // 5. Notify Organizer with AI Summary
+    if (event.createdById) {
+      const identity = await this.identityRepo.findOne({
+        where: { id: event.createdById },
+      });
+      if (identity?.userId) {
+        const organizer = await this.userRepo.findOne({
+          where: { id: identity.userId },
+        });
+        if (organizer?.phone) {
+          await this.triggerService
+            .fire(CampaignTrigger.EVENT_COMPLETED, {
+              tenantId: event.organizationId,
+              contactId: organizer.phone,
+              context: {
+                eventName: event.name,
+                isOrganizer: true,
+                aiSummary: aiSummary,
+              },
+            })
+            .catch((err) =>
+              new Logger(EosEventService.name).error(
+                `Failed to notify organizer ${organizer.id}: ${err.message}`,
+              ),
+            );
+        }
+      }
+    }
+
     new Logger(EosEventService.name).log(
-      `Event ${event.name} finalized. ${tickets.length} attendees processed.`,
+      `Event ${event.name} finalized. ${tickets.length} attendees processed. AI Summary triggered for organizer.`,
     );
   }
 
@@ -275,6 +316,66 @@ export class EosEventService implements OnModuleInit {
 
     // 2. Launch it
     return this.campaignOrchestrator.execute(organizationId, campaign.id);
+  }
+
+  /**
+   * Launch a targeted invitation campaign for an event.
+   */
+  async sendEventInvites(
+    organizationId: string,
+    eventId: string,
+    userId: string,
+    dto: SendEventInviteDto,
+  ) {
+    const event = await this.findOne(organizationId, eventId);
+
+    if (event.status !== "published") {
+      throw new BadRequestException(
+        "Invitations can only be sent for published events",
+      );
+    }
+
+    // 1. Create a Module Initiated Campaign
+    const campaign = await this.campaignsService.create(
+      organizationId,
+      userId,
+      {
+        name: dto.name,
+        type: CampaignType.MODULE_INITIATED,
+        templateId: dto.templateId,
+        templateParams: dto.templateParams,
+        audienceFilter: dto.audienceFilter,
+        sourceModule: "eos",
+        sourceReferenceId: eventId,
+      },
+    );
+
+    // 2. Launch it
+    return this.campaignOrchestrator.execute(organizationId, campaign.id);
+  }
+
+  /**
+   * Get delivery stats for all campaigns linked to an event.
+   */
+  async getEventCampaignStats(organizationId: string, eventId: string) {
+    const campaigns = await this.campaignRepo.find({
+      where: {
+        tenantId: organizationId,
+        sourceModule: "eos",
+        sourceReferenceId: eventId,
+      },
+      order: { createdAt: "DESC" },
+    });
+
+    // Aggregate stats could be more detailed, but for now we return the list
+    return campaigns.map((c) => ({
+      id: c.id,
+      name: c.name,
+      status: c.status,
+      recipientCount: c.recipientCount,
+      createdAt: c.createdAt,
+      // In a real scenario, we'd fetch delivery stats (sent/delivered/read) from a separate service or table
+    }));
   }
 
   /**

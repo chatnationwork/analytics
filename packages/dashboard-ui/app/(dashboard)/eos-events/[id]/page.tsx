@@ -13,8 +13,10 @@ import { TicketTypeManager } from "@/components/eos-events/TicketTypeManager";
 import { ExhibitorManager } from "@/components/eos-events/ExhibitorManager";
 import { TicketManager } from "@/components/eos-events/TicketManager";
 import { VenueMapEditor } from "@/components/eos-events/VenueMapEditor";
-import { Loader2, CheckCircle2, AlertCircle, Circle } from "lucide-react";
+import InviteModal from "@/components/eos-events/InviteModal";
+import { Loader2, CheckCircle2, AlertCircle, Circle, Send, BarChart3, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 interface ReadinessItem {
   label: string;
@@ -23,59 +25,85 @@ interface ReadinessItem {
   required?: boolean;
 }
 
-function PublishReadinessCard({
-  items,
-  onTabChange,
-}: {
-  items: ReadinessItem[];
-  onTabChange: (tab: string) => void;
-}) {
-  const warnings = items.filter((i) => !i.done && !i.required);
-  if (warnings.length === 0) return null;
+function CampaignStatsCard({ eventId }: { eventId: string }) {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const data = await eventsApi.getCampaignStats(eventId);
+      setStats(data);
+    } catch (e) {
+      console.error("Failed to load campaign stats", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+  }, [eventId]);
+
+  if (loading) return <Loader2 className="animate-spin h-4 w-4" />;
+  if (!stats || stats.campaigns?.length === 0) {
+    return (
+      <div className="text-center py-8 bg-muted/30 rounded-lg border border-dashed">
+        <Send className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+        <p className="text-sm text-muted-foreground">No invitations sent yet.</p>
+      </div>
+    );
+  }
 
   return (
-    <Card className="border-yellow-500/30 bg-yellow-500/5">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
-          <AlertCircle className="h-4 w-4" />
-          Publish Readiness
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <p className="text-xs text-muted-foreground mb-3">
-          Your event can be published now. These optional items can be added any
-          time:
-        </p>
-        <ul className="space-y-2">
-          {items.map((item) => (
-            <li key={item.label} className="flex items-center gap-2 text-sm">
-              {item.done ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-              ) : item.required ? (
-                <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-              ) : (
-                <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
-              )}
-              <span
-                className={
-                  item.done ? "text-muted-foreground line-through" : ""
-                }
-              >
-                {item.label}
-              </span>
-              {!item.done && item.tab && (
-                <button
-                  onClick={() => onTabChange(item.tab!)}
-                  className="text-xs text-blue-500 hover:underline ml-auto"
-                >
-                  Add →
-                </button>
-              )}
-            </li>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{stats.summary.totalInvitesSent}</div>
+            <p className="text-xs text-muted-foreground">Total Invites Sent</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{stats.summary.totalTickets}</div>
+            <p className="text-xs text-muted-foreground">Tickets Issued</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{stats.summary.invitationConversionRate}%</div>
+            <p className="text-xs text-muted-foreground">Conversion Rate</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-semibold">Recent Invitations</h4>
+        <div className="border rounded-md divide-y">
+          {stats.campaigns.map((c: any) => (
+            <div key={c.id} className="flex items-center justify-between p-3 text-sm">
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full ${c.status === 'completed' ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`} />
+                <div>
+                  <div className="font-medium">{c.name}</div>
+                  <div className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <div className="font-semibold">{c.sent}</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">Recipients</div>
+                </div>
+                <Link href={`/broadcast/${c.id}`} className="p-2 hover:bg-muted rounded-md text-blue-500">
+                  <ExternalLink className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
           ))}
-        </ul>
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -92,6 +120,7 @@ export default function EosEventDetailsPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [ticketTypes, setTicketTypes] = useState<EosTicketType[]>([]);
   const [exhibitors, setExhibitors] = useState<EosExhibitor[]>([]);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -173,6 +202,12 @@ export default function EosEventDetailsPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          {event.status === "published" && (
+            <Button variant="outline" className="gap-2" onClick={() => setIsInviteModalOpen(true)}>
+              <Send className="h-4 w-4" />
+              Send Invitations
+            </Button>
+          )}
           {event.status !== "published" && (
             <Button onClick={handlePublish}>Publish Event</Button>
           )}
@@ -189,6 +224,7 @@ export default function EosEventDetailsPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="invitations">Invitations</TabsTrigger>
           <TabsTrigger value="ticket-types">Ticket Types</TabsTrigger>
           <TabsTrigger value="venue">Venue & Map</TabsTrigger>
           <TabsTrigger value="exhibitors">Exhibitors</TabsTrigger>
@@ -200,6 +236,23 @@ export default function EosEventDetailsPage() {
             <CardContent className="p-6">
               <h3 className="font-semibold mb-2">Description</h3>
               <p className="text-muted-foreground">{event.description}</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="invitations">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Invitation Performance
+              </CardTitle>
+              <Button size="sm" onClick={() => setIsInviteModalOpen(true)} disabled={event.status !== "published"}>
+                New Invitation
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <CampaignStatsCard eventId={eventId} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -241,6 +294,15 @@ export default function EosEventDetailsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <InviteModal
+        event={event}
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onSuccess={() => {
+          // Optionally refresh campaign stats here if we had a ref
+        }}
+      />
     </div>
   );
 }
