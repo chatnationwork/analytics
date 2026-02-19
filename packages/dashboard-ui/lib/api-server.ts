@@ -29,5 +29,5 @@ export async function fetchServer<T>(path: string, options: RequestInit = {}): P
   }
 
   const json = await res.json();
-  return (json.data || json) as T;
+  return (json.data ?? json) as T;
 }

@@ -59,11 +59,14 @@ CampaignsController
     +-- CampaignAnalyticsService (metrics, errors)
     +-- AudienceService (preview)
 
-CampaignSchedulerService (cron)
+CampaignSchedulerService (cron-parser)
     +-- CampaignOrchestratorService
 
 TriggerService (event-driven)
     +-- CampaignOrchestratorService
+
+TemplatesModule (External Dependency)
+    +-- TemplatesService (Template lookup/parsing)
 ```
 
 ### Data Flow
@@ -135,6 +138,8 @@ Two new methods on `ContactRepository`:
 | createdBy | UUID | FK to users. Nullable |
 | createdAt | TIMESTAMPTZ | Auto |
 | updatedAt | TIMESTAMPTZ | Auto |
+| templateId | UUID | Nullable. FK -> templates.id |
+| templateParams | JSONB | Nullable. User-provided values for template variables |
 
 **Indexes:** `(tenantId, status)`, `(tenantId, createdAt)`, `(tenantId, sourceModule)`
 
@@ -192,6 +197,7 @@ CRUD operations and status management.
 - `update(tenantId, id, dto)` -- Update a draft campaign
 - `updateStatus(id, status, extra?)` -- Change campaign status
 - `cancel(tenantId, id)` -- Cancel a running or scheduled campaign
+- `hydrateTemplate(campaign)` -- Internal helper to construct WhatsApp template payload from `templateId` and `templateParams`
 
 ### AudienceService (`audience.service.ts`)
 
@@ -238,9 +244,12 @@ BullMQ processor for individual message sends. Rate-limited at 80 msg/s with dyn
 - Pre-send quota check for business-initiated sends (pauses campaign if exhausted)
 - Calls `WhatsappService.sendMessage()` for each job
 - On success: updates status to `sent`, stores `waMessageId`, records business-initiated sends against quota
-- On 429/rate limit: calls `worker.rateLimit(60s)`, throws `RateLimitError` (does NOT count as attempt)
+- When WhatsApp returns a 429 (Too Many Requests) or rate limit error code (131048, 131056), the worker:
+  1. Calls `worker.rateLimit(60s)` to pause the entire queue for 60 seconds
+  2. Throws `RateLimitError` (does NOT count as attempt)
 - On retryable error: throws to trigger BullMQ retry (exponential backoff, 30s base, 3 attempts)
 - On permanent error or quota exhaustion: marks as `failed`, uses `UnrecoverableError`
+- **Template Rendering**: If the message type is `template`, the worker uses `TemplateRendererService` to replace placeholders (e.g., `{{name}}`) within each template parameter value.
 - After each send: checks if all campaign messages reached terminal state
 
 ### RateTrackerService (`rate-tracker.service.ts`)
@@ -260,10 +269,9 @@ Cron-based service (runs every 60 seconds).
 
 - `processRecurringSchedules()` -- Checks `campaign_schedules` with `nextRunAt <= now` and `isActive = true`
   - Respects `maxRuns` limit
+  - Uses `cron-parser` to compute `nextRunAt` based on the cron expression
   - Updates `lastRunAt`, `runCount`, `nextRunAt` after each execution
 - `processScheduledCampaigns()` -- Checks campaigns with `status = 'scheduled'` and `scheduledAt <= now`
-
-> **Note:** Currently uses a fallback for next-run computation (24 hours). A cron-parser library should be added for accurate cron expression evaluation.
 
 ### TriggerService (`trigger.service.ts`)
 
@@ -316,6 +324,8 @@ All endpoints require JWT authentication and extract `tenantId` from the request
   sourceModule?: string;                 // optional, max 50
   sourceReferenceId?: string;            // optional, max 100
   scheduledAt?: string;                  // optional ISO date
+  templateId?: string;                   // optional, UUID of pre-defined template
+  templateParams?: Record<string, string>; // optional, user-entered values for template {{1}}, {{2}}...
   triggerType?: string;                  // optional, max 50
   triggerConfig?: Record<string, any>;   // optional
 }
@@ -697,10 +707,6 @@ Re-create the two missing migration files:
 - `MigrateContactUuidPk` -- UUID PK swap for contacts table
 - `AddContactCampaignFields` -- New campaign-related columns on contacts
 
-### Cron Parser
-
-Add a cron-parser library (e.g., `cron-parser`) for accurate `nextRunAt` computation in `CampaignSchedulerService`. Currently falls back to 24-hour intervals.
-
 ---
 
 ## File Inventory
@@ -731,6 +737,7 @@ Add a cron-parser library (e.g., `cron-parser`) for accurate `nextRunAt` computa
 | `audience.service.ts` | Filter DSL to TypeORM query translation with 24h window split |
 | `campaign-orchestrator.service.ts` | Execution coordinator with tiered delivery and quota checks |
 | `send.worker.ts` | BullMQ message send processor with rate limiting and quota tracking |
+| `template-renderer.service.ts` | Renders placeholders (e.g. `{{name}}`) in template parameters |
 | `rate-tracker.service.ts` | Redis-backed 24h conversation quota counter |
 | `campaign-scheduler.service.ts` | Cron-based schedule checker |
 | `trigger.service.ts` | Event trigger handler |
@@ -740,13 +747,21 @@ Add a cron-parser library (e.g., `cron-parser`) for accurate `nextRunAt` computa
 | `dto/update-campaign.dto.ts` | Campaign update DTO |
 | `dto/campaign-query.dto.ts` | Campaign listing query DTO |
 
+### Templates Module (apps/dashboard-api/src/templates/)
+
+| File | Description |
+|------|-------------|
+| `templates.module.ts` | Module definition |
+| `templates.controller.ts` | API for template management |
+| `templates.service.ts` | Logic for processing and storing templates |
+
 ### Modified Files
 
 | File | Change |
 |------|--------|
 | `apps/dashboard-api/src/dashboard.module.ts` | Imports CampaignsModule and redisConfig |
-| `libs/database/src/database.module.ts` | Registers campaign entities |
-| `libs/database/src/entities/index.ts` | Exports campaign entities |
+| `libs/database/src/database.module.ts` | Registers campaign and template entities |
+| `libs/database/src/entities/index.ts` | Exports campaign/template entities |
 | `libs/database/src/entities/contact.entity.ts` | UUID PK, new columns |
 | `libs/database/src/repositories/contact.repository.ts` | findById, findByIds methods |
 | `docs/ARCHITECTURE_AND_DEPLOYMENT.md` | Campaign module documentation |
@@ -757,3 +772,4 @@ Add a cron-parser library (e.g., `cron-parser`) for accurate `nextRunAt` computa
 |---------|---------|
 | `@nestjs/bullmq` | BullMQ integration for NestJS |
 | `bullmq` | Redis-based job queue |
+| `cron-parser` | Accurate next-run calculation for recurring campaigns |

@@ -3,7 +3,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
 import { redisConfig } from "@lib/common";
-import { DatabaseModule } from "@lib/database";
+import { DatabaseModule, SchedulerModule } from "@lib/database";
 import { CampaignsController } from "./campaigns.controller";
 import { CampaignsService } from "./campaigns.service";
 import { AudienceService } from "./audience.service";
@@ -12,6 +12,7 @@ import { CampaignSchedulerService } from "./campaign-scheduler.service";
 import { TriggerService } from "./trigger.service";
 import { CampaignAnalyticsService } from "./campaign-analytics.service";
 import { RateTrackerService } from "./rate-tracker.service";
+import { TemplateRendererService } from "./template-renderer.service";
 import { SendWorker } from "./send.worker";
 import { CrmIntegrationsService } from "../crm-integrations/crm-integrations.service";
 import {
@@ -21,6 +22,9 @@ import {
 } from "./constants";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.module";
+import { TemplatesModule } from "../templates/templates.module";
+
+
 
 @Module({
   imports: [
@@ -54,6 +58,8 @@ import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.modu
 
     WhatsappModule,
     CrmIntegrationsModule,
+    SchedulerModule,
+    TemplatesModule,
   ],
   controllers: [CampaignsController],
   providers: [
@@ -80,6 +86,7 @@ import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.modu
     TriggerService,
     CampaignAnalyticsService,
     RateTrackerService,
+    TemplateRendererService,
     SendWorker,
   ],
   exports: [CampaignsService, TriggerService, RateTrackerService],

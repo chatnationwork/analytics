@@ -33,6 +33,17 @@ export const broadcastApi = {
   },
 
   /**
+   * List campaigns with delivery metrics for analytics dashboard
+   */
+  async listCampaignsWithStats(page = 1, limit = 20): Promise<{ data: (Campaign & { stats: CampaignMetrics })[], total: number }> {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    return fetchWithAuth<{ data: (Campaign & { stats: CampaignMetrics })[], total: number }>(`/campaigns/analytics/list?${params}`);
+  },
+
+  /**
    * Get single campaign by ID
    */
   async getCampaign(id: string): Promise<Campaign> {

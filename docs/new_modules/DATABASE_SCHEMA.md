@@ -78,11 +78,11 @@ All tenant data is isolated using `organization_id` on every table with Row-Leve
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                    MODULE III: CONTENT                           │
+│                    MODULE III: CAMPAIGNS                         │
 ├─────────────────────────────────────────────────────────────────┤
-│  programs ─► segments ─► content_items                           │
-│  broadcasts ─► broadcast_recipients                              │
-│  polls ─► poll_options ─► poll_votes                            │
+│  campaigns ─► campaign_messages                                  │
+│          └─► campaign_schedules                                  │
+│  templates ─► campaigns (via template_id)                        │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -578,105 +578,72 @@ CREATE INDEX idx_survey_responses_survey ON survey_responses(survey_id);
 CREATE INDEX idx_survey_responses_contact ON survey_responses(contact_id);
 ```
 
-### **4.3 Module III: Content**
+### **4.3 Module III: Campaigns**
 
 ```sql
-CREATE TABLE programs (
+-- Templates
+CREATE TABLE templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id),
-    
     name VARCHAR(255) NOT NULL,
-    description TEXT,
+    language VARCHAR(10) NOT NULL,
+    category VARCHAR(50), -- MARKETING, UTILITY, AUTHENTICATION
+    status VARCHAR(20) DEFAULT 'APPROVED',
+    body_text TEXT,
+    variables JSONB DEFAULT '[]', -- list of detected variable names
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Campaigns
+CREATE TABLE campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id),
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(20) NOT NULL, -- manual, scheduled, recurring
+    status VARCHAR(20) DEFAULT 'draft',
     
-    -- Schedule
-    schedule_type VARCHAR(20), -- 'daily', 'weekly', 'custom'
-    schedule_config JSONB,
-    timezone VARCHAR(50) DEFAULT 'Africa/Nairobi',
+    -- Content
+    template_id UUID REFERENCES templates(id),
+    template_params JSONB, -- { "1": "{{name}}", "2": "Static Value" }
+    message_template JSONB, -- fallback for custom text messages
     
-    is_active BOOLEAN DEFAULT TRUE,
+    -- Audience
+    audience_filter JSONB,
+    recipient_count INTEGER DEFAULT 0,
+    
+    -- Scheduling
+    scheduled_at TIMESTAMPTZ,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
     
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE content_items (
+-- Campaign Messages (Delivery Log)
+CREATE TABLE campaign_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    program_id UUID REFERENCES programs(id) ON DELETE SET NULL,
-    organization_id UUID NOT NULL REFERENCES organizations(id),
-    
-    -- Content
-    type VARCHAR(20) NOT NULL, -- 'text', 'image', 'audio', 'video', 'document'
-    title VARCHAR(255),
-    body TEXT,
-    media_url TEXT,
-    
-    -- Schedule
-    scheduled_at TIMESTAMPTZ,
-    published_at TIMESTAMPTZ,
-    
-    status VARCHAR(20) DEFAULT 'draft',
-    
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE broadcasts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL REFERENCES organizations(id),
-    
-    name VARCHAR(255),
-    
-    -- Content
-    message_type VARCHAR(20) NOT NULL,
-    message_content TEXT,
-    media_url TEXT,
-    
-    -- Audience
-    audience_filter JSONB, -- {tags: [], segments: []}
-    recipient_count INTEGER DEFAULT 0,
-    
-    -- Execution
-    scheduled_at TIMESTAMPTZ,
-    started_at TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ,
-    
-    -- Stats
-    sent_count INTEGER DEFAULT 0,
-    delivered_count INTEGER DEFAULT 0,
-    read_count INTEGER DEFAULT 0,
-    failed_count INTEGER DEFAULT 0,
-    
-    status VARCHAR(20) DEFAULT 'draft',
-    
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE polls (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL REFERENCES organizations(id),
-    
-    question TEXT NOT NULL,
-    options JSONB NOT NULL, -- [{id, text, votes}]
-    
-    -- Settings
-    allow_multiple BOOLEAN DEFAULT FALSE,
-    show_results BOOLEAN DEFAULT TRUE,
-    
-    -- Timing
-    ends_at TIMESTAMPTZ,
-    
-    status VARCHAR(20) DEFAULT 'active',
-    
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE poll_votes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    poll_id UUID NOT NULL REFERENCES polls(id),
+    campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
     contact_id UUID NOT NULL REFERENCES contacts(id),
-    option_id VARCHAR(50) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    UNIQUE(poll_id, contact_id)
+    status VARCHAR(20) DEFAULT 'pending',
+    wa_message_id VARCHAR(100),
+    error_message TEXT,
+    sent_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Campaign Schedules (Recurrence)
+CREATE TABLE campaign_schedules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    cron_expression VARCHAR(100) NOT NULL,
+    next_run_at TIMESTAMPTZ NOT NULL,
+    last_run_at TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 

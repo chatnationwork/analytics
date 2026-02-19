@@ -29,6 +29,8 @@
  */
 
 export * from "./database.module";
+export * from "./entities/template.entity";
+export * from "./entities/campaign.entity";
 export * from "./entities";
 export * from "./repositories";
 export * from "./utils/canonical-contact-id";
@@ -37,3 +39,9 @@ export {
   InboxSessionHelper,
   GetOrCreateSessionOptions,
 } from "./helpers/inbox-session.helper";
+export * from "./segmentation/segment-filter.types";
+export * from "./segmentation/segmentation.service";
+export * from "./scheduler/schedule.entity";
+export * from "./scheduler/schedule.types";
+export * from "./scheduler/scheduler.service";
+export * from "./scheduler/scheduler.module";

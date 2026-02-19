@@ -81,20 +81,7 @@ const DOC_CATEGORIES: DocCategory[] = [
       "Campaigns and system messages",
     ],
   },
-  {
-    title: "Developer Docs",
-    description:
-      "Integrate analytics using the SDK, REST API, and webhooks",
-    href: "/docs",
-    icon: Code,
-    permission: "docs.developer",
-    items: [
-      "JavaScript SDK",
-      "REST API reference",
-      "WhatsApp integration",
-      "AI event tracking",
-    ],
-  },
+  
 ];
 
 export default function DashboardDocsPage() {

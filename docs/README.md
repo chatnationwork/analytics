@@ -14,7 +14,7 @@ This documentation describes the **Analytics Platform** built for **Kra** (Kenya
 | [**API**](api/README.md)                   | Event ingestion, dashboard API, handover webhook, CRM API, SDK design.                                       |
 | [**Guides**](guides/README.md)             | Local setup, deployment, integration, tracking (web/WhatsApp/AI), CSAT, handover troubleshooting.            |
 | [**Data**](data/)                          | Data model, DB schema, event schema.                                                                         |
-| [**Features**](features/)                  | Agent assignment, session management, analytics trends.                                                      |
+| [**Features**](features/)                  | Agent assignment, session management, [Campaigns](features/campaigns.md), [Import/Export](features/contact_import_export.md). |
 | [**Testing**](testing/)                    | Strategy, external app guide.                                                                                |
 
 ---

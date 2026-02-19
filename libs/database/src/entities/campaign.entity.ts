@@ -17,6 +17,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { UserEntity } from "./user.entity";
+import { TemplateEntity } from "./template.entity";
 
 export enum CampaignType {
   MANUAL = "manual",
@@ -80,6 +81,18 @@ export class CampaignEntity {
    */
   @Column("jsonb", { nullable: true })
   audienceFilter: Record<string, unknown> | null;
+  
+  /** Reference to a pre-defined WhatsApp template. */
+  @Column({ type: "uuid", nullable: true })
+  templateId: string | null;
+
+  @ManyToOne(() => TemplateEntity)
+  @JoinColumn({ name: "templateId" })
+  template: TemplateEntity;
+
+  /** User-entered values for template variables (e.g. {{1}}, {{2}}). */
+  @Column("jsonb", { nullable: true })
+  templateParams: Record<string, string> | null;
 
   /** Snapshot of audience size when campaign was sent. */
   @Column({ type: "int", default: 0 })

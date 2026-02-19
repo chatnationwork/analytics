@@ -1,19 +1,46 @@
 /**
  * NoAgentRule: send no-agent message and/or record (used by EligibilityRule and SelectorRule).
+ * Throttled to at most once per 24h per session to prevent spamming.
  * Delegates to deps.runNoAgentFallback when provided (AssignmentService implementation).
  */
 
 import { MessageDirection, type InboxSessionEntity } from "@lib/database";
 import type { AssignmentEngineDeps } from "../types";
 
+/**
+ * Check whether the no-agent message was already sent within the last 24h.
+ * Uses `noAgentLastSentAt` stored in session.context.
+ */
+function isThrottled(session: InboxSessionEntity): boolean {
+  const ctx = session.context as Record<string, unknown> | null | undefined;
+  const sentAt = ctx?.noAgentLastSentAt;
+  if (typeof sentAt === "string") {
+    const t = Date.parse(sentAt);
+    if (!Number.isNaN(t) && Date.now() - t < 24 * 60 * 60 * 1000) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Sends the no-agent fallback message to the user when no agents are available.
+ * Delegates to deps.runNoAgentFallback (which has its own throttle) when provided.
+ * Falls back to sending directly via deps.whatsappService/inboxService otherwise.
+ */
 export async function runNoAgentFallback(
   session: InboxSessionEntity,
   deps: AssignmentEngineDeps,
 ): Promise<void> {
   if (deps.runNoAgentFallback) {
+    // Service-level implementation has its own throttle
     await deps.runNoAgentFallback(session);
     return;
   }
+
+  // Throttle: only send once per 24h per session
+  if (isThrottled(session)) return;
+
   // Fallback if engine used without runNoAgentFallback (e.g. tests)
   const configRepo = deps.configRepo as {
     findOne: (opts: {
@@ -28,7 +55,7 @@ export async function runNoAgentFallback(
     where: { tenantId: session.tenantId, teamId: undefined, enabled: true },
   });
   const waterfall = config?.settings?.waterfall;
-  const noAgentAction = waterfall?.noAgentAction || "queue";
+  const noAgentAction = waterfall?.noAgentAction || "reply";
   if (noAgentAction !== "reply") return;
 
   const messageText =
@@ -67,6 +94,11 @@ export async function runNoAgentFallback(
       content: messageText,
       senderId: undefined,
     });
+    // Stamp throttle timestamp so we don't send again within 24h
+    session.context = {
+      ...((session.context as Record<string, unknown>) || {}),
+      noAgentLastSentAt: new Date().toISOString(),
+    };
   } catch (_e) {
     // Logged by caller if needed
   }

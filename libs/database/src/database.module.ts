@@ -72,6 +72,9 @@ import { EosTicket } from "./entities/eos-ticket.entity";
 import { EosExhibitor } from "./entities/eos-exhibitor.entity";
 import { EosLead } from "./entities/eos-lead.entity";
 import { GeneratedCard } from "./entities/generated-card.entity";
+import { ImportMappingTemplate } from "./entities/import-mapping-template.entity";
+import { TemplateEntity } from "./entities/template.entity";
+import { ScheduleEntity } from "./scheduler/schedule.entity";
 import { EventRepository } from "./repositories/event.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { ProjectRepository } from "./repositories/project.repository";
@@ -83,6 +86,7 @@ import { ContactRepository } from "./repositories/contact.repository";
 import { AgentSessionRepository } from "./repositories/agent-session.repository";
 import { AuditLogRepository } from "./repositories/audit-log.repository";
 import { UserSessionRepository } from "./repositories/user-session.repository";
+import { SegmentationService } from "./segmentation/segmentation.service";
 
 /**
  * All entities that map to database tables.
@@ -120,6 +124,8 @@ const entities = [
   EntityArchiveEntity,
   CampaignEntity,
   CampaignMessageEntity,
+  CampaignMessageEntity,
+  CampaignScheduleEntity,
   CampaignScheduleEntity,
   EosEvent,
   EosTicketType,
@@ -127,6 +133,9 @@ const entities = [
   EosExhibitor,
   EosLead,
   GeneratedCard,
+  ImportMappingTemplate,
+  TemplateEntity,
+  ScheduleEntity,
 ];
 
 /**
@@ -227,8 +236,8 @@ export class DatabaseModule {
     return {
       module: DatabaseModule,
       imports: [TypeOrmModule.forFeature(entities)],
-      providers: [...repositories],
-      exports: [TypeOrmModule, ...repositories],
+      providers: [...repositories, SegmentationService],
+      exports: [TypeOrmModule, ...repositories, SegmentationService],
     };
   }
 }

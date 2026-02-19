@@ -23,9 +23,12 @@ import {
   CampaignMessageStatus,
   CampaignEntity,
   CampaignStatus,
+  ContactEntity,
+  ContactRepository,
 } from "@lib/database";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
 import { RateTrackerService } from "./rate-tracker.service";
+import { TemplateRendererService } from "./template-renderer.service";
 import {
   CAMPAIGN_QUEUE_NAME,
   CAMPAIGN_JOBS,
@@ -47,6 +50,8 @@ export class SendWorker extends WorkerHost {
   constructor(
     private readonly whatsappService: WhatsappService,
     private readonly rateTracker: RateTrackerService,
+    private readonly templateRenderer: TemplateRendererService,
+    private readonly contactRepo: ContactRepository,
     @InjectRepository(CampaignMessageEntity)
     private readonly messageRepo: Repository<CampaignMessageEntity>,
     @InjectRepository(CampaignEntity)
@@ -84,10 +89,47 @@ export class SendWorker extends WorkerHost {
         attempts: () => '"attempts" + 1',
       });
 
+      // Fetch contact to render message template placeholders
+      const contact = await this.contactRepo.findOne(tenantId, recipientPhone);
+
+      if (!contact) {
+        throw new Error(`Contact not found: ${recipientPhone}`);
+      }
+
+      let renderedPayload = { ...messagePayload };
+
+      if ((messagePayload as any).type === "template") {
+          // Handle WhatsApp Template Message
+          const components = (messagePayload as any).template?.components;
+          if (Array.isArray(components)) {
+              for (const component of components) {
+                  if (Array.isArray(component.parameters)) {
+                      for (const param of component.parameters) {
+                          if (param.type === "text" && param.text) {
+                              param.text = this.templateRenderer.render(param.text, contact);
+                          }
+                      }
+                  }
+              }
+          }
+      } else {
+          // Handle Standard Text Message
+          const textBody = (messagePayload as any)?.text?.body || "";
+          const renderedBody = this.templateRenderer.render(textBody, contact);
+          
+          renderedPayload = {
+            ...messagePayload,
+            text: {
+              ...(messagePayload as any).text,
+              body: renderedBody,
+            },
+          };
+      }
+
       const result = await this.whatsappService.sendMessage(
         tenantId,
         recipientPhone,
-        messagePayload as any,
+        renderedPayload as any,
       );
 
       if (result.success) {

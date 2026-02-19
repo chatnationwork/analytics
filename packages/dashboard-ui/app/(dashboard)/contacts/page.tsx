@@ -143,103 +143,8 @@ function ContactProfileDialog({
   );
 }
 
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-
-function ImportContactsDialog({
-  open,
-  onOpenChange,
-  onSuccess,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [strategy, setStrategy] = useState<"first" | "last" | "reject">("last");
-  
-  const importMutation = useMutation({
-    mutationFn: (data: { file: File; strategy: "first" | "last" | "reject" }) => 
-      whatsappAnalyticsApi.importContacts(data.file, data.strategy),
-    onSuccess: () => {
-      toast.success("Contacts imported successfully");
-      onOpenChange(false);
-      onSuccess();
-      setFile(null);
-      setStrategy("last");
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Failed to import contacts");
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) return;
-    importMutation.mutate({ file, strategy });
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Import Contacts</DialogTitle>
-          <DialogDescription>
-            Upload a CSV file with "Name" and "Phone" columns.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid w-full max-w-sm items-center gap-2">
-            <Label htmlFor="csvFile">CSV File</Label>
-            <Input
-              id="csvFile"
-              type="file"
-              accept=".csv"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <Label>Duplicate handling</Label>
-            <RadioGroup 
-              value={strategy} 
-              onValueChange={(v) => setStrategy(v as "first" | "last" | "reject")}
-              className="flex flex-col space-y-1"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="last" id="r-last" />
-                <Label htmlFor="r-last" className="font-normal">Update with last (Default)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="first" id="r-first" />
-                <Label htmlFor="r-first" className="font-normal">Keep first</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="reject" id="r-reject" />
-                <Label htmlFor="r-reject" className="font-normal">Fail on duplicates</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!file || importMutation.isPending}>
-              {importMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Import
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+import { ImportWizard } from "./components/ImportWizard";
+import { ExportDialog } from "./components/ExportDialog";
 
 export default function ContactsPage() {
   const { user } = useAuth();
@@ -248,32 +153,17 @@ export default function ContactsPage() {
     useState<AnalyticsContact | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const canCreate = user?.permissions?.global?.includes("contacts.create") === true;
   const canDeactivate = user?.permissions?.global?.includes("contacts.deactivate") === true;
+  // Use CONTACTS_VIEW for export ability as per controller change
+  const canExport = user?.permissions?.global?.includes("contacts.view") === true;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["whatsapp-analytics-contacts", page, PAGE_SIZE],
     queryFn: () => whatsappAnalyticsApi.getContacts(page, PAGE_SIZE),
-  });
-
-  const exportMutation = useMutation({
-    mutationFn: () => whatsappAnalyticsApi.exportContacts(),
-    onSuccess: (blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `contacts-${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success("Contacts exported successfully");
-    },
-    onError: (err: Error) => {
-      toast.error("Failed to export contacts");
-    },
   });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
@@ -303,18 +193,15 @@ export default function ContactsPage() {
               Import
             </Button>
           )}
-          <Button
-            variant="outline"
-            onClick={() => exportMutation.mutate()}
-            disabled={exportMutation.isPending}
-          >
-            {exportMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
+          {canExport && (
+            <Button
+              variant="outline"
+              onClick={() => setExportOpen(true)}
+            >
               <Download className="mr-2 h-4 w-4" />
-            )}
-            Export
-          </Button>
+              Export
+            </Button>
+          )}
         </div>
       </div>
 
@@ -440,15 +327,16 @@ export default function ContactsPage() {
         }
       />
 
-      <ImportContactsDialog
+      <ImportWizard
         open={importOpen}
         onOpenChange={setImportOpen}
-        onSuccess={() =>
-          queryClient.invalidateQueries({
-            queryKey: ["whatsapp-analytics-contacts"],
-          })
-        }
+      />
+
+      <ExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
       />
     </div>
   );
 }
+

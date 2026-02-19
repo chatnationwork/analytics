@@ -1,16 +1,12 @@
 import { fetchServer } from './api-server';
-import { WhatsappOverview, Campaign } from './whatsapp-api';
+import { CampaignOverview, CampaignsListResponse } from './whatsapp-api';
 
 export const whatsappServerApi = {
-  getOverview: async (): Promise<WhatsappOverview> => {
-    return fetchServer<WhatsappOverview>('/api/dashboard/whatsapp/overview');
+  getOverview: async (): Promise<CampaignOverview> => {
+    return fetchServer<CampaignOverview>('/api/dashboard/campaigns/analytics/overview');
   },
 
-  getCampaigns: async (page = 1, limit = 20): Promise<Campaign[]> => {
-    return fetchServer<Campaign[]>(`/api/dashboard/whatsapp/campaigns?page=${page}&limit=${limit}`);
+  getCampaigns: async (page = 1, limit = 20): Promise<CampaignsListResponse> => {
+    return fetchServer<CampaignsListResponse>(`/api/dashboard/campaigns/analytics/list?page=${page}&limit=${limit}`);
   },
-
-  getContacts: async (page = 1, limit = 20): Promise<{ data: any[], total: number, page: number, limit: number }> => {
-    return fetchServer<{ data: any[], total: number, page: number, limit: number }>(`/api/dashboard/whatsapp/contacts?page=${page}&limit=${limit}`);
-  }
 };

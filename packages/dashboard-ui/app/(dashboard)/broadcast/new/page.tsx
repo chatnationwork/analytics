@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Save, Calendar, Users, MessageSquare, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, Calendar, Users, MessageSquare, Check, Loader2, FileText, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,11 @@ import { AudienceFilterBuilder } from "../components/AudienceFilterBuilder";
 import { AudiencePreviewCard } from "../components/AudiencePreviewCard";
 import { broadcastApi } from "@/lib/broadcast-api";
 import { CreateCampaignDto, AudienceFilter, AudiencePreview, CampaignType } from "@/lib/broadcast-types";
+import { PlaceholderSelector } from "@/components/broadcast/PlaceholderSelector";
+import { MessagePreview } from "@/components/broadcast/MessagePreview";
+import { templatesApi, Template } from "@/lib/templates-api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 // Steps
 const STEPS = [
@@ -28,17 +33,65 @@ export default function NewCampaignPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Form State
   const [name, setName] = useState("");
   const [type, setType] = useState<CampaignType>("manual");
+  
+  // Message Config
+  const [messageType, setMessageType] = useState<"text" | "template">("text");
   const [messageBody, setMessageBody] = useState("");
+  
+  // Template Config
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [templateParams, setTemplateParams] = useState<Record<string, string>>({});
+
   const [scheduledAt, setScheduledAt] = useState("");
   const [filter, setFilter] = useState<AudienceFilter>({ conditions: [], logic: "AND" });
   
   // Preview State
   const [preview, setPreview] = useState<AudiencePreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Fetch templates on mount
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const data = await templatesApi.list();
+        setTemplates(data);
+      } catch (error) {
+        console.error("Failed to load templates", error);
+        toast.error("Failed to load templates");
+      }
+    };
+    loadTemplates();
+  }, []);
+
+  // Update selected template object when ID changes
+  useEffect(() => {
+    if (selectedTemplateId) {
+      const t = templates.find(t => t.id === selectedTemplateId) || null;
+      setSelectedTemplate(t);
+    } else {
+      setSelectedTemplate(null);
+    }
+  }, [selectedTemplateId, templates]);
+
+  // Reset params when template changes
+  useEffect(() => {
+    if (selectedTemplate) {
+       const params: Record<string, string> = {};
+       selectedTemplate.variables.forEach(v => {
+           params[v] = "";
+       });
+       setTemplateParams(params);
+    } else {
+       setTemplateParams({});
+    }
+  }, [selectedTemplate]);
 
   // Debounced preview update
   useEffect(() => {
@@ -60,6 +113,14 @@ export default function NewCampaignPage() {
     }
   }
 
+  // Recurrence State
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [dayOfMonth, setDayOfMonth] = useState<number>(1);
+  const [monthOfYear, setMonthOfYear] = useState<number>(0);
+
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
@@ -67,10 +128,32 @@ export default function NewCampaignPage() {
       const payload: CreateCampaignDto = {
         name,
         type,
-        messageTemplate: { type: "text", text: { body: messageBody } }, // Simple text message for now
         audienceFilter: filter,
         scheduledAt: type === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
       };
+
+      if (messageType === "template" && selectedTemplateId) {
+          payload.templateId = selectedTemplateId;
+          payload.templateParams = templateParams;
+          // messageTemplate is optional now in DTO if templateId is present
+      } else {
+          payload.messageTemplate = { type: "text", text: { body: messageBody } };
+      }
+
+      if (type === "scheduled" && isRecurring && scheduledAt) {
+        const date = new Date(scheduledAt);
+        const time = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        
+        payload.recurrence = {
+          frequency,
+          startDate: new Date(scheduledAt).toISOString(),
+          endDate: recurrenceEndDate ? new Date(recurrenceEndDate).toISOString() : undefined,
+          time,
+          daysOfWeek: frequency === "weekly" ? selectedDays : undefined,
+          dayOfMonth: (frequency === "monthly" || frequency === "yearly") ? dayOfMonth : undefined,
+          monthOfYear: frequency === "yearly" ? monthOfYear : undefined,
+        };
+      }
 
       const campaign = await broadcastApi.createCampaign(payload);
       
@@ -91,10 +174,63 @@ export default function NewCampaignPage() {
     }
   };
 
+  const handleInsertPlaceholder = (placeholder: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      // Fallback if ref not set: append to end
+      setMessageBody(prev => prev + placeholder);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = messageBody;
+
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    const newText = before + placeholder + after;
+
+    setMessageBody(newText);
+
+    // Restore cursor position after placeholder
+    setTimeout(() => {
+      const newCursorPos = start + placeholder.length;
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
+  const handleParamChange = (variable: string, value: string) => {
+      setTemplateParams(prev => ({
+          ...prev,
+          [variable]: value
+      }));
+  };
+
+  const handleInsertParamPlaceholder = (variable: string, placeholder: string) => {
+      const current = templateParams[variable] || "";
+      // Simple append for now as we don't have refs for each input
+      handleParamChange(variable, current + placeholder);
+  };
+
   const isStepValid = () => {
-    if (step === 1) return name.trim().length > 0 && messageBody.trim().length > 0 && (type !== "scheduled" || scheduledAt);
+    if (step === 1) {
+        const isDetailsValid = name.trim().length > 0 && (type !== "scheduled" || scheduledAt);
+        const isMessageValid = messageType === "text" 
+            ? messageBody.trim().length > 0 
+            : !!selectedTemplateId;
+        return isDetailsValid && isMessageValid;
+    }
     if (step === 2) return true; // Empty filter = all contacts (valid but maybe warn?)
     return true;
+  };
+
+  const toggleDay = (day: number) => {
+    if (selectedDays.includes(day)) {
+      setSelectedDays(selectedDays.filter(d => d !== day));
+    } else {
+      setSelectedDays([...selectedDays, day].sort());
+    }
   };
 
   return (
@@ -154,28 +290,224 @@ export default function NewCampaignPage() {
                         </div>
 
                         {type === "scheduled" && (
-                           <div className="space-y-2">
-                              <Label>Schedule Date</Label>
-                              <div className="flex gap-2">
-                                 <Input 
-                                   type="datetime-local" 
-                                   value={scheduledAt} 
-                                   onChange={e => setScheduledAt(e.target.value)} 
-                                 />
+                           <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                   <Label>Start Date & Time</Label>
+                                   <Input 
+                                     type="datetime-local" 
+                                     value={scheduledAt} 
+                                     onChange={e => setScheduledAt(e.target.value)} 
+                                   />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>End Date (Optional)</Label>
+                                  <Input 
+                                     type="datetime-local" 
+                                     value={recurrenceEndDate} 
+                                     onChange={e => setRecurrenceEndDate(e.target.value)}
+                                     disabled={!isRecurring}
+                                   />
+                                </div>
                               </div>
+
+                              <div className="flex items-center space-x-2 pt-2">
+                                <input 
+                                  type="checkbox" 
+                                  id="recurring" 
+                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                  checked={isRecurring}
+                                  onChange={(e) => setIsRecurring(e.target.checked)}
+                                />
+                                <Label htmlFor="recurring" className="font-medium cursor-pointer">Repeat this campaign</Label>
+                              </div>
+
+                              {isRecurring && (
+                                <div className="space-y-4 pt-2 border-t mt-2 animate-in fade-in slide-in-from-top-2">
+                                  <div className="space-y-2">
+                                    <Label>Frequency</Label>
+                                    <div className="flex gap-2">
+                                      {["daily", "weekly", "monthly", "yearly"].map((f) => (
+                                        <Button 
+                                          key={f} 
+                                          variant={frequency === f ? "default" : "outline"}
+                                          size="sm"
+                                          onClick={() => setFrequency(f as any)}
+                                          className="capitalize"
+                                        >
+                                          {f}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {frequency === "weekly" && (
+                                    <div className="space-y-2">
+                                      <Label>Repeat On</Label>
+                                      <div className="flex gap-1 flex-wrap">
+                                        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
+                                          <Button
+                                            key={d}
+                                            variant={selectedDays.includes(i) ? "default" : "outline"}
+                                            size="icon"
+                                            className="w-8 h-8 rounded-full text-xs"
+                                            onClick={() => toggleDay(i)}
+                                          >
+                                            {d[0]}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">Select days of the week</p>
+                                    </div>
+                                  )}
+
+                                  {(frequency === "monthly" || frequency === "yearly") && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                       <div className="space-y-2">
+                                          <Label>Day of Month</Label>
+                                          <Input 
+                                            type="number" 
+                                            min={1} 
+                                            max={31} 
+                                            value={dayOfMonth} 
+                                            onChange={(e) => setDayOfMonth(parseInt(e.target.value))}
+                                          />
+                                       </div>
+                                       {frequency === "yearly" && (
+                                         <div className="space-y-2">
+                                            <Label>Month</Label>
+                                            <select 
+                                              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                              value={monthOfYear}
+                                              onChange={(e) => setMonthOfYear(parseInt(e.target.value))}
+                                            >
+                                              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                                                <option key={m} value={i}>{m}</option>
+                                              ))}
+                                            </select>
+                                         </div>
+                                       )}
+                                    </div>
+                                  )}
+                                  
+                                  <p className="text-sm text-muted-foreground bg-blue-50 text-blue-800 p-2 rounded border border-blue-100">
+                                    Summary: Repeats <span className="font-semibold capitalize">{frequency}</span>
+                                    {frequency === "weekly" && selectedDays.length > 0 && ` on ${selectedDays.map(d => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d]).join(", ")}`}
+                                    {frequency === "monthly" && ` on day ${dayOfMonth}`}
+                                    {frequency === "yearly" && ` on ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][monthOfYear]} ${dayOfMonth}`}
+                                    {` at ${scheduledAt ? new Date(scheduledAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'selected time'}`}
+                                  </p>
+                                </div>
+                              )}
                            </div>
                         )}
 
+                        <Separator />
+
+
                         <div className="space-y-2">
-                           <Label>Message Content</Label>
-                           <Textarea 
-                             value={messageBody} 
-                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageBody(e.target.value)} 
-                             placeholder="Hello {{name}}, check out our latest updates..." 
-                             rows={6} 
-                           />
-                           <p className="text-xs text-muted-foreground">Supports generic text templates for now.</p>
+                           <Label>Message Type</Label>
+                           <RadioGroup value={messageType} onValueChange={(v) => setMessageType(v as any)} className="grid grid-cols-2 gap-4">
+                            <div className={`border rounded-lg p-4 cursor-pointer hover:bg-accent ${messageType === "text" ? "border-primary bg-accent/50" : ""}`} onClick={() => setMessageType("text")}>
+                                <RadioGroupItem value="text" className="sr-only" />
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Type className="h-4 w-4" />
+                                    <div className="font-semibold">Custom Text</div>
+                                </div>
+                                <div className="text-sm text-muted-foreground">Write a one-off message manually</div>
+                            </div>
+                            <div className={`border rounded-lg p-4 cursor-pointer hover:bg-accent ${messageType === "template" ? "border-primary bg-accent/50" : ""}`} onClick={() => setMessageType("template")}>
+                                <RadioGroupItem value="template" className="sr-only" />
+                                <div className="flex items-center gap-2 mb-1">
+                                    <FileText className="h-4 w-4" />
+                                    <div className="font-semibold">Template</div>
+                                </div>
+                                <div className="text-sm text-muted-foreground">Select a pre-approved WhatsApp template</div>
+                            </div>
+                           </RadioGroup>
                         </div>
+                        
+                        {messageType === "text" ? (
+                            <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                                <Label>Message Content</Label>
+                                <PlaceholderSelector onInsert={handleInsertPlaceholder} />
+                                <Textarea 
+                                ref={textareaRef}
+                                value={messageBody} 
+                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageBody(e.target.value)} 
+                                placeholder="Hello {{name}}, check out our latest updates..." 
+                                rows={6} 
+                                />
+                                <p className="text-xs text-muted-foreground">Supports generic text templates for now.</p>
+                                
+                                {/* Live Preview */}
+                                {messageBody.length > 0 && <MessagePreview message={messageBody} />}
+                            </div>
+                        ) : (
+                            <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="space-y-2">
+                                    <Label>Select Template</Label>
+                                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a template..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {templates.map(t => (
+                                                <SelectItem key={t.id} value={t.id}>
+                                                    {t.name} ({t.language})
+                                                </SelectItem>
+                                            ))}
+                                            {templates.length === 0 && (
+                                                <div className="p-2 text-sm text-muted-foreground text-center">
+                                                    No templates found. <Link href="/settings/templates" className="underline text-primary">Create one</Link>
+                                                </div>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {selectedTemplate && (
+                                    <div className="border rounded-lg p-4 bg-muted/30 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-sm font-semibold">Preview</Label>
+                                            <Badge variant="outline">{selectedTemplate.language}</Badge>
+                                        </div>
+                                        <div className="text-sm whitespace-pre-wrap bg-background p-3 rounded border">
+                                            {selectedTemplate.bodyText || "No preview text available."}
+                                        </div>
+                                        {selectedTemplate.variables?.length > 0 && (
+                                            <div className="text-xs text-muted-foreground">
+                                                Detected variables: {selectedTemplate.variables.map(v => `{{${v}}}`).join(", ")}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {selectedTemplate && selectedTemplate.variables?.length > 0 && (
+                                    <div className="space-y-4 border rounded-lg p-4 bg-muted/10">
+                                        <Label className="text-sm font-semibold">Template Variables</Label>
+                                        <div className="grid gap-4">
+                                            {selectedTemplate.variables.map(v => (
+                                                <div key={v} className="space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <Label className="text-xs text-muted-foreground uppercase">Variable {'{{' + v + '}}'}</Label>
+                                                        <PlaceholderSelector 
+                                                            onInsert={(val) => handleInsertParamPlaceholder(v, val)} 
+                                                        />
+                                                    </div>
+                                                    <Input 
+                                                        value={templateParams[v] || ""} 
+                                                        onChange={(e) => handleParamChange(v, e.target.value)}
+                                                        placeholder={`Enter value for {{${v}}}`}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                      </div>
                   )}
 
@@ -206,16 +538,36 @@ export default function NewCampaignPage() {
                                     {type === "scheduled" && scheduledAt ? new Date(scheduledAt).toLocaleString() : "Immediately"}
                                  </div>
                               </div>
+                              {isRecurring && type === "scheduled" && (
+                                <div className="col-span-2 border-t pt-2 mt-2">
+                                   <div className="text-muted-foreground text-xs uppercase tracking-wider font-semibold mb-1">Recurrence</div>
+                                   <div className="font-medium">
+                                      Repeats <span className="capitalize">{frequency}</span>
+                                      {frequency === "weekly" && selectedDays.length > 0 && ` on ${selectedDays.map(d => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d]).join(", ")}`}
+                                      {frequency === "monthly" && ` on day ${dayOfMonth}`}
+                                      {frequency === "yearly" && ` on ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][monthOfYear]} ${dayOfMonth}`}
+                                      {recurrenceEndDate && ` until ${new Date(recurrenceEndDate).toLocaleDateString()}`}
+                                   </div>
+                                </div>
+                              )}
                            </div>
                         </div>
 
                         <Separator />
                         
                         <div className="space-y-2">
-                           <h4 className="font-medium text-sm">Message Preview</h4>
-                           <div className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap border">
-                              {messageBody}
-                           </div>
+                           <h4 className="font-medium text-sm">Message Content</h4>
+                           {messageType === "text" ? (
+                                <div className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap border">
+                                    {messageBody}
+                                </div>
+                           ) : (
+                                <div className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap border">
+                                    <Badge variant="secondary" className="mb-2">Template: {selectedTemplate?.name}</Badge>
+                                    <div>{selectedTemplate?.bodyText}</div>
+                                </div>
+                           )}
+                           
                         </div>
                      </div>
                   )}

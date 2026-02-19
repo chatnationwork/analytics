@@ -42,10 +42,14 @@ graph TD
 
 ### Creating a Campaign
 
-1.  **Details**: Enter name, select type (Manual/Scheduled), and define message content.
-2.  **Audience**: Use the filter builder to target specific users (e.g., by tags, location).
+1.  **Details**: Enter name and select message type.
+    *   **Custom Text**: Write a manual message with placeholders.
+    *   **WhatsApp Template**: Select a pre-approved template. Input fields dynamically appear for each variable (e.g., `{{1}}`, `{{2}}`) detected in the template.
+2.  **Scheduling**: Select launch time.
+    *   **Repeat**: Enable recurrence (Daily, Weekly, Monthly, Yearly) using the integrated `cron-parser` logic.
+3.  **Audience**: Use the filter builder to target specific users (e.g., by tags, location).
     *   *Preview*: The sidebar updates in real-time to show the estimated recipient count and quota usage.
-3.  **Review**: Verify details and launch (or schedule).
+4.  **Review**: Verify details and launch (or schedule).
 
 ### Monitoring
 

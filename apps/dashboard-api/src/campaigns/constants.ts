@@ -12,6 +12,9 @@ export const CAMPAIGN_JOBS = {
   EXECUTE_CAMPAIGN: "execute-campaign",
 } as const;
 
+/** Job type constant for campaign execution via the generic scheduler. */
+export const CAMPAIGN_JOB_TYPE = "campaign.execute";
+
 /** Predefined event trigger types that modules can fire to activate campaigns. */
 export enum CampaignTrigger {
   // Ticketing / Events module

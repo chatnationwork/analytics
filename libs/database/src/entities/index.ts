@@ -62,3 +62,4 @@ export * from "./eos-exhibitor.entity";
 export * from "./eos-lead.entity";
 export * from "./payment.entity";
 export * from "./generated-card.entity";
+export * from "./import-mapping-template.entity";
