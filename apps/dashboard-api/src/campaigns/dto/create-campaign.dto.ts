@@ -97,6 +97,10 @@ export class CreateCampaignDto {
   templateParams?: Record<string, string>;
 
   @IsOptional()
+  @IsObject()
+  rawTemplate?: Record<string, any>;
+
+  @IsOptional()
   @ValidateNested()
   @Type(() => AudienceFilterDto)
   audienceFilter?: AudienceFilterDto;

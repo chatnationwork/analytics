@@ -344,6 +344,7 @@ export class EosEventService implements OnModuleInit {
         type: CampaignType.MODULE_INITIATED,
         templateId: dto.templateId,
         templateParams: dto.templateParams,
+        rawTemplate: dto.rawTemplate,
         audienceFilter: dto.audienceFilter,
         sourceModule: "eos",
         sourceReferenceId: eventId,

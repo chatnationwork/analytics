@@ -11,6 +11,8 @@ import {
   ContactEntity,
   IdentityEntity,
   GeneratedCard,
+  UserEntity,
+  CampaignEntity,
   SchedulerModule,
 } from "@lib/database";
 
@@ -50,6 +52,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
       IdentityEntity,
       GeneratedCard,
       UserEntity,
+      CampaignEntity,
     ]),
     BullModule.registerQueue(
       { name: "eos-lead-processing" },

@@ -37,13 +37,15 @@ export class CampaignsService {
     userId: string,
     dto: CreateCampaignDto,
   ): Promise<CampaignEntity> {
-    
     let messageTemplate = dto.messageTemplate;
 
     // specific logic if a templateId is provided
     if (dto.templateId) {
-      const template = await this.templatesService.findById(tenantId, dto.templateId);
-      
+      const template = await this.templatesService.findById(
+        tenantId,
+        dto.templateId,
+      );
+
       // Construct WhatsApp Template Payload
       messageTemplate = {
         type: "template",
@@ -51,37 +53,53 @@ export class CampaignsService {
           name: template.name,
           language: { code: template.language },
           components: [],
-        }
+        },
       };
 
       // Add Body Parameters if they exist
       if (dto.templateParams && Object.keys(dto.templateParams).length > 0) {
         const parameters = [];
         // Sort variables to ensure correct order {{1}}, {{2}}, ...
-        const sortedVars = (template.variables || []).sort((a, b) => parseInt(a) - parseInt(b));
+        const sortedVars = (template.variables || []).sort(
+          (a, b) => parseInt(a) - parseInt(b),
+        );
 
         for (const v of sortedVars) {
-          const val = dto.templateParams[v] || ""; 
+          const val = dto.templateParams[v] || "";
           parameters.push({
             type: "text",
-            text: val // Value will be rendered (placeholders replaced) in SendWorker
+            text: val, // Value will be rendered (placeholders replaced) in SendWorker
           });
         }
 
         if (parameters.length > 0) {
           (messageTemplate as any).template.components.push({
             type: "body",
-            parameters: parameters
+            parameters: parameters,
           });
         }
+      }
+    } else if (dto.rawTemplate) {
+      // If rawTemplate is provided, use it.
+      // We support both a wrapped { type: "template", template: ... }
+      // or just the { name: ..., language: ..., components: ... } object.
+      if (dto.rawTemplate.template) {
+        messageTemplate = dto.rawTemplate;
+      } else {
+        messageTemplate = {
+          type: "template",
+          template: dto.rawTemplate,
+        };
       }
     }
 
     if (!messageTemplate) {
-        throw new BadRequestException("Either messageTemplate or templateId must be provided");
+      throw new BadRequestException(
+        "Either messageTemplate or templateId must be provided",
+      );
     }
 
-    const campaign = this.campaignRepo.create({
+    const campaign: CampaignEntity = this.campaignRepo.create({
       tenantId,
       name: dto.name,
       type: dto.type,
@@ -100,18 +118,18 @@ export class CampaignsService {
       templateParams: dto.templateParams ?? null,
     });
 
-    const saved = await this.campaignRepo.save(campaign);
+    const saved: CampaignEntity = await this.campaignRepo.save(campaign);
 
     // Handle recurrence
     if (dto.recurrence) {
       if (!dto.scheduledAt) {
         // If scheduledAt is missing but recurrence is present, use recurrence startDate + time
-        // validation should probably ensure this? 
+        // validation should probably ensure this?
         // For now, let's assume valid.
       }
-      
+
       const cron = this.generateCronExpression(dto.recurrence);
-      
+
       // Calculate start date properly combining startDate and time
       const [hours, minutes] = dto.recurrence.time.split(":").map(Number);
       const startDate = new Date(dto.recurrence.startDate);
@@ -137,29 +155,37 @@ export class CampaignsService {
     return saved;
   }
 
-  private generateCronExpression(config: CreateCampaignDto["recurrence"]): string {
+  private generateCronExpression(
+    config: CreateCampaignDto["recurrence"],
+  ): string {
     if (!config) throw new Error("Recurrence config missing");
-    
+
     const [hours, minutes] = config.time.split(":");
-    
+
     switch (config.frequency) {
       case "daily":
         return `${minutes} ${hours} * * *`;
       case "weekly":
         if (!config.daysOfWeek || config.daysOfWeek.length === 0) {
-           throw new BadRequestException("Days of week required for weekly recurrence");
+          throw new BadRequestException(
+            "Days of week required for weekly recurrence",
+          );
         }
         return `${minutes} ${hours} * * ${config.daysOfWeek.join(",")}`;
       case "monthly":
         if (!config.dayOfMonth) {
-           throw new BadRequestException("Day of month required for monthly recurrence");
+          throw new BadRequestException(
+            "Day of month required for monthly recurrence",
+          );
         }
         return `${minutes} ${hours} ${config.dayOfMonth} * *`;
       case "yearly":
         if (!config.dayOfMonth || config.monthOfYear === undefined) {
-           throw new BadRequestException("Day of month and month required for yearly recurrence");
+          throw new BadRequestException(
+            "Day of month and month required for yearly recurrence",
+          );
         }
-        // Month in cron is 1-12, but input might be 0-11? 
+        // Month in cron is 1-12, but input might be 0-11?
         // Plan said 0-11. Cron expects 1-12 (Jan-Dec) or JAN-DEC.
         // Let's assume input is 0-11 (JS Date style) and convert to 1-12.
         return `${minutes} ${hours} ${config.dayOfMonth} ${config.monthOfYear + 1} *`;
@@ -184,7 +210,12 @@ export class CampaignsService {
   async list(
     tenantId: string,
     query: CampaignQueryDto,
-  ): Promise<{ data: CampaignEntity[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    data: CampaignEntity[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
@@ -217,9 +248,7 @@ export class CampaignsService {
     const campaign = await this.findById(tenantId, campaignId);
 
     if (campaign.status !== CampaignStatus.DRAFT) {
-      throw new BadRequestException(
-        "Only draft campaigns can be updated",
-      );
+      throw new BadRequestException("Only draft campaigns can be updated");
     }
 
     if (dto.name !== undefined) campaign.name = dto.name;
@@ -256,10 +285,7 @@ export class CampaignsService {
     await this.campaignRepo.update(campaignId, { status, ...extra });
   }
 
-  async cancel(
-    tenantId: string,
-    campaignId: string,
-  ): Promise<CampaignEntity> {
+  async cancel(tenantId: string, campaignId: string): Promise<CampaignEntity> {
     const campaign = await this.findById(tenantId, campaignId);
 
     const cancellable: CampaignStatus[] = [
