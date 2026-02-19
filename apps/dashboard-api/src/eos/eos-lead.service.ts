@@ -7,6 +7,7 @@ import { EosLead } from "@lib/database";
 import { EosExhibitor } from "@lib/database";
 import { ContactEntity } from "@lib/database";
 import { TriggerService } from "../campaigns/trigger.service";
+import { CampaignTrigger } from "../campaigns/constants";
 
 @Injectable()
 export class EosLeadService {
@@ -77,43 +78,31 @@ export class EosLeadService {
       where: { id: leadId },
       relations: ["exhibitor", "contact"],
     });
+
     if (!lead || !lead.exhibitor) return;
 
-    // Determine target contact for notification (Exhibitor's contact info)
-    // The brief says: contactId: exhibitor.contactId (exhibitor's own WhatsApp contact)
-    // However, the Exhibitor entity stores contactPhone/Email, not a linked ContactID directly unless we resolve it or add it.
-    // EosExhibitor has `organizationId`. If it has `organizationId`, we might find a user/contact there.
-    // Or we use `contactPhone` to find/create a contact to message.
-
-    // Stub behavior based on brief: "TriggerService.handle('HOT_LEAD_CAPTURED', { tenantId: exhibitor.organizationId, contactId: exhibitor.contactId ... })"
-    // Issue: EosExhibitor entity defined earlier DOES NOT have `contactId` column, only `contactPhone`.
-    // I will assume for this stub that we resolve contactId from phone or fail gracefully if exhibitor.organizationId is set.
-
-    if (!lead.exhibitor.organizationId) {
+    if (!lead.exhibitor.contactId) {
       this.logger.warn(
-        `Exhibitor ${lead.exhibitor.id} has no organizationId, cannot send hot lead alert via TriggerService`,
+        `Exhibitor ${lead.exhibitor.id} has no linked contact, cannot send hot lead alert`,
       );
       return;
     }
 
-    // Resolving contact ID for the exhibitor's phone is outside scope here without a proper lookup service,
-    // but we need a contactId for TriggerService.
-    // We'll proceed if we had one.
-
-    /*
-    await this.triggerService.fire('HOT_LEAD_CAPTURED', {
+    try {
+      await this.triggerService.fire(CampaignTrigger.HOT_LEAD_CAPTURED, {
         tenantId: lead.exhibitor.organizationId,
-        contactId: 'EXHIBITOR_CONTACT_UUID', // Needs resolution
+        contactId: lead.exhibitor.contactId,
         context: {
-            leadContactName: lead.contact.name || lead.contact.phone,
-            aiIntent: lead.aiIntent,
-            eventName: 'Unknown Event' // Need relations
-        }
-    });
-    */
-    this.logger.log(
-      `[STUB] Hot lead notification logic reached for Lead ${lead.id}`,
-    );
+          leadName: lead.contact?.name || "Unknown Lead",
+          leadPhone: lead.contact?.contactId,
+          aiIntent: lead.aiIntent,
+          interestLevel: lead.interestLevel,
+        },
+      });
+      this.logger.log(`Hot lead alert sent for Lead ${lead.id}`);
+    } catch (e) {
+      this.logger.error(`Failed to send hot lead alert: ${e.message}`);
+    }
   }
 
   async listLeads(exhibitorId: string) {

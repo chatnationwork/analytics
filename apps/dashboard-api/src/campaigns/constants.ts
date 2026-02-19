@@ -33,6 +33,9 @@ export enum CampaignTrigger {
 
   // Agent system
   SESSION_RESOLVED = "session.resolved",
+
+  // Lead Generation
+  HOT_LEAD_CAPTURED = "lead.hot_captured",
 }
 
 /** Maximum batch size when enqueuing jobs to BullMQ. */

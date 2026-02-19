@@ -10,6 +10,7 @@ import {
   EosLead,
   ContactEntity,
   IdentityEntity,
+  GeneratedCard,
 } from "@lib/database";
 
 import { EosEventController } from "./eos-event.controller";
@@ -23,6 +24,7 @@ import { EosTicketService } from "./eos-ticket.service";
 import { EosLeadService } from "./eos-lead.service";
 import { EosTicketTypeService } from "./eos-ticket-type.service";
 import { EosExhibitorService } from "./eos-exhibitor.service";
+import { GeneratedCardService } from "./generated-card.service";
 
 import { LeadProcessorWorker } from "./workers/lead-processor.worker";
 import { HypeCardWorker } from "./workers/hypecard.worker";
@@ -41,6 +43,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
       EosLead,
       ContactEntity,
       IdentityEntity,
+      GeneratedCard,
     ]),
     BullModule.registerQueue(
       { name: "eos-lead-processing" },
@@ -62,6 +65,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     EosLeadService,
     EosTicketTypeService,
     EosExhibitorService,
+    GeneratedCardService,
     LeadProcessorWorker,
     HypeCardWorker,
   ],

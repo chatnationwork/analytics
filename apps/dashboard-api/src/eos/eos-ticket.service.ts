@@ -20,6 +20,8 @@ import {
   PaymentCallbackService,
   PaymentFulfilledHandler,
 } from "../billing/payment-callback.service";
+import { nanoid } from "nanoid";
+import * as QRCode from "qrcode";
 
 @Injectable()
 export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
@@ -169,12 +171,24 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
       return;
     }
 
-    // 1. Generate Code (nanoid 8 chars - simplified here)
-    // TODO: Use better nanoid in Phase 3
-    ticket.ticketCode = Math.random()
-      .toString(36)
-      .substring(2, 10)
-      .toUpperCase();
+    // 1. Generate unique ticket code
+    let ticketCode = "";
+    let isUnique = false;
+    // Safety break to prevent infinite loops (unlikely with 8 chars/base64 but good practice)
+    let attempts = 0;
+
+    while (!isUnique && attempts < 5) {
+      ticketCode = nanoid(8).toUpperCase();
+      const existing = await this.ticketRepo.findOne({ where: { ticketCode } });
+      if (!existing) isUnique = true;
+      attempts++;
+    }
+
+    if (!isUnique) {
+      throw new Error("Failed to generate unique ticket code");
+    }
+
+    ticket.ticketCode = ticketCode;
     ticket.paymentStatus = "completed";
     ticket.status = "valid";
 
@@ -185,8 +199,18 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
       };
     }
 
-    // Generate QR URL stub
-    ticket.qrCodeUrl = `https://chart.googleapis.com/chart?cht=qr&chl=${ticket.ticketCode}&chs=180x180&choe=UTF-8&chld=L|2`;
+    // Generate QR code locally as a data URI
+    try {
+      ticket.qrCodeUrl = await QRCode.toDataURL(ticket.ticketCode, {
+        errorCorrectionLevel: "L",
+        margin: 2,
+        width: 180,
+      });
+    } catch (e) {
+      this.logger.error(`Failed to generate QR code: ${e.message}`);
+      // Fallback to Google Charts stub if local generation fails
+      ticket.qrCodeUrl = `https://chart.googleapis.com/chart?cht=qr&chl=${ticket.ticketCode}&chs=180x180&choe=UTF-8&chld=L|2`;
+    }
 
     await manager.save(ticket);
 
