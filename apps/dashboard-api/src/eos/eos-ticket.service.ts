@@ -230,4 +230,41 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
       select: ["id", "paymentStatus", "status", "ticketCode", "qrCodeUrl"],
     });
   }
+
+  async checkIn(ticketCode: string): Promise<EosTicket> {
+    const ticket = await this.ticketRepo.findOne({
+      where: { ticketCode },
+      relations: ["ticketType", "ticketType.event"],
+    });
+
+    if (!ticket) {
+      throw new BadRequestException("Invalid ticket code");
+    }
+
+    if (ticket.status === "used") {
+      throw new BadRequestException("Ticket already used");
+    }
+
+    if (ticket.status !== "valid") {
+      throw new BadRequestException(`Ticket status is ${ticket.status}`);
+    }
+
+    // Mark used
+    ticket.status = "used";
+    ticket.checkedInAt = new Date();
+    await this.ticketRepo.save(ticket);
+
+    // Fire check-in trigger
+    await this.triggerService.fire(CampaignTrigger.EVENT_CHECKIN, {
+      tenantId: ticket.ticketType.event.organizationId,
+      contactId: ticket.contactId,
+      context: {
+        ticketCode: ticket.ticketCode,
+        eventName: ticket.ticketType.event.name,
+        checkedInAt: ticket.checkedInAt.toISOString(),
+      },
+    });
+
+    return ticket;
+  }
 }

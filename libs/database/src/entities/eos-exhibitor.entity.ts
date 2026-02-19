@@ -11,6 +11,7 @@ import {
 } from "typeorm";
 import { EosEvent } from "@lib/database/entities/eos-event.entity";
 import { EosLead } from "@lib/database/entities/eos-lead.entity";
+import { ContactEntity } from "@lib/database/entities/contact.entity";
 // import { Organization } from './organization.entity'; // Using implicit ID if Org entity not readily available or to avoid circular deps, referencing by ID usually safer in modular setup
 
 @Entity("eos_exhibitors")
@@ -58,6 +59,13 @@ export class EosExhibitor {
 
   @Column({ name: "contact_phone", nullable: true, length: 20 })
   contactPhone: string;
+
+  @Column({ name: "contact_id", nullable: true })
+  contactId: string;
+
+  @ManyToOne(() => ContactEntity, { nullable: true })
+  @JoinColumn({ name: "contact_id" })
+  contact: Relation<ContactEntity>;
 
   @Column({ type: "jsonb", default: "{}" })
   settings: Record<string, any>;

@@ -4,9 +4,9 @@ import {
   Get,
   Body,
   Param,
-  Request,
   UseGuards,
   Req,
+  BadRequestException,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { EosTicketService } from "./eos-ticket.service";
@@ -36,5 +36,14 @@ export class EosTicketController {
   @UseGuards(JwtAuthGuard)
   getStatus(@Param("id") id: string) {
     return this.ticketService.getStatus(id);
+  }
+
+  @Post("eos/tickets/check-in")
+  @UseGuards(JwtAuthGuard)
+  checkIn(@Body() body: { ticketCode: string }) {
+    if (!body.ticketCode) {
+      throw new BadRequestException("ticketCode is required");
+    }
+    return this.ticketService.checkIn(body.ticketCode);
   }
 }

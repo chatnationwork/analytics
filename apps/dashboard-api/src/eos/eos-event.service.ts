@@ -118,4 +118,16 @@ export class EosEventService {
       order: { createdAt: "DESC" },
     });
   }
+
+  async cancelEvent(organizationId: string, id: string): Promise<EosEvent> {
+    const event = await this.findOne(organizationId, id);
+    event.status = "cancelled";
+    return this.eventRepo.save(event);
+  }
+
+  async completeEvent(organizationId: string, id: string): Promise<EosEvent> {
+    const event = await this.findOne(organizationId, id);
+    event.status = "completed";
+    return this.eventRepo.save(event);
+  }
 }

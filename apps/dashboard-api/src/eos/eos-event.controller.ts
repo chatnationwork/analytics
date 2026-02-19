@@ -47,4 +47,14 @@ export class EosEventController {
   getVenueLayout(@Req() req: any, @Param("id") id: string) {
     return this.eventService.getVenueLayout(req.user.tenantId, id);
   }
+
+  @Post(":id/cancel")
+  cancel(@Req() req: any, @Param("id") id: string) {
+    return this.eventService.cancelEvent(req.user.tenantId, id);
+  }
+
+  @Post(":id/complete")
+  complete(@Req() req: any, @Param("id") id: string) {
+    return this.eventService.completeEvent(req.user.tenantId, id);
+  }
 }

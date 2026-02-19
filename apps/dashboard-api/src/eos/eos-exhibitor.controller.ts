@@ -2,37 +2,53 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
+  Delete,
   Body,
   Param,
-  Request,
   UseGuards,
   Req,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { EosExhibitor } from "@lib/database";
+import { EosExhibitorService } from "./eos-exhibitor.service";
+import { CreateExhibitorDto } from "./dto/create-exhibitor.dto";
 
 @Controller("eos/events/:eventId/exhibitors")
 @UseGuards(JwtAuthGuard)
 export class EosExhibitorController {
-  constructor(
-    @InjectRepository(EosExhibitor)
-    private readonly repo: Repository<EosExhibitor>,
-  ) {}
+  constructor(private readonly service: EosExhibitorService) {}
 
   @Post()
   create(
     @Req() req: any,
     @Param("eventId") eventId: string,
-    @Body() body: any,
+    @Body() dto: CreateExhibitorDto,
   ) {
-    const entity = this.repo.create({ ...body, eventId });
-    return this.repo.save(entity);
+    return this.service.create(eventId, dto);
   }
 
   @Get()
   list(@Param("eventId") eventId: string) {
-    return this.repo.find({ where: { eventId } });
+    return this.service.findAll(eventId);
+  }
+
+  @Patch(":id")
+  update(@Param("id") id: string, @Body() body: any) {
+    return this.service.update(id, body);
+  }
+
+  @Patch(":id/approve")
+  approve(@Param("id") id: string) {
+    return this.service.updateStatus(id, "approved");
+  }
+
+  @Patch(":id/reject")
+  reject(@Param("id") id: string) {
+    return this.service.updateStatus(id, "rejected");
+  }
+
+  @Delete(":id")
+  remove(@Param("id") id: string) {
+    return this.service.remove(id);
   }
 }
