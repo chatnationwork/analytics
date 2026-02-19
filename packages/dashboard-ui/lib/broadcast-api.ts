@@ -1,29 +1,35 @@
-import { fetchWithAuth, fetchWithAuthFull } from './api';
-import { 
-  Campaign, 
-  CampaignMetrics, 
-  CampaignMessage, 
-  CampaignOverview, 
-  AudiencePreview, 
+import { fetchWithAuth, fetchWithAuthFull } from "./api";
+import {
+  Campaign,
+  CampaignMetrics,
+  CampaignMessage,
+  CampaignOverview,
+  AudiencePreview,
   AudienceFilter,
   CreateCampaignDto,
   UpdateCampaignDto,
   QuotaStatus,
-  CampaignError
-} from './broadcast-types';
+  CampaignError,
+} from "./broadcast-types";
 
 export const broadcastApi = {
   /**
    * List campaigns with optional filtering
    */
-  async listCampaigns(page = 1, limit = 20, status?: string): Promise<{ data: Campaign[], total: number }> {
+  async listCampaigns(
+    page = 1,
+    limit = 20,
+    status?: string,
+  ): Promise<{ data: Campaign[]; total: number }> {
     const params = new URLSearchParams({
       page: String(page),
       limit: String(limit),
     });
-    if (status) params.set('status', status);
-    
-    return fetchWithAuth<{ data: Campaign[], total: number }>(`/campaigns?${params}`);
+    if (status) params.set("status", status);
+
+    return fetchWithAuth<{ data: Campaign[]; total: number }>(
+      `/campaigns?${params}`,
+    );
   },
 
   /**
@@ -37,8 +43,8 @@ export const broadcastApi = {
    * Create a new campaign
    */
   async createCampaign(dto: CreateCampaignDto): Promise<Campaign> {
-    return fetchWithAuth<Campaign>('/campaigns', {
-      method: 'POST',
+    return fetchWithAuth<Campaign>("/campaigns", {
+      method: "POST",
       body: JSON.stringify(dto),
     });
   },
@@ -48,7 +54,7 @@ export const broadcastApi = {
    */
   async updateCampaign(id: string, dto: UpdateCampaignDto): Promise<Campaign> {
     return fetchWithAuth<Campaign>(`/campaigns/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(dto),
     });
   },
@@ -58,7 +64,8 @@ export const broadcastApi = {
    */
   async sendCampaign(id: string): Promise<void> {
     return fetchWithAuth(`/campaigns/${id}/send`, {
-      method: 'POST',
+      method: "POST",
+      body: JSON.stringify({}),
     });
   },
 
@@ -67,7 +74,7 @@ export const broadcastApi = {
    */
   async scheduleCampaign(id: string, scheduledAt: string): Promise<void> {
     return fetchWithAuth(`/campaigns/${id}/schedule`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ scheduledAt }),
     });
   },
@@ -77,7 +84,8 @@ export const broadcastApi = {
    */
   async cancelCampaign(id: string): Promise<void> {
     return fetchWithAuth(`/campaigns/${id}/cancel`, {
-      method: 'POST',
+      method: "POST",
+      body: JSON.stringify({}),
     });
   },
 
@@ -85,9 +93,9 @@ export const broadcastApi = {
    * Preview audience count and quota for a filter
    */
   async previewAudience(filter: AudienceFilter): Promise<AudiencePreview> {
-    return fetchWithAuth<AudiencePreview>('/campaigns/audience/preview', {
-      method: 'POST',
-      body: JSON.stringify(filter),
+    return fetchWithAuth<AudiencePreview>("/campaigns/audience/preview", {
+      method: "POST",
+      body: JSON.stringify({ audienceFilter: filter }),
     });
   },
 
@@ -101,14 +109,21 @@ export const broadcastApi = {
   /**
    * Get per-message delivery log
    */
-  async getCampaignMessages(id: string, page = 1, limit = 50, status?: string): Promise<{ data: CampaignMessage[], total: number }> {
+  async getCampaignMessages(
+    id: string,
+    page = 1,
+    limit = 50,
+    status?: string,
+  ): Promise<{ data: CampaignMessage[]; total: number }> {
     const params = new URLSearchParams({
       page: String(page),
       limit: String(limit),
     });
-    if (status) params.set('status', status);
-    
-    return fetchWithAuth<{ data: CampaignMessage[], total: number }>(`/campaigns/${id}/messages?${params}`);
+    if (status) params.set("status", status);
+
+    return fetchWithAuth<{ data: CampaignMessage[]; total: number }>(
+      `/campaigns/${id}/messages?${params}`,
+    );
   },
 
   /**
@@ -122,13 +137,13 @@ export const broadcastApi = {
    * Get cross-campaign overview stats
    */
   async getOverview(): Promise<CampaignOverview> {
-    return fetchWithAuth<CampaignOverview>('/campaigns/analytics/overview');
+    return fetchWithAuth<CampaignOverview>("/campaigns/analytics/overview");
   },
 
   /**
    * Get current conversation quota status
    */
   async getQuota(): Promise<QuotaStatus> {
-    return fetchWithAuth<QuotaStatus>('/campaigns/quota');
-  }
+    return fetchWithAuth<QuotaStatus>("/campaigns/quota");
+  },
 };

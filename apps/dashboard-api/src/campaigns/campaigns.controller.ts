@@ -14,7 +14,9 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from "@nestjs/common";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CampaignsService } from "./campaigns.service";
 import { CampaignOrchestratorService } from "./campaign-orchestrator.service";
 import { CampaignAnalyticsService } from "./campaign-analytics.service";
@@ -26,6 +28,7 @@ import { CampaignQueryDto } from "./dto/campaign-query.dto";
 import { CampaignStatus } from "@lib/database";
 
 @Controller("campaigns")
+@UseGuards(JwtAuthGuard)
 export class CampaignsController {
   constructor(
     private readonly campaignsService: CampaignsService,
@@ -61,10 +64,7 @@ export class CampaignsController {
 
   /** Get a single campaign by ID. */
   @Get(":id")
-  async findOne(
-    @Req() req: any,
-    @Param("id", ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@Req() req: any, @Param("id", ParseUUIDPipe) id: string) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
     return this.campaignsService.findById(tenantId, id);
@@ -110,16 +110,18 @@ export class CampaignsController {
     return this.analytics.getErrorBreakdown(tenantId, id);
   }
 
-  /** Preview audience count with 24h window split and quota check. */
   @Post("audience/preview")
   @HttpCode(HttpStatus.OK)
-  async previewAudience(@Req() req: any, @Body() body: { audienceFilter: any }) {
+  async previewAudience(@Req() req: any, @Body() body: any) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
 
+    // Handle both { audienceFilter: ... } and direct filter object
+    const filter = body.audienceFilter || body;
+
     const split = await this.audienceService.countContactsWithWindowSplit(
       tenantId,
-      body.audienceFilter ?? null,
+      filter && filter.conditions ? filter : null,
     );
 
     const quotaCheck = await this.rateTracker.checkQuota(
@@ -129,19 +131,16 @@ export class CampaignsController {
 
     return {
       ...split,
-      quotaRemaining: quotaCheck.quotaStatus.remaining,
-      tierLimit: quotaCheck.quotaStatus.tierLimit,
-      businessSent24h: quotaCheck.quotaStatus.businessSent24h,
+      quotaStatus: quotaCheck.quotaStatus,
       canProceed: quotaCheck.canProceed,
       warning: quotaCheck.warning,
     };
   }
 
-  /** Create a new campaign (draft). */
   @Post()
   async create(@Req() req: any, @Body() dto: CreateCampaignDto) {
     const tenantId = req.user?.tenantId;
-    const userId = req.user?.sub;
+    const userId = req.user?.id;
     if (!tenantId || !userId) throw new Error("Auth context required");
     return this.campaignsService.create(tenantId, userId, dto);
   }
@@ -161,10 +160,7 @@ export class CampaignsController {
   /** Trigger immediate send for a campaign. */
   @Post(":id/send")
   @HttpCode(HttpStatus.ACCEPTED)
-  async send(
-    @Req() req: any,
-    @Param("id", ParseUUIDPipe) id: string,
-  ) {
+  async send(@Req() req: any, @Param("id", ParseUUIDPipe) id: string) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
     await this.orchestrator.execute(tenantId, id);
@@ -174,10 +170,7 @@ export class CampaignsController {
   /** Schedule a campaign for later execution. */
   @Post(":id/schedule")
   @HttpCode(HttpStatus.OK)
-  async schedule(
-    @Req() req: any,
-    @Param("id", ParseUUIDPipe) id: string,
-  ) {
+  async schedule(@Req() req: any, @Param("id", ParseUUIDPipe) id: string) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
 
@@ -193,10 +186,7 @@ export class CampaignsController {
   /** Cancel a running or scheduled campaign. */
   @Post(":id/cancel")
   @HttpCode(HttpStatus.OK)
-  async cancel(
-    @Req() req: any,
-    @Param("id", ParseUUIDPipe) id: string,
-  ) {
+  async cancel(@Req() req: any, @Param("id", ParseUUIDPipe) id: string) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new Error("Tenant context required");
     return this.campaignsService.cancel(tenantId, id);
