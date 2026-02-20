@@ -4,6 +4,7 @@ import { expand } from "dotenv-expand";
 import {
   UserEntity,
   EventEntity,
+  ContactSegmentEntity,
   SessionEntity,
   IdentityEntity,
   ProjectEntity,
@@ -83,6 +84,7 @@ export const AppDataSource = new DataSource({
     UserSessionEntity,
     SessionTakeoverRequestEntity,
     CampaignEntity,
+    ContactSegmentEntity,
     CampaignMessageEntity,
     CampaignScheduleEntity,
     EosEvent,

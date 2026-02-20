@@ -81,6 +81,10 @@ export class CampaignEntity {
    */
   @Column("jsonb", { nullable: true })
   audienceFilter: Record<string, unknown> | null;
+
+  /** Optional reference to a saved segment — filter is copied inline; this is for traceability. */
+  @Column({ type: "uuid", nullable: true })
+  segmentId: string | null;
   
   /** Reference to a pre-defined WhatsApp template. */
   @Column({ type: "uuid", nullable: true })

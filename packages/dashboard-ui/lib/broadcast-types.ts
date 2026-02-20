@@ -132,6 +132,7 @@ export interface CreateCampaignDto {
   templateId?: string;
   templateParams?: Record<string, string>;
   audienceFilter?: AudienceFilter;
+  segmentId?: string;
   sourceModule?: string;
   sourceReferenceId?: string;
   scheduledAt?: string;

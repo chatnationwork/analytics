@@ -103,6 +103,10 @@ export class CreateCampaignDto {
 
   @IsOptional()
   @IsString()
+  segmentId?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(50)
   sourceModule?: string;
 

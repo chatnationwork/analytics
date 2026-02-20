@@ -5,12 +5,14 @@ import Redis from "ioredis";
 import { redisConfig } from "@lib/common";
 import { DatabaseModule, SchedulerModule } from "@lib/database";
 import { CampaignsController } from "./campaigns.controller";
+import { SegmentsController } from "./segments.controller";
 import { CampaignsService } from "./campaigns.service";
 import { AudienceService } from "./audience.service";
 import { CampaignOrchestratorService } from "./campaign-orchestrator.service";
 import { CampaignSchedulerService } from "./campaign-scheduler.service";
 import { TriggerService } from "./trigger.service";
 import { CampaignAnalyticsService } from "./campaign-analytics.service";
+import { SegmentsService } from "./segments.service";
 import { RateTrackerService } from "./rate-tracker.service";
 import { TemplateRendererService } from "./template-renderer.service";
 import { SendWorker } from "./send.worker";
@@ -59,7 +61,7 @@ import { TemplatesModule } from "../templates/templates.module";
     SchedulerModule,
     TemplatesModule,
   ],
-  controllers: [CampaignsController],
+  controllers: [CampaignsController, SegmentsController],
   providers: [
     /**
      * Redis client for conversation quota tracking (rate-tracker.service).
@@ -84,6 +86,7 @@ import { TemplatesModule } from "../templates/templates.module";
     TriggerService,
     CampaignAnalyticsService,
     RateTrackerService,
+    SegmentsService,
     TemplateRendererService,
     SendWorker,
   ],

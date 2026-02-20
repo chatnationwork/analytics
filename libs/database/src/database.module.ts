@@ -64,6 +64,7 @@ import { UserSessionEntity } from "./entities/user-session.entity";
 import { SessionTakeoverRequestEntity } from "./entities/session-takeover-request.entity";
 import { EntityArchiveEntity } from "./entities/entity-archive.entity";
 import { CampaignEntity } from "./entities/campaign.entity";
+import { ContactSegmentEntity } from "./entities/contact-segment.entity";
 import { CampaignMessageEntity } from "./entities/campaign-message.entity";
 import { CampaignScheduleEntity } from "./entities/campaign-schedule.entity";
 import { EosEvent } from "./entities/eos-event.entity";
@@ -125,6 +126,7 @@ const entities = [
   CampaignEntity,
   CampaignMessageEntity,
   CampaignScheduleEntity,
+  ContactSegmentEntity,
   EosEvent,
   EosTicketType,
   EosTicket,

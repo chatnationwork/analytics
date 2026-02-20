@@ -17,7 +17,7 @@ import { CampaignQueryDto } from "./dto/campaign-query.dto";
 import { SchedulerService } from "@lib/database";
 import { CAMPAIGN_JOB_TYPE } from "./constants";
 import { AudienceService } from "./audience.service";
-
+import { SegmentsService } from "./segments.service";
 import { TemplatesService } from "../templates/templates.service";
 
 @Injectable()
@@ -28,7 +28,8 @@ export class CampaignsService {
     @InjectRepository(CampaignEntity)
     private readonly campaignRepo: Repository<CampaignEntity>,
     private readonly schedulerService: SchedulerService,
-    private readonly audienceService: AudienceService, // Wait, audienceService was missing in previous view? Check constructor args.
+    private readonly audienceService: AudienceService,
+    private readonly segmentsService: SegmentsService,
     private readonly templatesService: TemplatesService,
   ) {}
 
@@ -81,15 +82,25 @@ export class CampaignsService {
         throw new BadRequestException("Either messageTemplate or templateId must be provided");
     }
 
+    let audienceFilter: Record<string, unknown> | null = dto.audienceFilter
+      ? (dto.audienceFilter as unknown as Record<string, unknown>)
+      : null;
+    let segmentId: string | null = null;
+
+    if (dto.segmentId && !audienceFilter) {
+      const segment = await this.segmentsService.findById(tenantId, dto.segmentId);
+      audienceFilter = segment.filter as Record<string, unknown>;
+      segmentId = segment.id;
+    }
+
     const campaign = this.campaignRepo.create({
       tenantId,
       name: dto.name,
       type: dto.type,
       status: CampaignStatus.DRAFT,
       messageTemplate: messageTemplate,
-      audienceFilter: dto.audienceFilter
-        ? (dto.audienceFilter as unknown as Record<string, unknown>)
-        : null,
+      audienceFilter,
+      segmentId,
       sourceModule: dto.sourceModule ?? null,
       sourceReferenceId: dto.sourceReferenceId ?? null,
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
