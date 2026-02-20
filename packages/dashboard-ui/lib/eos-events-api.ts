@@ -6,6 +6,7 @@ import {
   EosSpeaker,
   EosLead,
   EosTicket,
+  EosEventMetrics,
 } from "../types/eos-events";
 
 export const eventsApi = {
@@ -210,5 +211,8 @@ export const eventsApi = {
   },
   getCampaignStats: async (id: string) => {
     return fetchWithAuth<any>(`/eos/events/${id}/campaign-stats`);
+  },
+  getMetrics: async (id: string) => {
+    return fetchWithAuth<EosEventMetrics>(`/eos/events/${id}/metrics`);
   },
 };

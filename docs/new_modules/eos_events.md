@@ -20,18 +20,18 @@ The EOS-Events Module enables "Organizers" (Primary Tenants) to create events, m
 
 ## 2. Architecture
 
-The module operates as a core service within `apps/dashboard-api/src/eos-events/`, interacting with:
+The module operates as a core service within `apps/dashboard-api/src/eos/`, interacting with:
 
 - **Campaigns module** (`TriggerService`) for WhatsApp message delivery.
 - **Billing module** (`WalletService`) for token reservation and debit on HypeCard generation.
 - **HypeCard module** (`generated_cards` table) for social asset creation.
 
 ```
-EosEventsController
+EosEventController
     |
-    +-- EventService (CRUD, venue layout)
-    +-- TicketService (purchase initiation, M-Pesa callback)
-    +-- LeadService (QR capture, AI intent, exhibitor notification)
+    +-- EosEventService (CRUD, venue layout)
+    +-- EosTicketService (purchase initiation, M-Pesa callback)
+    +-- EosLeadService (QR capture, AI intent, exhibitor notification)
             |
             +-- BullMQ Worker: LeadProcessorWorker (AI analysis)
             +-- BullMQ Worker: HypeCardWorker (card generation)
@@ -55,7 +55,7 @@ All tables use `organization_id` (UUID FK to `organizations.id`) for Row-Level S
 
 All tables already exist in `DATABASE_SCHEMA.md`. The entities below map directly to those tables. **Do not create new migrations for these tables.** New columns specific to this module are called out explicitly.
 
-### Table: `events`
+### Table: `eos_events`
 
 Defined in `DATABASE_SCHEMA.md §4.1`. The `settings` JSONB column stores EOS-specific flags:
 
@@ -77,7 +77,7 @@ Defined in `DATABASE_SCHEMA.md §4.1`. The `settings` JSONB column stores EOS-sp
 | `slug`            | VARCHAR(100) | Unique URL identifier                          |
 | `description`     | TEXT         |                                                |
 | `starts_at`       | TIMESTAMPTZ  | NOT NULL                                       |
-| `ends_at`         | TIMESTAMPTZ  | NOT NULL                                       |
+| `ends_at`       | TIMESTAMPTZ  | NOT NULL                                       |
 | `timezone`        | VARCHAR(50)  | Default `'Africa/Nairobi'`                     |
 | `venue_name`      | VARCHAR(255) |                                                |
 | `venue_address`   | TEXT         |                                                |
@@ -94,14 +94,14 @@ Defined in `DATABASE_SCHEMA.md §4.1`. The `settings` JSONB column stores EOS-sp
 
 ---
 
-### Table: `ticket_types`
+### Table: `eos_ticket_types`
 
 Defined in `DATABASE_SCHEMA.md §4.1`. No additions needed.
 
 | Column           | Type          | Notes                              |
 | ---------------- | ------------- | ---------------------------------- |
 | `id`             | UUID          | PK                                 |
-| `event_id`       | UUID          | FK → `events.id` ON DELETE CASCADE |
+| `event_id`       | UUID          | FK → `eos_events.id` ON DELETE CASCADE |
 | `name`           | VARCHAR(100)  | NOT NULL                           |
 | `description`    | TEXT          |                                    |
 | `price`          | DECIMAL(10,2) | NOT NULL, default 0                |
@@ -117,14 +117,14 @@ Defined in `DATABASE_SCHEMA.md §4.1`. No additions needed.
 
 ---
 
-### Table: `tickets`
+### Table: `eos_tickets`
 
 Defined in `DATABASE_SCHEMA.md §4.1`. The `payment_reference` column stores the M-Pesa `CheckoutRequestID`. The `hype_card_url` is stored as a `generated_cards` FK (see §4.4) — add the following column via migration:
 
 | Column              | Type          | Notes                                                            |
 | ------------------- | ------------- | ---------------------------------------------------------------- |
 | `id`                | UUID          | PK                                                               |
-| `ticket_type_id`    | UUID          | FK → `ticket_types.id`                                           |
+| `ticket_type_id`    | UUID          | FK → `eos_ticket_types.id`                                           |
 | `contact_id`        | UUID          | FK → `contacts.id`                                               |
 | `ticket_code`       | VARCHAR(20)   | UNIQUE NOT NULL. QR code value.                                  |
 | `qr_code_url`       | TEXT          | Public URL of QR image                                           |
@@ -140,18 +140,18 @@ Defined in `DATABASE_SCHEMA.md §4.1`. The `payment_reference` column stores the
 | `checked_in_at`     | TIMESTAMPTZ   |                                                                  |
 | `created_at`        | TIMESTAMPTZ   | Auto                                                             |
 
-**Migration required:** Add `payment_metadata JSONB` and `hype_card_id UUID REFERENCES generated_cards(id)` to the `tickets` table.
+**Migration required:** Add `payment_metadata JSONB` and `hype_card_id UUID REFERENCES generated_cards(id)` to the `eos_tickets` table.
 
 ---
 
-### Table: `exhibitors`
+### Table: `eos_exhibitors`
 
 Defined in `DATABASE_SCHEMA.md §4.1`. No additions needed. The `booth_location` JSONB (`{ x, y, width, height }`) is the source of truth for the venue grid renderer.
 
 | Column            | Type         | Notes                                                                      |
 | ----------------- | ------------ | -------------------------------------------------------------------------- |
 | `id`              | UUID         | PK                                                                         |
-| `event_id`        | UUID         | FK → `events.id` ON DELETE CASCADE                                         |
+| `event_id`        | UUID         | FK → `eos_events.id` ON DELETE CASCADE                                         |
 | `organization_id` | UUID         | FK → `organizations.id`. Nullable — only set if exhibitor has own account. |
 | `name`            | VARCHAR(255) | NOT NULL                                                                   |
 | `description`     | TEXT         |                                                                            |
@@ -168,14 +168,14 @@ Defined in `DATABASE_SCHEMA.md §4.1`. No additions needed. The `booth_location`
 
 ---
 
-### Table: `leads`
+### Table: `eos_leads`
 
 Defined in `DATABASE_SCHEMA.md §4.1`. Requires additional columns for AI enrichment. **ADD via migration:**
 
 | Column                | Type        | Notes                                                                                        |
 | --------------------- | ----------- | -------------------------------------------------------------------------------------------- |
 | `id`                  | UUID        | PK                                                                                           |
-| `exhibitor_id`        | UUID        | FK → `exhibitors.id` ON DELETE CASCADE                                                       |
+| `exhibitor_id`        | UUID        | FK → `eos_exhibitors.id` ON DELETE CASCADE                                                       |
 | `contact_id`          | UUID        | FK → `contacts.id`                                                                           |
 | `source`              | VARCHAR(50) | `qr_scan`, `chat`, `booth_visit`                                                             |
 | `notes`               | TEXT        | Manual exhibitor notes                                                                       |

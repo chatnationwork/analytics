@@ -86,3 +86,9 @@ export interface EosLead {
   aiIntent?: string;
   createdAt: string;
 }
+export interface EosEventMetrics {
+  totalTickets: number;
+  totalRevenue: number;
+  totalExhibitors: number;
+  checkIns: number;
+}
