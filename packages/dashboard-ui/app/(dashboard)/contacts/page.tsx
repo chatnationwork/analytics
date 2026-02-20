@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -157,7 +157,7 @@ function ContactProfileDialog({
   );
 }
 
-export default function ContactsPage() {
+function ContactsPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<"contacts" | "segments">(
@@ -589,5 +589,13 @@ export default function ContactsPage() {
         onOpenChange={setExportOpen}
       />
     </div>
+  );
+}
+
+export default function ContactsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-muted-foreground">Loading…</div>}>
+      <ContactsPageContent />
+    </Suspense>
   );
 }
