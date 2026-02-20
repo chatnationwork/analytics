@@ -348,4 +348,75 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
 
     return ticket;
   }
+
+  async bulkCheckIn(eventId: string, tickets: any[]): Promise<any> {
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as any[],
+    };
+
+    for (const item of tickets) {
+      let ticketCode: string;
+      let checkedInAt: Date = new Date();
+
+      if (typeof item === "string") {
+        ticketCode = item;
+      } else if (typeof item === "object" && item && item.ticketCode) {
+        ticketCode = item.ticketCode;
+        if (item.checkedInAt) {
+          checkedInAt = new Date(item.checkedInAt);
+        }
+      } else {
+        results.failed++;
+        results.errors.push({ item, error: "Invalid format" });
+        continue;
+      }
+
+      try {
+        const ticket = await this.ticketRepo.findOne({
+          where: {
+            ticketCode,
+            ticketType: { eventId },
+          },
+          relations: ["ticketType", "ticketType.event"],
+        });
+
+        if (!ticket) {
+          throw new Error("Invalid ticket code or not for this event");
+        }
+
+        if (ticket.status === "used") {
+          throw new Error("Ticket already used");
+        }
+
+        if (ticket.status !== "valid") {
+          throw new Error(`Ticket status is ${ticket.status}`);
+        }
+
+        // Mark used
+        ticket.status = "used";
+        ticket.checkedInAt = checkedInAt;
+        await this.ticketRepo.save(ticket);
+
+        // Fire check-in trigger
+        await this.triggerService.fire(CampaignTrigger.EVENT_CHECKIN, {
+          tenantId: ticket.ticketType.event.organizationId,
+          contactId: ticket.contactId,
+          context: {
+            ticketCode: ticket.ticketCode,
+            eventName: ticket.ticketType.event.name,
+            checkedInAt: ticket.checkedInAt.toISOString(),
+          },
+        });
+
+        results.success++;
+      } catch (e) {
+        results.failed++;
+        results.errors.push({ ticketCode, error: e.message });
+      }
+    }
+
+    return results;
+  }
 }

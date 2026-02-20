@@ -47,4 +47,16 @@ export class EosTicketController {
     }
     return this.ticketService.checkIn(body.ticketCode);
   }
+
+  @Post("check-ins/bulk")
+  @UseGuards(JwtAuthGuard)
+  bulkCheckIn(
+    @Param("eventId") eventId: string,
+    @Body() body: { tickets: any[] },
+  ) {
+    if (!Array.isArray(body.tickets)) {
+      throw new BadRequestException("tickets must be an array");
+    }
+    return this.ticketService.bulkCheckIn(eventId, body.tickets);
+  }
 }
