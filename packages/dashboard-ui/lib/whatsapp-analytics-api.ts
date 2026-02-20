@@ -193,12 +193,16 @@ export const whatsappAnalyticsApi = {
     file: File,
     mapping: Record<string, string>,
     strategy: "first" | "last" | "reject" = "last",
+    additionalTags?: string[],
   ) => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("mapping", JSON.stringify(mapping));
     formData.append("strategy", strategy);
-    
+    if (additionalTags && additionalTags.length > 0) {
+      formData.append("additionalTags", JSON.stringify(additionalTags));
+    }
+
     return fetchWithAuth(`/whatsapp-analytics/contacts/import-mapped`, {
       method: "POST",
       body: formData,

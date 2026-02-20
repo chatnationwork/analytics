@@ -212,6 +212,49 @@ export class CampaignsController {
     return this.campaignsService.cancel(tenantId, id);
   }
 
+  /** Duplicate a campaign as a new draft (for rerun or save-as-template). */
+  @Post(":id/duplicate")
+  @HttpCode(HttpStatus.CREATED)
+  async duplicate(
+    @Req() req: any,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: { asTemplate?: boolean } = {},
+  ) {
+    const tenantId = req.user?.tenantId;
+    const userId = req.user?.id;
+    if (!tenantId || !userId) throw new Error("Auth context required");
+    return this.campaignsService.duplicate(tenantId, userId, id, {
+      asTemplate: body?.asTemplate,
+    });
+  }
+
+  /** Rerun a completed campaign: duplicate and send immediately. */
+  @Post(":id/rerun")
+  @HttpCode(HttpStatus.ACCEPTED)
+  async rerun(@Req() req: any, @Param("id", ParseUUIDPipe) id: string) {
+    const tenantId = req.user?.tenantId;
+    const userId = req.user?.id;
+    if (!tenantId || !userId) throw new Error("Auth context required");
+
+    const source = await this.campaignsService.findById(tenantId, id);
+    if (source.status !== CampaignStatus.COMPLETED && source.status !== CampaignStatus.FAILED) {
+      throw new Error("Rerun is only available for completed or failed campaigns");
+    }
+
+    const duplicate = await this.campaignsService.duplicate(tenantId, userId, id, {
+      nameSuffix: "(Rerun)",
+    });
+    const campaign = await this.campaignsService.findById(tenantId, duplicate.id);
+    if (campaign.status !== CampaignStatus.DRAFT) {
+      throw new Error("Duplicate must be draft before send");
+    }
+    await this.orchestrator.execute(tenantId, duplicate.id);
+    return {
+      message: "Campaign rerun started",
+      campaignId: duplicate.id,
+    };
+  }
+
   /** Validate message template placeholders. */
   @Post("validate-template")
   @HttpCode(HttpStatus.OK)

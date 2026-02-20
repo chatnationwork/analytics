@@ -124,6 +124,10 @@ export class CampaignEntity {
   @Column("jsonb", { nullable: true })
   triggerConfig: Record<string, unknown> | null;
 
+  /** When true, campaign is a saved template for reuse (duplicate to run). */
+  @Column({ type: "boolean", default: false })
+  isTemplate: boolean;
+
   /** Platform user who created this campaign. */
   @Column("uuid", { nullable: true })
   createdBy: string | null;

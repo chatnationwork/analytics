@@ -206,6 +206,26 @@ export class CampaignsService {
         sourceModule: query.sourceModule,
       });
     }
+    if (query.search?.trim()) {
+      qb.andWhere("LOWER(c.name) LIKE LOWER(:search)", {
+        search: `%${query.search.trim()}%`,
+      });
+    }
+    if (query.dateFrom) {
+      qb.andWhere(
+        "(COALESCE(c.startedAt, c.scheduledAt, c.createdAt))::date >= (:dateFrom)::date",
+        { dateFrom: query.dateFrom },
+      );
+    }
+    if (query.dateTo) {
+      qb.andWhere(
+        "(COALESCE(c.startedAt, c.scheduledAt, c.createdAt))::date <= (:dateTo)::date",
+        { dateTo: query.dateTo },
+      );
+    }
+    if (query.isTemplate === true) {
+      qb.andWhere("c.isTemplate = :isTemplate", { isTemplate: true });
+    }
 
     qb.orderBy("c.createdAt", "DESC")
       .skip((page - 1) * limit)
@@ -213,6 +233,54 @@ export class CampaignsService {
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit };
+  }
+
+  /**
+   * Duplicate a campaign as a new draft (for rerun or save-as-template).
+   * Copies messageTemplate, audienceFilter, segmentId, templateId, templateParams.
+   */
+  async duplicate(
+    tenantId: string,
+    userId: string,
+    campaignId: string,
+    opts?: { asTemplate?: boolean; nameSuffix?: string },
+  ): Promise<CampaignEntity> {
+    const source = await this.findById(tenantId, campaignId);
+
+    const baseName = opts?.nameSuffix
+      ? `${source.name} ${opts.nameSuffix}`
+      : `${source.name} (Copy)`;
+
+    const copy = this.campaignRepo.create({
+      tenantId,
+      name: baseName,
+      type: source.type,
+      status: CampaignStatus.DRAFT,
+      messageTemplate: { ...source.messageTemplate },
+      audienceFilter: source.audienceFilter
+        ? (JSON.parse(JSON.stringify(source.audienceFilter)) as Record<string, unknown>)
+        : null,
+      segmentId: source.segmentId,
+      templateId: source.templateId,
+      templateParams: source.templateParams
+        ? { ...source.templateParams }
+        : null,
+      sourceModule: source.sourceModule,
+      sourceReferenceId: null,
+      recipientCount: 0,
+      scheduledAt: null,
+      startedAt: null,
+      completedAt: null,
+      estimatedCompletionAt: null,
+      triggerType: source.triggerType,
+      triggerConfig: source.triggerConfig
+        ? (JSON.parse(JSON.stringify(source.triggerConfig)) as Record<string, unknown>)
+        : null,
+      createdBy: userId,
+      isTemplate: opts?.asTemplate ?? false,
+    });
+
+    return this.campaignRepo.save(copy);
   }
 
   async update(
@@ -245,6 +313,7 @@ export class CampaignsService {
       campaign.templateId = dto.templateId ?? null;
     if (dto.templateParams !== undefined)
       campaign.templateParams = dto.templateParams ?? null;
+    if (dto.isTemplate !== undefined) campaign.isTemplate = dto.isTemplate;
 
     return this.campaignRepo.save(campaign);
   }

@@ -38,6 +38,8 @@ import {
   Pencil,
   Trash2,
   Users,
+  FileUp,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -46,6 +48,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { ImportWizard } from "./components/ImportWizard";
 import { ExportDialog } from "./components/ExportDialog";
+import { SegmentImportFlow } from "./components/SegmentImportFlow";
 
 const PAGE_SIZE = 20;
 
@@ -182,6 +185,7 @@ function ContactsPageContent() {
     conditions: [],
     logic: "AND",
   });
+  const [segmentCreateMode, setSegmentCreateMode] = useState<"rules" | "import">("rules");
   const [saving, setSaving] = useState(false);
 
   const queryClient = useQueryClient();
@@ -229,6 +233,7 @@ function ContactsPageContent() {
     setFormName("");
     setFormDescription("");
     setFormFilter({ conditions: [], logic: "AND" });
+    setSegmentCreateMode("rules");
     setSegmentDialogOpen(true);
   };
 
@@ -266,6 +271,33 @@ function ContactsPageContent() {
       loadSegments();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save segment");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImportComplete = async (importedCount: number) => {
+    if (!formName.trim()) return;
+    try {
+      setSaving(true);
+      await segmentsApi.create({
+        name: formName.trim(),
+        description: formDescription.trim() || undefined,
+        filter: {
+          conditions: [
+            { field: "tags", operator: "contains", value: formName.trim() },
+          ],
+          logic: "AND",
+        },
+      });
+      toast.success(
+        `Segment "${formName}" created with ${importedCount} imported contacts`
+      );
+      setSegmentDialogOpen(false);
+      loadSegments();
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-analytics-contacts"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create segment");
     } finally {
       setSaving(false);
     }
@@ -535,8 +567,9 @@ function ContactsPageContent() {
               {editingSegmentId ? "Edit Segment" : "New Segment"}
             </DialogTitle>
             <DialogDescription>
-              Define filter rules. The contact count updates automatically when
-              saved.
+              {editingSegmentId
+                ? "Update filter rules. The contact count updates automatically."
+                : "Define by rules or import contacts from a CSV. Phone mapping is required for imports."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -559,23 +592,75 @@ function ContactsPageContent() {
                 rows={2}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Audience Rules</Label>
-              <AudienceFilterBuilder
-                value={formFilter}
-                onChange={setFormFilter}
-              />
-            </div>
+
+            {editingSegmentId ? (
+              <div className="space-y-2">
+                <Label>Audience Rules</Label>
+                <AudienceFilterBuilder
+                  value={formFilter}
+                  onChange={setFormFilter}
+                />
+              </div>
+            ) : (
+              <Tabs
+                value={segmentCreateMode}
+                onValueChange={(v) => setSegmentCreateMode(v as "rules" | "import")}
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="rules" className="gap-2">
+                    <Filter className="w-4 h-4" />
+                    Define by rules
+                  </TabsTrigger>
+                  <TabsTrigger value="import" className="gap-2">
+                    <FileUp className="w-4 h-4" />
+                    Import from CSV
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="rules" className="mt-4">
+                  <div className="space-y-2">
+                    <Label>Audience Rules</Label>
+                    <AudienceFilterBuilder
+                      value={formFilter}
+                      onChange={setFormFilter}
+                    />
+                  </div>
+                  <DialogFooter className="mt-6">
+                    <Button variant="outline" onClick={() => setSegmentDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSaveSegment} disabled={saving}>
+                      {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Create
+                    </Button>
+                  </DialogFooter>
+                </TabsContent>
+                <TabsContent value="import" className="mt-4">
+                  {formName.trim() ? (
+                    <SegmentImportFlow
+                      segmentName={formName.trim()}
+                      onImportComplete={handleImportComplete}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-6 text-center">
+                      Enter a segment name above first. It will be used as the tag for imported contacts.
+                    </p>
+                  )}
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSegmentDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveSegment} disabled={saving}>
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {editingSegmentId ? "Update" : "Create"}
-            </Button>
-          </DialogFooter>
+
+          {editingSegmentId && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSegmentDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveSegment} disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Update
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 

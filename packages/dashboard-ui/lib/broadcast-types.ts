@@ -48,6 +48,7 @@ export interface Campaign {
   completedAt?: string;
   triggerType?: string;
   triggerConfig?: Record<string, any>;
+  isTemplate?: boolean;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -149,4 +150,5 @@ export interface UpdateCampaignDto {
   scheduledAt?: string;
   triggerType?: string;
   triggerConfig?: Record<string, any>;
+  isTemplate?: boolean;
 }

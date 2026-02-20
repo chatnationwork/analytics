@@ -311,6 +311,7 @@ export class WhatsappAnalyticsController {
     let buffer: Buffer | null = null;
     let mapping: Record<string, string> | null = null;
     let strategy: "first" | "last" | "reject" = "last";
+    let additionalTags: string[] = [];
 
     for await (const part of parts) {
       if (part.file) {
@@ -327,6 +328,16 @@ export class WhatsappAnalyticsController {
         if (part.fieldname === "strategy") {
           strategy = part.value as "first" | "last" | "reject";
         }
+        if (part.fieldname === "additionalTags") {
+          try {
+            const parsed = JSON.parse(part.value as string);
+            additionalTags = Array.isArray(parsed)
+              ? parsed.filter((t) => typeof t === "string")
+              : [];
+          } catch {
+            // Ignore invalid JSON
+          }
+        }
       }
     }
 
@@ -342,6 +353,7 @@ export class WhatsappAnalyticsController {
       buffer,
       mapping,
       strategy,
+      additionalTags,
     );
   }
 
