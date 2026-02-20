@@ -98,6 +98,8 @@ export class CrmIntegrationResponseDto {
   config: Record<string, any> | null;
   lastConnectedAt: string | null;
   lastError: string | null;
+  healthStatus: "healthy" | "auth_error" | "rate_limited";
+  authStatusLastChecked: string | null;
   createdAt: string;
 }
 

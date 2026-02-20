@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { AuditLogRepository } from "@lib/database";
 import { CrmIntegrationsService } from "../crm-integrations/crm-integrations.service";
 import { SystemMessagesService } from "../system-messages/system-messages.service";
 import { CampaignListResponse, ContactListResponse } from "@lib/crm-api";
@@ -107,6 +108,7 @@ export class WhatsappService {
   constructor(
     private readonly crmService: CrmIntegrationsService,
     private readonly systemMessages: SystemMessagesService,
+    private readonly auditLog: AuditLogRepository,
   ) {}
 
   /**
@@ -222,6 +224,25 @@ export class WhatsappService {
     };
   }
 
+  /**
+   * Get health alerts for WhatsApp integrations.
+   * Finds any active integrations with auth_error or rate_limited healthStatus.
+   */
+  async getHealthAlerts(tenantId: string) {
+    const integrations = await this.crmService.listIntegrations(tenantId);
+
+    return integrations
+      .filter((i) => i.healthStatus !== "healthy" || i.lastError)
+      .map((i) => ({
+        id: i.id,
+        name: i.name,
+        healthStatus: i.healthStatus,
+        lastError: i.lastError,
+        authStatusLastChecked: (i as any).authStatusLastChecked,
+        isActive: i.isActive,
+      }));
+  }
+
   async getCampaigns(tenantId: string, page: number = 1, limit: number = 20) {
     const client = await this.crmService.getClientForTenant(tenantId);
     if (!client) {
@@ -317,11 +338,49 @@ export class WhatsappService {
 
       if (!res.ok) {
         console.error("Error sending WhatsApp message:", data);
+
+        // Advanced Error Handling: Check for 401/Auth Errors
+        if (res.status === 401 || res.status === 403) {
+          await this.crmService.markIntegrationAuthError(
+            integration.id,
+            data.error?.message || "Authentication failed",
+          );
+        }
+
+        // Structured Delivery Failure Logging
+        await this.auditLog.create({
+          tenantId,
+          actorType: "system",
+          action: "whatsapp.message.failed",
+          resourceType: "crm_integration",
+          resourceId: integration.id,
+          details: {
+            to: finalNumber,
+            error: data.error?.message || "Unknown Meta API error",
+            errorCode: data.error?.code,
+            errorType: data.error?.type,
+            status: res.status,
+          },
+        });
+
         return {
           success: false,
           error: data.error?.message || "Failed to send message via WhatsApp",
         };
       }
+
+      // Successful Send Logging
+      await this.auditLog.create({
+        tenantId,
+        actorType: "system",
+        action: "whatsapp.message.sent",
+        resourceType: "crm_integration",
+        resourceId: integration.id,
+        details: {
+          to: finalNumber,
+          messageId: data.messages?.[0]?.id,
+        },
+      });
 
       return {
         success: true,
@@ -353,11 +412,15 @@ export class WhatsappService {
       base = web.replace(/\/$/, "") + "/csat";
     }
     if (params?.sessionId || params?.channel) {
-      const url = new URL(base);
-      if (params.sessionId)
-        url.searchParams.set("session_id", params.sessionId);
-      if (params.channel) url.searchParams.set("channel", params.channel);
-      return url.toString();
+      try {
+        const url = new URL(base);
+        if (params.sessionId)
+          url.searchParams.set("session_id", params.sessionId);
+        if (params.channel) url.searchParams.set("channel", params.channel);
+        return url.toString();
+      } catch (e) {
+        return base;
+      }
     }
     return base;
   }

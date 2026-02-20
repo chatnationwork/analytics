@@ -211,6 +211,22 @@ export class CrmIntegrationsService {
   }
 
   /**
+   * Mark an integration as having an authentication error.
+   */
+  async markIntegrationAuthError(id: string, error: string): Promise<void> {
+    await this.crmIntegrationRepository.markAuthError(id, error);
+    this.logger.warn(`CRM Integration ${id} marked with AUTH ERROR: ${error}`);
+  }
+
+  /**
+   * Mark an integration as rate limited.
+   */
+  async markIntegrationRateLimited(id: string, error: string): Promise<void> {
+    await this.crmIntegrationRepository.markRateLimited(id, error);
+    this.logger.warn(`CRM Integration ${id} marked as RATE LIMITED: ${error}`);
+  }
+
+  /**
    * Get a configured CRM client for a tenant.
    * Used by other services to make CRM API calls.
    */
@@ -305,6 +321,8 @@ export class CrmIntegrationsService {
     config: Record<string, any> | null;
     lastConnectedAt: Date | null;
     lastError: string | null;
+    healthStatus: "healthy" | "auth_error" | "rate_limited";
+    authStatusLastChecked: Date | null;
     createdAt: Date;
   }): CrmIntegrationResponseDto {
     return {
@@ -317,6 +335,9 @@ export class CrmIntegrationsService {
       config: entity.config,
       lastConnectedAt: entity.lastConnectedAt?.toISOString() ?? null,
       lastError: entity.lastError,
+      healthStatus: entity.healthStatus,
+      authStatusLastChecked:
+        entity.authStatusLastChecked?.toISOString() ?? null,
       createdAt: entity.createdAt.toISOString(),
     };
   }

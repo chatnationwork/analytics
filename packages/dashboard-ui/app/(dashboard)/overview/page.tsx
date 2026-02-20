@@ -25,6 +25,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { WhatsAppHealthAlerts } from "@/components/whatsapp/WhatsAppHealthAlerts";
 
 function getDefaultDateRange(): { start: string; end: string } {
   const end = new Date();
@@ -73,12 +74,7 @@ export default function OverviewPage() {
   });
 
   const { data: dailyUsers } = useQuery({
-    queryKey: [
-      "daily-users",
-      tenant?.tenantId,
-      dateRange.start,
-      dateRange.end,
-    ],
+    queryKey: ["daily-users", tenant?.tenantId, dateRange.start, dateRange.end],
     queryFn: () =>
       overviewEnhancedApi.getDailyActiveUsers(
         tenant?.tenantId,
@@ -240,7 +236,10 @@ export default function OverviewPage() {
           </div>
         </div>
 
+        <WhatsAppHealthAlerts />
+
         {/* Loading */}
+
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (

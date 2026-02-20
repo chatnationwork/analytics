@@ -13,6 +13,7 @@ import {
   Target,
   Users,
 } from "lucide-react";
+import { WhatsAppHealthAlerts } from "@/components/whatsapp/WhatsAppHealthAlerts";
 
 function toYYYYMMDD(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -161,7 +162,9 @@ export default function WhatsAppAnalyticsPage() {
 
   return (
     <div className="space-y-6">
+      <WhatsAppHealthAlerts />
       {/* Header + date filter */}
+
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -439,7 +442,6 @@ export default function WhatsAppAnalyticsPage() {
         <h3 className="font-medium text-foreground mb-6">Message Funnel</h3>
         <MessageFunnel data={funnel?.funnel ?? []} rates={funnel?.rates} />
       </div>
-
     </div>
   );
 }
@@ -615,7 +617,9 @@ function VolumeChart({ data }: { data: any[] }) {
             style={{ height: `${(val / max) * 100}%` }}
           />
           {i % 3 === 0 && (
-            <span className="text-[10px] text-muted-foreground shrink-0">{i}h</span>
+            <span className="text-[10px] text-muted-foreground shrink-0">
+              {i}h
+            </span>
           )}
           {val > 0 && (
             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-md">

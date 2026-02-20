@@ -3,9 +3,14 @@ import { WhatsappController } from "./whatsapp.controller";
 import { WhatsappService } from "./whatsapp.service";
 import { CrmIntegrationsModule } from "../crm-integrations/crm-integrations.module";
 import { SystemMessagesModule } from "../system-messages/system-messages.module";
+import { DatabaseModule } from "@lib/database";
 
 @Module({
-  imports: [CrmIntegrationsModule, SystemMessagesModule],
+  imports: [
+    DatabaseModule.forFeature(),
+    CrmIntegrationsModule,
+    SystemMessagesModule,
+  ],
   controllers: [WhatsappController],
   providers: [WhatsappService],
   exports: [WhatsappService],

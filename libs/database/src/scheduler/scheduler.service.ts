@@ -17,7 +17,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThanOrEqual, Repository, In } from "typeorm";
-import * as parser from "cron-parser";
+import parser from "cron-parser";
 
 import { ScheduleEntity } from "./schedule.entity";
 import {
@@ -278,7 +278,7 @@ export class SchedulerService {
    */
   computeNextRun(cronExpression: string): Date {
     try {
-      const interval = parser.parseExpression(cronExpression);
+      const interval = parser.parse(cronExpression);
       return interval.next().toDate();
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);

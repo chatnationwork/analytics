@@ -94,9 +94,20 @@ export class CrmIntegrationEntity {
   @Column({ type: "timestamptz", nullable: true })
   lastConnectedAt: Date | null;
 
-  /** Last connection error message */
   @Column({ type: "text", nullable: true })
   lastError: string | null;
+
+  /** Health status of the integration */
+  @Column({
+    type: "varchar",
+    length: 50,
+    default: "healthy",
+  })
+  healthStatus: "healthy" | "auth_error" | "rate_limited";
+
+  /** Last time the auth status was verified */
+  @Column({ type: "timestamptz", nullable: true })
+  authStatusLastChecked: Date | null;
 
   /** When the integration was created */
   @CreateDateColumn({ type: "timestamptz" })
