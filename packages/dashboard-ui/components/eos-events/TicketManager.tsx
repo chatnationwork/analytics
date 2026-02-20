@@ -147,7 +147,36 @@ export function TicketManager({ eventId }: TicketManagerProps) {
                   <TableCell className="font-mono text-sm">
                     {ticket.ticketCode}
                   </TableCell>
-                  <TableCell>{(ticket as any).ticketType?.name}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">
+                      {(ticket as any).ticketType?.name}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(ticket as any).ticketType?.metadata?.perks &&
+                        Object.entries(
+                          (ticket as any).ticketType.metadata.perks,
+                        )
+                          .filter(([_, isActive]) => isActive)
+                          .map(([key]) => {
+                            const labels: Record<string, string> = {
+                              vipLounge: "VIP Lounge",
+                              privateRoom: "Private Room",
+                              dedicatedCatering: "Catering",
+                              prioritySeating: "Priority Seat",
+                              vipEscort: "Escort",
+                            };
+                            return (
+                              <Badge
+                                key={key}
+                                variant="secondary"
+                                className="text-[10px] h-4 px-1 leading-none bg-primary/10 text-primary border-primary/20"
+                              >
+                                {labels[key] || key}
+                              </Badge>
+                            );
+                          })}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <TicketStatusBadge
                       status={ticket.status}
