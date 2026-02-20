@@ -44,6 +44,15 @@ export class EosExhibitor {
   @Column({ name: "logo_url", nullable: true, type: "text" })
   logoUrl: string;
 
+  @Column({ name: "brochure_url", nullable: true, type: "text" })
+  brochureUrl: string;
+
+  @Column({ name: "product_images", nullable: true, type: "text", array: true })
+  productImages: string[];
+
+  @Column({ name: "demo_video_url", nullable: true, type: "text" })
+  demoVideoUrl: string;
+
   @Column({ name: "booth_number", nullable: true, length: 50 })
   boothNumber: string;
 

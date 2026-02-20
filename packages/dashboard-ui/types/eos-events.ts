@@ -44,8 +44,23 @@ export interface EosExhibitor {
   name: string;
   description?: string;
   logoUrl?: string;
+  brochureUrl?: string;
+  productImages?: string[];
+  demoVideoUrl?: string;
   boothNumber?: string;
   boothLocation?: { x: number; y: number; width: number; height: number };
+  status: "pending" | "approved" | "rejected";
+}
+
+export interface EosSpeaker {
+  id: string;
+  eventId: string;
+  name: string;
+  bio?: string;
+  headshotUrl?: string;
+  talkTitle?: string;
+  sessionTime?: string;
+  presentationUrl?: string;
   status: "pending" | "approved" | "rejected";
 }
 

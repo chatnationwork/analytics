@@ -6,7 +6,13 @@ import { eventsApi } from "@/lib/eos-events-api";
 import { EosEvent, EosExhibitor, EosTicketType } from "@/types/eos-events";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VenueGrid } from "@/components/eos-events/VenueGrid";
 import { TicketTypeManager } from "@/components/eos-events/TicketTypeManager";
@@ -14,7 +20,15 @@ import { ExhibitorManager } from "@/components/eos-events/ExhibitorManager";
 import { TicketManager } from "@/components/eos-events/TicketManager";
 import { VenueMapEditor } from "@/components/eos-events/VenueMapEditor";
 import InviteModal from "@/components/eos-events/InviteModal";
-import { Loader2, CheckCircle2, AlertCircle, Circle, Send, BarChart3, ExternalLink } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Circle,
+  Send,
+  BarChart3,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -50,7 +64,9 @@ function CampaignStatsCard({ eventId }: { eventId: string }) {
     return (
       <div className="text-center py-8 bg-muted/30 rounded-lg border border-dashed">
         <Send className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-        <p className="text-sm text-muted-foreground">No invitations sent yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No invitations sent yet.
+        </p>
       </div>
     );
   }
@@ -60,19 +76,25 @@ function CampaignStatsCard({ eventId }: { eventId: string }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{stats.summary.totalInvitesSent}</div>
+            <div className="text-2xl font-bold">
+              {stats.summary.totalInvitesSent}
+            </div>
             <p className="text-xs text-muted-foreground">Total Invites Sent</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{stats.summary.totalTickets}</div>
+            <div className="text-2xl font-bold">
+              {stats.summary.totalTickets}
+            </div>
             <p className="text-xs text-muted-foreground">Tickets Issued</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{stats.summary.invitationConversionRate}%</div>
+            <div className="text-2xl font-bold">
+              {stats.summary.invitationConversionRate}%
+            </div>
             <p className="text-xs text-muted-foreground">Conversion Rate</p>
           </CardContent>
         </Card>
@@ -82,20 +104,32 @@ function CampaignStatsCard({ eventId }: { eventId: string }) {
         <h4 className="text-sm font-semibold">Recent Invitations</h4>
         <div className="border rounded-md divide-y">
           {stats.campaigns.map((c: any) => (
-            <div key={c.id} className="flex items-center justify-between p-3 text-sm">
+            <div
+              key={c.id}
+              className="flex items-center justify-between p-3 text-sm"
+            >
               <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${c.status === 'completed' ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`} />
+                <div
+                  className={`w-2 h-2 rounded-full ${c.status === "completed" ? "bg-green-500" : "bg-blue-500 animate-pulse"}`}
+                />
                 <div>
                   <div className="font-medium">{c.name}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(c.createdAt).toLocaleString()}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <div className="font-semibold">{c.sent}</div>
-                  <div className="text-[10px] uppercase text-muted-foreground">Recipients</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">
+                    Recipients
+                  </div>
                 </div>
-                <Link href={`/broadcast/${c.id}`} className="p-2 hover:bg-muted rounded-md text-blue-500">
+                <Link
+                  href={`/broadcast/${c.id}`}
+                  className="p-2 hover:bg-muted rounded-md text-blue-500"
+                >
                   <ExternalLink className="h-4 w-4" />
                 </Link>
               </div>
@@ -104,6 +138,70 @@ function CampaignStatsCard({ eventId }: { eventId: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function PublishReadinessCard({
+  items,
+  onTabChange,
+}: {
+  items: ReadinessItem[];
+  onTabChange: (tab: string) => void;
+}) {
+  const allDone = items.every((i) => i.done);
+
+  return (
+    <Card
+      className={`border-l-4 ${allDone ? "border-l-green-500 bg-green-500/5" : "border-l-amber-500 bg-amber-500/5"}`}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            {allDone ? (
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+            )}
+            Publish Readiness
+          </CardTitle>
+          <Badge
+            variant={allDone ? "default" : "outline"}
+            className={allDone ? "bg-green-500 hover:bg-green-600" : ""}
+          >
+            {items.filter((i) => i.done).length}/{items.length} Complete
+          </Badge>
+        </div>
+        <CardDescription>
+          {allDone
+            ? "Your event is ready to be published!"
+            : "Complete the following steps to publish your event."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {items.map((item, idx) => (
+            <div
+              key={idx}
+              className={`p-3 rounded-lg border flex items-center justify-between transition-colors cursor-pointer hover:bg-muted/50 ${item.done ? "bg-background border-green-500/20" : "bg-background border-dashed"}`}
+              onClick={() => item.tab && onTabChange(item.tab)}
+            >
+              <div className="flex items-center gap-2">
+                {item.done ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Circle className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span
+                  className={`text-sm ${item.done ? "font-medium" : "text-muted-foreground"}`}
+                >
+                  {item.label}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -203,7 +301,11 @@ export default function EosEventDetailsPage() {
         </div>
         <div className="flex gap-2">
           {event.status === "published" && (
-            <Button variant="outline" className="gap-2" onClick={() => setIsInviteModalOpen(true)}>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setIsInviteModalOpen(true)}
+            >
               <Send className="h-4 w-4" />
               Send Invitations
             </Button>
@@ -247,7 +349,11 @@ export default function EosEventDetailsPage() {
                 <BarChart3 className="h-5 w-5" />
                 Invitation Performance
               </CardTitle>
-              <Button size="sm" onClick={() => setIsInviteModalOpen(true)} disabled={event.status !== "published"}>
+              <Button
+                size="sm"
+                onClick={() => setIsInviteModalOpen(true)}
+                disabled={event.status !== "published"}
+              >
                 New Invitation
               </Button>
             </CardHeader>

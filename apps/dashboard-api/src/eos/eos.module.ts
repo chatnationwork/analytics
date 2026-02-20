@@ -7,6 +7,7 @@ import {
   EosTicketType,
   EosTicket,
   EosExhibitor,
+  EosSpeaker,
   EosLead,
   ContactEntity,
   IdentityEntity,
@@ -19,6 +20,7 @@ import {
 import { EosEventController } from "./eos-event.controller";
 import { EosTicketController } from "./eos-ticket.controller";
 import { EosExhibitorController } from "./eos-exhibitor.controller";
+import { EosSpeakerController } from "./eos-speaker.controller";
 import { EosTicketTypeController } from "./eos-ticket-type.controller";
 import { EosLeadController } from "./eos-lead.controller";
 import { EosPublicController } from "./eos-public.controller";
@@ -28,6 +30,7 @@ import { EosTicketService } from "./eos-ticket.service";
 import { EosLeadService } from "./eos-lead.service";
 import { EosTicketTypeService } from "./eos-ticket-type.service";
 import { EosExhibitorService } from "./eos-exhibitor.service";
+import { EosSpeakerService } from "./eos-speaker.service";
 import { GeneratedCardService } from "./generated-card.service";
 import { EosAnalyticsService } from "./eos-analytics.service";
 
@@ -47,6 +50,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
       EosTicketType,
       EosTicket,
       EosExhibitor,
+      EosSpeaker,
       EosLead,
       ContactEntity,
       IdentityEntity,
@@ -66,6 +70,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     EosEventController,
     EosTicketController,
     EosExhibitorController,
+    EosSpeakerController,
     EosTicketTypeController,
     EosLeadController,
     EosPublicController,
@@ -76,6 +81,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     EosLeadService,
     EosTicketTypeService,
     EosExhibitorService,
+    EosSpeakerService,
     GeneratedCardService,
     EosAnalyticsService,
     LeadProcessorWorker,

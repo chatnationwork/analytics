@@ -7,12 +7,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { EosExhibitorService } from "./eos-exhibitor.service";
+import { EosSpeakerService } from "./eos-speaker.service";
 import { EosEventService } from "./eos-event.service";
 
 @Controller("eos/public")
 export class EosPublicController {
   constructor(
     private readonly exhibitorService: EosExhibitorService,
+    private readonly speakerService: EosSpeakerService,
     private readonly eventService: EosEventService,
   ) {}
 
@@ -84,5 +86,61 @@ export class EosPublicController {
       body.ticketCode,
       body.notes,
     );
+  }
+
+  // --- Speaker Portal ---
+
+  @Get("speakers/portal/:token")
+  async getSpeakerPortalInfo(@Param("token") token: string) {
+    const speaker = await this.speakerService.findByToken(token);
+    if (!speaker) throw new NotFoundException("Speaker portal not found");
+
+    return {
+      speaker,
+      event: {
+        id: speaker.event.id,
+        name: speaker.event.name,
+        coverImageUrl: speaker.event.coverImageUrl,
+      },
+    };
+  }
+
+  @Post("speakers/portal/:token/update")
+  async updateSpeakerPortal(@Param("token") token: string, @Body() body: any) {
+    const speaker = await this.speakerService.findByToken(token);
+    if (!speaker) throw new NotFoundException("Speaker portal not found");
+
+    return this.speakerService.update(speaker.id, body);
+  }
+
+  // --- Exhibitor Portal (Expanded) ---
+
+  @Get("exhibitors/portal/:token")
+  async getExhibitorPortalInfo(@Param("token") token: string) {
+    // Reusing invitation token for portal access for now, or could use booth token
+    const exhibitor = await this.exhibitorService.findByToken(token);
+    if (!exhibitor) throw new NotFoundException("Exhibitor portal not found");
+
+    const event = await this.eventService.findOnePublic(exhibitor.eventId);
+
+    return {
+      exhibitor,
+      event: {
+        id: event.id,
+        name: event.name,
+        coverImageUrl: event.coverImageUrl,
+      },
+    };
+  }
+
+  @Post("exhibitors/portal/:token/update")
+  async updateExhibitorPortal(
+    @Param("token") token: string,
+    @Body() body: any,
+  ) {
+    const exhibitor = await this.exhibitorService.findByToken(token);
+    if (!exhibitor) throw new NotFoundException("Exhibitor portal not found");
+
+    return this.exhibitorService.update(exhibitor.id, body);
   }
 }
