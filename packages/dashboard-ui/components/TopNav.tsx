@@ -55,8 +55,6 @@ const navGroups = [
       },
       { href: "/team-management", label: "Team Management", icon: Users },
       { href: "/eos-events", label: "EOS Events", icon: Activity },
-      { href: "/eos/exhibitor", label: "Exhibitors", icon: Store },
-      { href: "/eos/speaker", label: "Speakers", icon: Mic },
       { href: "/broadcast", label: "Broadcast", icon: Megaphone },
     ],
   },
