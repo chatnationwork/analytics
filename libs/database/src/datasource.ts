@@ -4,6 +4,7 @@ import { expand } from "dotenv-expand";
 import {
   UserEntity,
   EventEntity,
+  ContactSegmentEntity,
   SessionEntity,
   IdentityEntity,
   ProjectEntity,
@@ -41,6 +42,7 @@ import {
   GeneratedCard,
   TemplateEntity,
 } from "./entities";
+import { TemplateEntity } from "./entities/template.entity";
 import { UserSessionEntity } from "./entities/user-session.entity";
 import { SessionTakeoverRequestEntity } from "./entities/session-takeover-request.entity";
 
@@ -85,6 +87,7 @@ export const AppDataSource = new DataSource({
     UserSessionEntity,
     SessionTakeoverRequestEntity,
     CampaignEntity,
+    ContactSegmentEntity,
     CampaignMessageEntity,
     CampaignScheduleEntity,
     TemplateEntity,

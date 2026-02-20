@@ -81,6 +81,10 @@ export class CampaignEntity {
    */
   @Column("jsonb", { nullable: true })
   audienceFilter: Record<string, unknown> | null;
+
+  /** Optional reference to a saved segment — filter is copied inline; this is for traceability. */
+  @Column({ type: "uuid", nullable: true })
+  segmentId: string | null;
   
   /** Reference to a pre-defined WhatsApp template. */
   @Column({ type: "uuid", nullable: true })
@@ -119,6 +123,10 @@ export class CampaignEntity {
   /** Trigger-specific config (e.g. filter by eventId). */
   @Column("jsonb", { nullable: true })
   triggerConfig: Record<string, unknown> | null;
+
+  /** When true, campaign is a saved template for reuse (duplicate to run). */
+  @Column({ type: "boolean", default: false })
+  isTemplate: boolean;
 
   /** Platform user who created this campaign. */
   @Column("uuid", { nullable: true })

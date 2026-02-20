@@ -5,8 +5,9 @@ import {
   IsDateString,
   MaxLength,
   ValidateNested,
+  IsBoolean,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 import { AudienceFilterDto } from "./create-campaign.dto";
 
 export class UpdateCampaignDto {
@@ -44,4 +45,9 @@ export class UpdateCampaignDto {
   @IsOptional()
   @IsObject()
   templateParams?: Record<string, string>;
+
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  isTemplate?: boolean;
 }

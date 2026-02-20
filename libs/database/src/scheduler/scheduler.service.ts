@@ -278,7 +278,7 @@ export class SchedulerService {
    */
   computeNextRun(cronExpression: string): Date {
     try {
-      const interval = parser.parse(cronExpression);
+      const interval = parser.CronExpressionParser.parse(cronExpression);
       return interval.next().toDate();
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);

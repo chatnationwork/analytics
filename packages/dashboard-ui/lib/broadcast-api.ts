@@ -12,24 +12,46 @@ import {
   CampaignError,
 } from "./broadcast-types";
 
+export interface CampaignListParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  isTemplate?: boolean;
+}
+
 export const broadcastApi = {
   /**
-   * List campaigns with optional filtering
+   * List campaigns with optional filtering and pagination
    */
   async listCampaigns(
     page = 1,
     limit = 20,
-    status?: string,
-  ): Promise<{ data: Campaign[]; total: number }> {
+    filters?: CampaignListParams | string,
+  ): Promise<{ data: Campaign[]; total: number; page: number; limit: number }> {
     const params = new URLSearchParams({
       page: String(page),
       limit: String(limit),
     });
-    if (status) params.set("status", status);
+    if (typeof filters === "string") {
+      if (filters) params.set("status", filters);
+    } else if (filters) {
+      if (filters.status) params.set("status", filters.status);
+      if (filters.search) params.set("search", filters.search);
+      if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
+      if (filters.dateTo) params.set("dateTo", filters.dateTo);
+      if (filters.isTemplate !== undefined)
+        params.set("isTemplate", String(filters.isTemplate));
+    }
 
-    return fetchWithAuth<{ data: Campaign[]; total: number }>(
-      `/campaigns?${params}`,
-    );
+    return fetchWithAuth<{
+      data: Campaign[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(`/campaigns?${params}`);
   },
 
   /**
@@ -95,6 +117,29 @@ export const broadcastApi = {
    */
   async cancelCampaign(id: string): Promise<void> {
     return fetchWithAuth(`/campaigns/${id}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
+  /**
+   * Duplicate a campaign as a new draft (for rerun or save-as-template)
+   */
+  async duplicateCampaign(
+    id: string,
+    opts?: { asTemplate?: boolean },
+  ): Promise<Campaign> {
+    return fetchWithAuth<Campaign>(`/campaigns/${id}/duplicate`, {
+      method: "POST",
+      body: JSON.stringify(opts ?? {}),
+    });
+  },
+
+  /**
+   * Rerun a completed campaign: duplicate and send immediately
+   */
+  async rerunCampaign(id: string): Promise<{ campaignId: string }> {
+    return fetchWithAuth<{ campaignId: string }>(`/campaigns/${id}/rerun`, {
       method: "POST",
       body: JSON.stringify({}),
     });

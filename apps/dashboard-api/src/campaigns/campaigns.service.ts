@@ -17,7 +17,7 @@ import { CampaignQueryDto } from "./dto/campaign-query.dto";
 import { SchedulerService } from "@lib/database";
 import { CAMPAIGN_JOB_TYPE } from "./constants";
 import { AudienceService } from "./audience.service";
-
+import { SegmentsService } from "./segments.service";
 import { TemplatesService } from "../templates/templates.service";
 
 @Injectable()
@@ -28,7 +28,8 @@ export class CampaignsService {
     @InjectRepository(CampaignEntity)
     private readonly campaignRepo: Repository<CampaignEntity>,
     private readonly schedulerService: SchedulerService,
-    private readonly audienceService: AudienceService, // Wait, audienceService was missing in previous view? Check constructor args.
+    private readonly audienceService: AudienceService,
+    private readonly segmentsService: SegmentsService,
     private readonly templatesService: TemplatesService,
   ) {}
 
@@ -99,15 +100,25 @@ export class CampaignsService {
       );
     }
 
-    const campaign: CampaignEntity = this.campaignRepo.create({
+    let audienceFilter: Record<string, unknown> | null = dto.audienceFilter
+      ? (dto.audienceFilter as unknown as Record<string, unknown>)
+      : null;
+    let segmentId: string | null = null;
+
+    if (dto.segmentId && !audienceFilter) {
+      const segment = await this.segmentsService.findById(tenantId, dto.segmentId);
+      audienceFilter = segment.filter as Record<string, unknown>;
+      segmentId = segment.id;
+    }
+
+    const campaign = this.campaignRepo.create({
       tenantId,
       name: dto.name,
       type: dto.type,
       status: CampaignStatus.DRAFT,
       messageTemplate: messageTemplate,
-      audienceFilter: dto.audienceFilter
-        ? (dto.audienceFilter as unknown as Record<string, unknown>)
-        : null,
+      audienceFilter,
+      segmentId,
       sourceModule: dto.sourceModule ?? null,
       sourceReferenceId: dto.sourceReferenceId ?? null,
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
@@ -122,12 +133,6 @@ export class CampaignsService {
 
     // Handle recurrence
     if (dto.recurrence) {
-      if (!dto.scheduledAt) {
-        // If scheduledAt is missing but recurrence is present, use recurrence startDate + time
-        // validation should probably ensure this?
-        // For now, let's assume valid.
-      }
-
       const cron = this.generateCronExpression(dto.recurrence);
 
       // Calculate start date properly combining startDate and time
@@ -145,11 +150,12 @@ export class CampaignsService {
         metadata: { campaignName: saved.name },
       });
 
-      // Update campaign status to SCHEDULED if not already
-      if (saved.status === CampaignStatus.DRAFT) {
-        saved.status = CampaignStatus.SCHEDULED;
-        await this.campaignRepo.save(saved);
-      }
+      saved.status = CampaignStatus.SCHEDULED;
+      await this.campaignRepo.save(saved);
+    } else if (dto.scheduledAt) {
+      // One-time scheduled campaign: promote status so the cron picks it up
+      saved.status = CampaignStatus.SCHEDULED;
+      await this.campaignRepo.save(saved);
     }
 
     return saved;
@@ -231,6 +237,26 @@ export class CampaignsService {
         sourceModule: query.sourceModule,
       });
     }
+    if (query.search?.trim()) {
+      qb.andWhere("LOWER(c.name) LIKE LOWER(:search)", {
+        search: `%${query.search.trim()}%`,
+      });
+    }
+    if (query.dateFrom) {
+      qb.andWhere(
+        "(COALESCE(c.startedAt, c.scheduledAt, c.createdAt))::date >= (:dateFrom)::date",
+        { dateFrom: query.dateFrom },
+      );
+    }
+    if (query.dateTo) {
+      qb.andWhere(
+        "(COALESCE(c.startedAt, c.scheduledAt, c.createdAt))::date <= (:dateTo)::date",
+        { dateTo: query.dateTo },
+      );
+    }
+    if (query.isTemplate === true) {
+      qb.andWhere("c.isTemplate = :isTemplate", { isTemplate: true });
+    }
 
     qb.orderBy("c.createdAt", "DESC")
       .skip((page - 1) * limit)
@@ -238,6 +264,54 @@ export class CampaignsService {
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit };
+  }
+
+  /**
+   * Duplicate a campaign as a new draft (for rerun or save-as-template).
+   * Copies messageTemplate, audienceFilter, segmentId, templateId, templateParams.
+   */
+  async duplicate(
+    tenantId: string,
+    userId: string,
+    campaignId: string,
+    opts?: { asTemplate?: boolean; nameSuffix?: string },
+  ): Promise<CampaignEntity> {
+    const source = await this.findById(tenantId, campaignId);
+
+    const baseName = opts?.nameSuffix
+      ? `${source.name} ${opts.nameSuffix}`
+      : `${source.name} (Copy)`;
+
+    const copy = this.campaignRepo.create({
+      tenantId,
+      name: baseName,
+      type: source.type,
+      status: CampaignStatus.DRAFT,
+      messageTemplate: { ...source.messageTemplate },
+      audienceFilter: source.audienceFilter
+        ? (JSON.parse(JSON.stringify(source.audienceFilter)) as Record<string, unknown>)
+        : null,
+      segmentId: source.segmentId,
+      templateId: source.templateId,
+      templateParams: source.templateParams
+        ? { ...source.templateParams }
+        : null,
+      sourceModule: source.sourceModule,
+      sourceReferenceId: null,
+      recipientCount: 0,
+      scheduledAt: null,
+      startedAt: null,
+      completedAt: null,
+      estimatedCompletionAt: null,
+      triggerType: source.triggerType,
+      triggerConfig: source.triggerConfig
+        ? (JSON.parse(JSON.stringify(source.triggerConfig)) as Record<string, unknown>)
+        : null,
+      createdBy: userId,
+      isTemplate: opts?.asTemplate ?? false,
+    });
+
+    return this.campaignRepo.save(copy);
   }
 
   async update(
@@ -268,6 +342,7 @@ export class CampaignsService {
       campaign.templateId = dto.templateId ?? null;
     if (dto.templateParams !== undefined)
       campaign.templateParams = dto.templateParams ?? null;
+    if (dto.isTemplate !== undefined) campaign.isTemplate = dto.isTemplate;
 
     return this.campaignRepo.save(campaign);
   }

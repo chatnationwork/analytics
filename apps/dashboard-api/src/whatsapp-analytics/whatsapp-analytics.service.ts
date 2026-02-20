@@ -752,6 +752,7 @@ export class WhatsappAnalyticsService {
     buffer: Buffer,
     mapping: Record<string, string>,
     strategy: "first" | "last" | "reject" = "last",
+    additionalTags: string[] = [],
   ) {
     const { parse } = await import("csv-parse/sync");
     const { normalizeContactIdDigits } = await import("@lib/database");
@@ -832,6 +833,15 @@ export class WhatsappAnalyticsService {
       }
 
       contactData.contactId = normalized;
+
+      // Apply additional tags (e.g. segment name) to every imported contact
+      if (additionalTags.length > 0) {
+        const extra = additionalTags
+          .filter(Boolean)
+          .map((t) => t.trim())
+          .filter(Boolean);
+        contactData.tags = [...new Set([...(contactData.tags || []), ...extra])];
+      }
 
       if (contactsMap.has(normalized)) {
         if (strategy === "reject") {

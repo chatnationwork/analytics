@@ -53,6 +53,7 @@ export * from "./user-session.entity";
 export * from "./session-takeover-request.entity";
 export * from "./entity-archive.entity";
 export * from "./campaign.entity";
+export * from "./contact-segment.entity";
 export * from "./campaign-message.entity";
 export * from "./campaign-schedule.entity";
 export * from "./eos-event.entity";

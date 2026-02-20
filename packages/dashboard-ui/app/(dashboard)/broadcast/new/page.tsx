@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { AudienceFilterBuilder } from "../components/AudienceFilterBuilder";
+import { SegmentSelector } from "@/components/campaigns/SegmentSelector";
 import { AudiencePreviewCard } from "../components/AudiencePreviewCard";
 import { broadcastApi } from "@/lib/broadcast-api";
 import { CreateCampaignDto, AudienceFilter, AudiencePreview, CampaignType } from "@/lib/broadcast-types";
@@ -51,6 +51,7 @@ export default function NewCampaignPage() {
 
   const [scheduledAt, setScheduledAt] = useState("");
   const [filter, setFilter] = useState<AudienceFilter>({ conditions: [], logic: "AND" });
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   
   // Preview State
   const [preview, setPreview] = useState<AudiencePreview | null>(null);
@@ -128,7 +129,9 @@ export default function NewCampaignPage() {
       const payload: CreateCampaignDto = {
         name,
         type,
-        audienceFilter: filter,
+        ...(selectedSegmentId
+          ? { segmentId: selectedSegmentId }
+          : { audienceFilter: filter }),
         scheduledAt: type === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
       };
 
@@ -156,10 +159,16 @@ export default function NewCampaignPage() {
       }
 
       const campaign = await broadcastApi.createCampaign(payload);
-      
+
       if (type === "manual") {
         await broadcastApi.sendCampaign(campaign.id);
         toast.success("Campaign launched!", { description: "Messages are being queued." });
+      } else if (type === "scheduled" && scheduledAt && !isRecurring) {
+        // Ensure one-time scheduled campaigns are promoted to SCHEDULED status
+        await broadcastApi.scheduleCampaign(campaign.id, new Date(scheduledAt).toISOString());
+        toast.success("Campaign scheduled!", {
+          description: `Will run on ${new Date(scheduledAt).toLocaleString()}.`,
+        });
       } else {
         toast.success("Campaign created", { description: "Your campaign has been saved." });
       }
@@ -512,7 +521,11 @@ export default function NewCampaignPage() {
                   )}
 
                   {step === 2 && (
-                     <AudienceFilterBuilder value={filter} onChange={setFilter} />
+                     <SegmentSelector
+                       value={filter}
+                       onChange={setFilter}
+                       onSegmentSelect={(id) => setSelectedSegmentId(id)}
+                     />
                   )}
 
                   {step === 3 && preview && (
