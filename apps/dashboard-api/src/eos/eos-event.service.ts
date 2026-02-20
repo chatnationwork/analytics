@@ -136,6 +136,40 @@ export class EosEventService implements OnModuleInit {
     };
   }
 
+  async updateVenueLayout(
+    organizationId: string,
+    eventId: string,
+    layout: {
+      grid: { cols: number; rows: number };
+      slots: any[];
+    },
+  ): Promise<EosEvent> {
+    const event = await this.findOne(organizationId, eventId);
+
+    // Basic validation: ensure slot IDs and names are unique within the layout
+    const slotIds = new Set();
+    const slotNames = new Set();
+    for (const slot of layout.slots) {
+      if (slotIds.has(slot.id)) {
+        throw new BadRequestException(`Duplicate slot ID: ${slot.id}`);
+      }
+      if (slot.name && slotNames.has(slot.name)) {
+        throw new BadRequestException(`Duplicate slot name: ${slot.name}`);
+      }
+      slotIds.add(slot.id);
+      if (slot.name) {
+        slotNames.add(slot.name);
+      }
+    }
+
+    event.settings = {
+      ...(event.settings || {}),
+      venue_map_config: layout,
+    };
+
+    return this.eventRepo.save(event);
+  }
+
   async publishEvent(
     organizationId: string,
     eventId: string,
@@ -495,5 +529,38 @@ export class EosEventService implements OnModuleInit {
     }
 
     return { notifiedCount: exhibitors.length };
+  }
+
+  /**
+   * Aggregate event metrics: tickets, revenue, exhibitors, and check-ins.
+   */
+  async getEventMetrics(organizationId: string, eventId: string) {
+    // 1. Verify event exists and belongs to org
+    await this.findOne(organizationId, eventId);
+
+    // 2. Aggregate Ticket Metrics
+    const ticketMetrics = await this.ticketRepo
+      .createQueryBuilder("ticket")
+      .innerJoin("ticket.ticketType", "ticketType")
+      .where("ticketType.eventId = :eventId", { eventId })
+      .select("COUNT(ticket.id)", "totalTickets")
+      .addSelect("SUM(ticket.amount_paid)", "totalRevenue")
+      .addSelect(
+        "COUNT(CASE WHEN ticket.checkedInAt IS NOT NULL THEN 1 END)",
+        "checkIns",
+      )
+      .getRawOne();
+
+    // 3. Count Exhibitors
+    const exhibitorCount = await this.exhibitorRepo.count({
+      where: { eventId },
+    });
+
+    return {
+      totalTickets: parseInt(ticketMetrics.totalTickets || "0", 10),
+      totalRevenue: parseFloat(ticketMetrics.totalRevenue || "0"),
+      totalExhibitors: exhibitorCount,
+      checkIns: parseInt(ticketMetrics.checkIns || "0", 10),
+    };
   }
 }

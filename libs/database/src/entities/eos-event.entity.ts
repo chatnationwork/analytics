@@ -21,6 +21,7 @@ export interface VenueSlot {
 }
 
 export interface VenueMapConfig {
+  grid: { cols: number; rows: number };
   slots: VenueSlot[];
 }
 

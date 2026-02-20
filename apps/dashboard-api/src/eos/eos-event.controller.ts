@@ -53,6 +53,20 @@ export class EosEventController {
     return this.eventService.getVenueLayout(req.user.tenantId, id);
   }
 
+  @Patch(":id/venue-layout")
+  updateVenueLayout(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() layout: any,
+  ) {
+    return this.eventService.updateVenueLayout(req.user.tenantId, id, layout);
+  }
+
+  @Get(":id/metrics")
+  getMetrics(@Req() req: any, @Param("id") id: string) {
+    return this.eventService.getEventMetrics(req.user.tenantId, id);
+  }
+
   @Post(":id/cancel")
   cancel(@Req() req: any, @Param("id") id: string) {
     return this.eventService.cancelEvent(req.user.tenantId, id);
