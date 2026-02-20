@@ -35,6 +35,7 @@ export interface EosTicketType {
   quantityTotal?: number;
   quantitySold: number;
   isActive: boolean;
+  metadata?: Record<string, any>;
 }
 
 export interface EosExhibitor {

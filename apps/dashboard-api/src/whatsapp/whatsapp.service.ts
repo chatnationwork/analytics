@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { CrmIntegrationsService } from "../crm-integrations/crm-integrations.service";
 import { SystemMessagesService } from "../system-messages/system-messages.service";
 import { CampaignListResponse, ContactListResponse } from "@lib/crm-api";
@@ -46,13 +46,20 @@ export type WhatsAppSendPayload =
         };
         phones?: Array<{
           phone?: string;
-          type?: "HOME" | "WORK" | "CELL" | "MAIN" | "IPHONE" | "HOME_FAX" | "WORK_FAX" | "PAGER";
+          type?:
+            | "HOME"
+            | "WORK"
+            | "CELL"
+            | "MAIN"
+            | "IPHONE"
+            | "HOME_FAX"
+            | "WORK_FAX"
+            | "PAGER";
           wa_id?: string;
         }>;
         urls?: Array<{ url?: string; type?: "HOME" | "WORK" }>;
       }>;
     }
-
   | {
       type: "location";
       location: {
@@ -95,6 +102,8 @@ export interface WhatsappOverviewDto {
 
 @Injectable()
 export class WhatsappService {
+  private readonly logger = new Logger(WhatsappService.name);
+
   constructor(
     private readonly crmService: CrmIntegrationsService,
     private readonly systemMessages: SystemMessagesService,
@@ -291,6 +300,7 @@ export class WhatsappService {
     };
 
     try {
+      this.logger.debug(`[sendMessage] POST ${url} → to: ${finalNumber}`);
       const res = await fetch(url, {
         method: "POST",
         headers: {
@@ -301,6 +311,9 @@ export class WhatsappService {
       });
 
       const data = await res.json();
+      this.logger.debug(
+        `[sendMessage] Response ${res.status}: ${JSON.stringify(data)}`,
+      );
 
       if (!res.ok) {
         console.error("Error sending WhatsApp message:", data);
@@ -341,7 +354,8 @@ export class WhatsappService {
     }
     if (params?.sessionId || params?.channel) {
       const url = new URL(base);
-      if (params.sessionId) url.searchParams.set("session_id", params.sessionId);
+      if (params.sessionId)
+        url.searchParams.set("session_id", params.sessionId);
       if (params.channel) url.searchParams.set("channel", params.channel);
       return url.toString();
     }
@@ -394,12 +408,13 @@ export class WhatsappService {
     const url = `${baseUrl}${WHATSAPP_MESSAGES_PATH}/${phoneNumberId}/messages`;
     const finalNumber = to.replace(/[^\d]/g, "");
 
-    const [csatHeader, csatBody, csatFooter, csatButtonText] = await Promise.all([
-      this.systemMessages.get(tenantId, "csatHeader"),
-      this.systemMessages.get(tenantId, "csatBody"),
-      this.systemMessages.get(tenantId, "csatFooter"),
-      this.systemMessages.get(tenantId, "csatButtonText"),
-    ]);
+    const [csatHeader, csatBody, csatFooter, csatButtonText] =
+      await Promise.all([
+        this.systemMessages.get(tenantId, "csatHeader"),
+        this.systemMessages.get(tenantId, "csatBody"),
+        this.systemMessages.get(tenantId, "csatFooter"),
+        this.systemMessages.get(tenantId, "csatButtonText"),
+      ]);
 
     const payload = {
       messaging_product: "whatsapp",
@@ -604,8 +619,7 @@ export class WhatsappService {
         return {
           success: false,
           error:
-            data.error?.message ||
-            "Failed to send login alert via WhatsApp",
+            data.error?.message || "Failed to send login alert via WhatsApp",
         };
       }
 

@@ -61,6 +61,9 @@ export class EosTicketType {
   @OneToMany(() => EosTicket, (t: EosTicket) => t.ticketType)
   tickets: Relation<EosTicket>[];
 
+  @Column({ type: "jsonb", nullable: true })
+  metadata: Record<string, any>;
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 }

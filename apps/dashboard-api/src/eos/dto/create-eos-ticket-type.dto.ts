@@ -30,4 +30,7 @@ export class CreateTicketTypeDto {
 
   @IsOptional()
   isActive?: boolean;
+
+  @IsOptional()
+  metadata?: Record<string, any>;
 }
