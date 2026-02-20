@@ -24,8 +24,10 @@ import {
   ArrowRight,
   Presentation,
   CheckCircle2,
+  BarChart3,
 } from "lucide-react";
 import { EosSpeaker, EosEvent } from "@/types/eos-events";
+import { EngagementManager } from "@/components/eos-events/EngagementManager";
 
 export default function SpeakerPortalPage() {
   const { token } = useParams();
@@ -268,6 +270,25 @@ export default function SpeakerPortalPage() {
             </Button>
           </div>
         </form>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Audience Interaction
+            </CardTitle>
+            <CardDescription>
+              Engage with your session attendees via live polls.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EngagementManager
+              eventId={data.event.id}
+              ownerId={speaker.id}
+              ownerType="speaker"
+            />
+          </CardContent>
+        </Card>
 
         <div className="pt-8 border-t text-center text-sm text-muted-foreground">
           Need help? Contact the event organizers at{" "}

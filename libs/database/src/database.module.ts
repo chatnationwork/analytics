@@ -72,6 +72,10 @@ import { EosTicket } from "./entities/eos-ticket.entity";
 import { EosExhibitor } from "./entities/eos-exhibitor.entity";
 import { EosSpeaker } from "./entities/eos-speaker.entity";
 import { EosLead } from "./entities/eos-lead.entity";
+import { EosPoll } from "./entities/eos-poll.entity";
+import { EosPollOption } from "./entities/eos-poll-option.entity";
+import { EosPollResponse } from "./entities/eos-poll-response.entity";
+import { EosFeedback } from "./entities/eos-feedback.entity";
 import { GeneratedCard } from "./entities/generated-card.entity";
 import { ImportMappingTemplate } from "./entities/import-mapping-template.entity";
 import { TemplateEntity } from "./entities/template.entity";
@@ -134,6 +138,10 @@ const entities = [
   EosExhibitor,
   EosSpeaker,
   EosLead,
+  EosPoll,
+  EosPollOption,
+  EosPollResponse,
+  EosFeedback,
   GeneratedCard,
   ImportMappingTemplate,
   TemplateEntity,

@@ -24,6 +24,7 @@ import { EosSpeakerController } from "./eos-speaker.controller";
 import { EosTicketTypeController } from "./eos-ticket-type.controller";
 import { EosLeadController } from "./eos-lead.controller";
 import { EosPublicController } from "./eos-public.controller";
+import { EosEngagementController } from "./eos-engagement.controller";
 
 import { EosEventService } from "./eos-event.service";
 import { EosTicketService } from "./eos-ticket.service";
@@ -31,6 +32,7 @@ import { EosLeadService } from "./eos-lead.service";
 import { EosTicketTypeService } from "./eos-ticket-type.service";
 import { EosExhibitorService } from "./eos-exhibitor.service";
 import { EosSpeakerService } from "./eos-speaker.service";
+import { EosEngagementService } from "./eos-engagement.service";
 import { GeneratedCardService } from "./generated-card.service";
 import { EosAnalyticsService } from "./eos-analytics.service";
 
@@ -74,6 +76,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     EosTicketTypeController,
     EosLeadController,
     EosPublicController,
+    EosEngagementController,
   ],
   providers: [
     EosEventService,
@@ -82,6 +85,7 @@ import { CampaignsModule } from "../campaigns/campaigns.module";
     EosTicketTypeService,
     EosExhibitorService,
     EosSpeakerService,
+    EosEngagementService,
     GeneratedCardService,
     EosAnalyticsService,
     LeadProcessorWorker,

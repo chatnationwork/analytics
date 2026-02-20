@@ -20,6 +20,7 @@ import { ExhibitorManager } from "@/components/eos-events/ExhibitorManager";
 import { SpeakerManager } from "@/components/eos-events/SpeakerManager";
 import { TicketManager } from "@/components/eos-events/TicketManager";
 import { VenueMapEditor } from "@/components/eos-events/VenueMapEditor";
+import { EngagementManager } from "@/components/eos-events/EngagementManager";
 import InviteModal from "@/components/eos-events/InviteModal";
 import {
   Loader2,
@@ -341,6 +342,7 @@ export default function EosEventDetailsPage() {
           <TabsTrigger value="venue">Venue & Map</TabsTrigger>
           <TabsTrigger value="exhibitors">Exhibitors</TabsTrigger>
           <TabsTrigger value="speakers">Speakers</TabsTrigger>
+          <TabsTrigger value="engagement">Engagement</TabsTrigger>
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
         </TabsList>
 
@@ -407,6 +409,18 @@ export default function EosEventDetailsPage() {
           <Card>
             <CardContent className="p-6">
               <SpeakerManager eventId={eventId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="engagement">
+          <Card>
+            <CardContent className="p-6">
+              <EngagementManager
+                eventId={eventId}
+                ownerId={eventId}
+                ownerType="event"
+              />
             </CardContent>
           </Card>
         </TabsContent>

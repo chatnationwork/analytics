@@ -25,8 +25,10 @@ import {
   X,
   ArrowRight,
   ShieldCheck,
+  BarChart3,
 } from "lucide-react";
 import { EosExhibitor, EosEvent } from "@/types/eos-events";
+import { EngagementManager } from "@/components/eos-events/EngagementManager";
 
 export default function ExhibitorPortalPage() {
   const { token } = useParams();
@@ -324,6 +326,25 @@ export default function ExhibitorPortalPage() {
             </Button>
           </div>
         </form>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Audience Engagement
+            </CardTitle>
+            <CardDescription>
+              Interact with your booth visitors via polls and feedback.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EngagementManager
+              eventId={data.event.id}
+              ownerId={exhibitor.id}
+              ownerType="exhibitor"
+            />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

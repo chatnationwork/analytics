@@ -9,6 +9,7 @@ import {
 import { EosExhibitorService } from "./eos-exhibitor.service";
 import { EosSpeakerService } from "./eos-speaker.service";
 import { EosEventService } from "./eos-event.service";
+import { EosEngagementService } from "./eos-engagement.service";
 
 @Controller("eos/public")
 export class EosPublicController {
@@ -16,6 +17,7 @@ export class EosPublicController {
     private readonly exhibitorService: EosExhibitorService,
     private readonly speakerService: EosSpeakerService,
     private readonly eventService: EosEventService,
+    private readonly engagementService: EosEngagementService,
   ) {}
 
   @Get("exhibitors/onboarding/:token")
@@ -142,5 +144,53 @@ export class EosPublicController {
     if (!exhibitor) throw new NotFoundException("Exhibitor portal not found");
 
     return this.exhibitorService.update(exhibitor.id, body);
+  }
+
+  // --- Engagement (Polls & Feedback) ---
+
+  @Get("engagement/polls/active/:ownerType/:ownerId")
+  async getActivePolls(
+    @Param("ownerType") ownerType: string,
+    @Param("ownerId") ownerId: string,
+  ) {
+    return this.engagementService.findPolls(ownerType, ownerId, true);
+  }
+
+  @Post("engagement/polls/respond/:optionId")
+  async respondToPoll(
+    @Param("optionId") optionId: string,
+    @Body() body: { contactId?: string },
+  ) {
+    return this.engagementService.respondToPoll(optionId, body.contactId);
+  }
+
+  @Post("engagement/feedback/submit")
+  async submitFeedback(
+    @Body()
+    body: {
+      eventId: string;
+      targetId: string;
+      targetType: "event" | "exhibitor" | "speaker";
+      contactId?: string;
+      rating: number;
+      comment?: string;
+    },
+  ) {
+    return this.engagementService.submitFeedback(body);
+  }
+
+  @Get("engagement/target/:type/:id")
+  async getTargetInfo(@Param("type") type: string, @Param("id") id: string) {
+    if (type === "event") {
+      const event = await this.eventService.findOnePublic(id);
+      return { name: event.name, type: "event" };
+    } else if (type === "exhibitor") {
+      const ex = await this.exhibitorService.findOne(id);
+      return { name: ex.name, type: "exhibitor" };
+    } else if (type === "speaker") {
+      const sp = await this.speakerService.findOne(id);
+      return { name: sp.name, type: "speaker" };
+    }
+    throw new NotFoundException("Target not found");
   }
 }
