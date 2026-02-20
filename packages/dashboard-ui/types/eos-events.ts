@@ -61,6 +61,8 @@ export interface EosSpeaker {
   talkTitle?: string;
   sessionTime?: string;
   presentationUrl?: string;
+  contactPhone?: string;
+  contactEmail?: string;
   status: "pending" | "approved" | "rejected";
 }
 

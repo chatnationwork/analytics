@@ -70,6 +70,7 @@ import { EosEvent } from "./entities/eos-event.entity";
 import { EosTicketType } from "./entities/eos-ticket-type.entity";
 import { EosTicket } from "./entities/eos-ticket.entity";
 import { EosExhibitor } from "./entities/eos-exhibitor.entity";
+import { EosSpeaker } from "./entities/eos-speaker.entity";
 import { EosLead } from "./entities/eos-lead.entity";
 import { GeneratedCard } from "./entities/generated-card.entity";
 import { ImportMappingTemplate } from "./entities/import-mapping-template.entity";
@@ -131,6 +132,7 @@ const entities = [
   EosTicketType,
   EosTicket,
   EosExhibitor,
+  EosSpeaker,
   EosLead,
   GeneratedCard,
   ImportMappingTemplate,

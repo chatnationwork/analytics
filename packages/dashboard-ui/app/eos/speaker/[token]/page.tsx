@@ -42,7 +42,7 @@ export default function SpeakerPortalPage() {
     const fetchInfo = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/eos/public/speakers/portal/${token}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/eos/public/speakers/portal/${token}`,
         );
         if (!res.ok) throw new Error("Invalid token");
         const json = await res.json();
@@ -69,7 +69,7 @@ export default function SpeakerPortalPage() {
     setSubmitting(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/eos/public/speakers/portal/${token}/update`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/eos/public/speakers/portal/${token}/update`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

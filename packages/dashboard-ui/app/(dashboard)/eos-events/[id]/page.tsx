@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VenueGrid } from "@/components/eos-events/VenueGrid";
 import { TicketTypeManager } from "@/components/eos-events/TicketTypeManager";
 import { ExhibitorManager } from "@/components/eos-events/ExhibitorManager";
+import { SpeakerManager } from "@/components/eos-events/SpeakerManager";
 import { TicketManager } from "@/components/eos-events/TicketManager";
 import { VenueMapEditor } from "@/components/eos-events/VenueMapEditor";
 import InviteModal from "@/components/eos-events/InviteModal";
@@ -218,21 +219,25 @@ export default function EosEventDetailsPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [ticketTypes, setTicketTypes] = useState<EosTicketType[]>([]);
   const [exhibitors, setExhibitors] = useState<EosExhibitor[]>([]);
+  const [speakers, setSpeakers] = useState<any[]>([]);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [eventData, layoutData, ttData, exData] = await Promise.all([
-          eventsApi.get(eventId),
-          eventsApi.getVenueLayout(eventId),
-          eventsApi.listTicketTypes(eventId),
-          eventsApi.listExhibitors(eventId),
-        ]);
+        const [eventData, layoutData, ttData, exData, spData] =
+          await Promise.all([
+            eventsApi.get(eventId),
+            eventsApi.getVenueLayout(eventId),
+            eventsApi.listTicketTypes(eventId),
+            eventsApi.listExhibitors(eventId),
+            eventsApi.listSpeakers(eventId),
+          ]);
         setEvent(eventData);
         setVenueLayout(layoutData);
         setTicketTypes(ttData ?? []);
         setExhibitors(exData ?? []);
+        setSpeakers(spData ?? []);
       } catch (e) {
         console.error("Failed to load event", e);
       } finally {
@@ -274,6 +279,11 @@ export default function EosEventDetailsPage() {
       label: "Exhibitors invited",
       done: exhibitors.length > 0,
       tab: "exhibitors",
+    },
+    {
+      label: "Speakers added",
+      done: speakers.length > 0,
+      tab: "speakers",
     },
     {
       label: "Venue map configured",
@@ -330,6 +340,7 @@ export default function EosEventDetailsPage() {
           <TabsTrigger value="ticket-types">Ticket Types</TabsTrigger>
           <TabsTrigger value="venue">Venue & Map</TabsTrigger>
           <TabsTrigger value="exhibitors">Exhibitors</TabsTrigger>
+          <TabsTrigger value="speakers">Speakers</TabsTrigger>
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
         </TabsList>
 
@@ -388,6 +399,14 @@ export default function EosEventDetailsPage() {
           <Card>
             <CardContent className="p-6">
               <ExhibitorManager eventId={eventId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="speakers">
+          <Card>
+            <CardContent className="p-6">
+              <SpeakerManager eventId={eventId} />
             </CardContent>
           </Card>
         </TabsContent>

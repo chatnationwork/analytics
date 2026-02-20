@@ -33,7 +33,7 @@ export default function ExhibitorOnboardingPage() {
     const fetchInfo = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/eos/public/exhibitors/onboarding/${token}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/eos/public/exhibitors/onboarding/${token}`,
         );
         if (!res.ok) throw new Error("Invalid token");
         const data = await res.json();
@@ -52,7 +52,7 @@ export default function ExhibitorOnboardingPage() {
     setSubmitting(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/eos/public/exhibitors/onboarding/${token}/accept`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/eos/public/exhibitors/onboarding/${token}/accept`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

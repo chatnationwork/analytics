@@ -3,6 +3,7 @@ import {
   EosEvent,
   EosTicketType,
   EosExhibitor,
+  EosSpeaker,
   EosLead,
   EosTicket,
 } from "../types/eos-events";
@@ -128,6 +129,32 @@ export const eventsApi = {
   },
   deleteExhibitor: async (id: string, eventId: string) => {
     return fetchWithAuth<void>(`/eos/events/${eventId}/exhibitors/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Speakers
+  createSpeaker: async (eventId: string, data: Partial<EosSpeaker>) => {
+    return fetchWithAuth<EosSpeaker>(`/eos/events/${eventId}/speakers`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  listSpeakers: async (eventId: string) => {
+    return fetchWithAuth<EosSpeaker[]>(`/eos/events/${eventId}/speakers`);
+  },
+  updateSpeaker: async (
+    id: string,
+    eventId: string,
+    data: Partial<EosSpeaker>,
+  ) => {
+    return fetchWithAuth<EosSpeaker>(`/eos/events/${eventId}/speakers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+  deleteSpeaker: async (id: string, eventId: string) => {
+    return fetchWithAuth<void>(`/eos/events/${eventId}/speakers/${id}`, {
       method: "DELETE",
     });
   },

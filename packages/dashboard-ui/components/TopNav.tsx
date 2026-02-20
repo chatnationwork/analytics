@@ -33,6 +33,8 @@ import {
   Lock,
   AlertTriangle,
   Megaphone,
+  Store,
+  Mic,
 } from "lucide-react";
 import { usePermission } from "@/components/auth/PermissionContext";
 import { api } from "@/lib/api";
@@ -45,9 +47,16 @@ const navGroups = [
     title: "",
     items: [
       { href: "/agent-inbox", label: "Inbox", icon: Inbox },
-      { href: "/contacts", label: "Contacts", icon: Contact, permission: "contacts.view" },
+      {
+        href: "/contacts",
+        label: "Contacts",
+        icon: Contact,
+        permission: "contacts.view",
+      },
       { href: "/team-management", label: "Team Management", icon: Users },
       { href: "/eos-events", label: "EOS Events", icon: Activity },
+      { href: "/eos/exhibitor", label: "Exhibitors", icon: Store },
+      { href: "/eos/speaker", label: "Speakers", icon: Mic },
       { href: "/broadcast", label: "Broadcast", icon: Megaphone },
     ],
   },
@@ -250,7 +259,7 @@ export function TopNav() {
               S
             </div>
             <span className="font-semibold text-foreground truncate">
-             Shuru Connect
+              Shuru Connect
             </span>
           </Link>
         ) : (
