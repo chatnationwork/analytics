@@ -13,6 +13,17 @@ import { EosExhibitor } from "@lib/database/entities/eos-exhibitor.entity";
 import { IdentityEntity } from "@lib/database/entities/identity.entity";
 import { ManyToOne } from "typeorm";
 
+export interface VenueSlot {
+  id: string;
+  name: string;
+  type: "standard" | "premium" | "booth";
+  location: { x: number; y: number; width: number; height: number };
+}
+
+export interface VenueMapConfig {
+  slots: VenueSlot[];
+}
+
 @Entity("eos_events")
 export class EosEvent {
   @PrimaryGeneratedColumn("uuid")
@@ -70,7 +81,7 @@ export class EosEvent {
 
   /**
    * settings.hype_card_on_reg: boolean
-   * settings.venue_map_config: { grid: { cols, rows }, slots: [{ id, x, y }] }
+   * settings.venue_map_config: VenueMapConfig
    */
   @Column({ type: "jsonb", default: "{}" })
   settings: Record<string, any>;
