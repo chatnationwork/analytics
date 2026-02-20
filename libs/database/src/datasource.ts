@@ -40,6 +40,7 @@ import {
   Payment,
   GeneratedCard,
 } from "./entities";
+import { TemplateEntity } from "./entities/template.entity";
 import { UserSessionEntity } from "./entities/user-session.entity";
 import { SessionTakeoverRequestEntity } from "./entities/session-takeover-request.entity";
 
@@ -87,6 +88,7 @@ export const AppDataSource = new DataSource({
     ContactSegmentEntity,
     CampaignMessageEntity,
     CampaignScheduleEntity,
+    TemplateEntity,
     EosEvent,
     EosTicketType,
     EosTicket,
