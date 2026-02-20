@@ -12,7 +12,7 @@ export class CreateAnalyticsTables1771500000000 implements MigrationInterface {
     // ── projects ──────────────────────────────────────────────────────────
 
     await queryRunner.query(`
-      CREATE TABLE "projects" (
+      CREATE TABLE IF NOT EXISTS "projects" (
         "projectId"       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         "tenantId"        UUID NOT NULL,
         "name"            VARCHAR(100) NOT NULL,
@@ -25,13 +25,13 @@ export class CreateAnalyticsTables1771500000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_projects_tenantId" ON "projects" ("tenantId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_projects_tenantId" ON "projects" ("tenantId")`,
     );
 
     // ── identities ────────────────────────────────────────────────────────
 
     await queryRunner.query(`
-      CREATE TABLE "identities" (
+      CREATE TABLE IF NOT EXISTS "identities" (
         "id"          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         "tenantId"    VARCHAR(50) NOT NULL,
         "anonymousId" VARCHAR(100) NOT NULL,
@@ -43,16 +43,16 @@ export class CreateAnalyticsTables1771500000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_identities_tenant_anon" ON "identities" ("tenantId", "anonymousId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_identities_tenant_anon" ON "identities" ("tenantId", "anonymousId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_identities_tenant_user" ON "identities" ("tenantId", "userId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_identities_tenant_user" ON "identities" ("tenantId", "userId")`,
     );
 
     // ── sessions ──────────────────────────────────────────────────────────
 
     await queryRunner.query(`
-      CREATE TABLE "sessions" (
+      CREATE TABLE IF NOT EXISTS "sessions" (
         "sessionId"       UUID PRIMARY KEY,
         "tenantId"        VARCHAR(50) NOT NULL,
         "anonymousId"     VARCHAR(100) NOT NULL,
@@ -75,16 +75,16 @@ export class CreateAnalyticsTables1771500000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_sessions_tenant_startedAt" ON "sessions" ("tenantId", "startedAt")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_sessions_tenant_startedAt" ON "sessions" ("tenantId", "startedAt")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_sessions_userId" ON "sessions" ("userId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_sessions_userId" ON "sessions" ("userId")`,
     );
 
     // ── events ────────────────────────────────────────────────────────────
 
     await queryRunner.query(`
-      CREATE TABLE "events" (
+      CREATE TABLE IF NOT EXISTS "events" (
         "eventId"        UUID PRIMARY KEY,
         "messageId"      UUID NOT NULL UNIQUE,
         "tenantId"       VARCHAR(50) NOT NULL,
@@ -119,13 +119,13 @@ export class CreateAnalyticsTables1771500000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_events_tenant_timestamp" ON "events" ("tenantId", "timestamp")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_events_tenant_timestamp" ON "events" ("tenantId", "timestamp")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_events_sessionId" ON "events" ("sessionId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_events_sessionId" ON "events" ("sessionId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_events_name_timestamp" ON "events" ("eventName", "timestamp")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_events_name_timestamp" ON "events" ("eventName", "timestamp")`,
     );
   }
 
