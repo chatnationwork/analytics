@@ -172,14 +172,14 @@ export const eventsApi = {
       },
     );
   },
-  checkIn: async (ticketCode: string, locationId?: string) => {
-    return fetchWithAuth<any>("/eos/tickets/check-in", {
+  checkIn: async (eventId: string, ticketCode: string, locationId?: string) => {
+    return fetchWithAuth<any>(`/eos/events/${eventId}/tickets/check-in`, {
       method: "POST",
       body: JSON.stringify({ ticketCode, locationId }),
     });
   },
-  getTicketStatus: async (id: string) => {
-    return fetchWithAuth<any>(`/eos/tickets/${id}/status`);
+  getTicketStatus: async (eventId: string, id: string) => {
+    return fetchWithAuth<any>(`/eos/events/${eventId}/tickets/${id}/status`);
   },
   manualIssueTicket: async (eventId: string, data: any) => {
     return fetchWithAuth<EosTicket>(

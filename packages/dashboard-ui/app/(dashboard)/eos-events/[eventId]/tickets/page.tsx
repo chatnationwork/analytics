@@ -15,8 +15,10 @@ export default function EventTicketsPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Ticketing Operations</h1>
-      
+      <h1 className="text-3xl font-bold tracking-tight">
+        Ticketing Operations
+      </h1>
+
       <Tabs defaultValue="management">
         <TabsList>
           <TabsTrigger value="management">Ticket Management</TabsTrigger>
@@ -24,7 +26,7 @@ export default function EventTicketsPage() {
           <TabsTrigger value="locations">Entry Points</TabsTrigger>
           <TabsTrigger value="logs">Check-in Logs</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="management">
           <Card>
             <CardContent className="p-6">
@@ -32,7 +34,7 @@ export default function EventTicketsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="types">
           <Card>
             <CardContent className="p-6">

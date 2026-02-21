@@ -11,17 +11,18 @@ export default function EventCheckInsPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Check-ins</h1>
+        <p className="text-muted-foreground">
+          Monitor and manage attendee entry for your event.
+        </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Checked-in Tickets</CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <TicketManager eventId={eventId} />
-        </CardContent>
-      </Card>
+
+      <div className="bg-card border rounded-xl overflow-hidden shadow-sm">
+        <div className="p-6">
+          <TicketManager eventId={eventId} hideManualIssue />
+        </div>
+      </div>
     </div>
   );
 }

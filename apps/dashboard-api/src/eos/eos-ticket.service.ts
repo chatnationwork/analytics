@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, DataSource } from "typeorm";
+import { Repository, DataSource, Raw } from "typeorm";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import {
@@ -359,7 +359,11 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
 
   async checkIn(ticketCode: string, locationId?: string): Promise<EosTicket> {
     const ticket = await this.ticketRepo.findOne({
-      where: { ticketCode },
+      where: {
+        ticketCode: Raw((alias) => `UPPER(${alias}) = :code`, {
+          code: ticketCode.toUpperCase(),
+        }),
+      },
       relations: [
         "ticketType",
         "ticketType.event",
@@ -483,7 +487,9 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
       try {
         const ticket = await this.ticketRepo.findOne({
           where: {
-            ticketCode,
+            ticketCode: Raw((alias) => `UPPER(${alias}) = :code`, {
+              code: ticketCode.toUpperCase(),
+            }),
             ticketType: { eventId },
           },
           relations: ["ticketType", "ticketType.event"],

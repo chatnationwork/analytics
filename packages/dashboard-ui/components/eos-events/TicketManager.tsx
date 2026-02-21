@@ -1,9 +1,21 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { eventsApi } from "@/lib/eos-events-api";
-import { EosTicket } from "@/types/eos-events";
+import {
+  LayoutDashboard,
+  Ticket,
+  Search,
+  Plus,
+  Send,
+  Loader2,
+  CheckCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -12,8 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -22,20 +32,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { EosTicketType } from "@/types/eos-events";
-import { Loader2, CheckCircle, Search, Send, Plus } from "lucide-react";
 import { TicketStatusBadge } from "./TicketStatusBadge";
+import { eventsApi } from "@/lib/eos-events-api";
 import { toast } from "sonner";
+import { EosTicket, EosTicketType } from "@/types/eos-events";
 
 interface TicketManagerProps {
   eventId: string;
+  hideManualIssue?: boolean;
 }
 
-export function TicketManager({ eventId }: TicketManagerProps) {
+export function TicketManager({
+  eventId,
+  hideManualIssue = false,
+}: TicketManagerProps) {
   const [tickets, setTickets] = useState<EosTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [checkInCode, setCheckInCode] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
   const [resending, setResending] = useState<string | null>(null);
   const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
@@ -118,14 +131,12 @@ export function TicketManager({ eventId }: TicketManagerProps) {
     }
   };
 
-  const handleCheckIn = async (codeOverride?: string) => {
-    const code = codeOverride || checkInCode;
+  const handleCheckIn = async (code: string) => {
     if (!code) return;
     setCheckingIn(true);
     try {
-      await eventsApi.checkIn(code);
+      await eventsApi.checkIn(eventId, code);
       toast.success(`Check-in successful for ${code}`);
-      setCheckInCode("");
       loadTickets();
     } catch (e) {
       console.error("Check-in failed", e);
@@ -151,36 +162,31 @@ export function TicketManager({ eventId }: TicketManagerProps) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="p-4 border-primary/20 bg-primary/5">
-          <h3 className="font-semibold mb-2">Manual Check-In</h3>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Enter Ticket Code"
-              value={checkInCode}
-              onChange={(e) => setCheckInCode(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCheckIn()}
-            />
-            <Button onClick={() => handleCheckIn()} disabled={checkingIn}>
-              {checkingIn ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Check In"
-              )}
-            </Button>
-          </div>
-        </Card>
-        <div className="flex items-end gap-2 justify-end">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search tickets..."
+            className="pl-9 bg-background/50 border-primary/10 focus:border-primary/30 transition-colors"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {!hideManualIssue && (
           <Dialog
             open={isManualDialogOpen}
             onOpenChange={setIsManualDialogOpen}
           >
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                className="bg-primary/5 border-primary/20 hover:bg-primary/10 hover:border-primary/30 text-primary transition-all shadow-sm"
+              >
                 <Plus className="mr-2 h-4 w-4" /> Manual Issue (VIP)
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Manual Ticket Issuance</DialogTitle>
               </DialogHeader>
@@ -246,6 +252,7 @@ export function TicketManager({ eventId }: TicketManagerProps) {
                 </div>
               </div>
               <Button
+                className="w-full"
                 onClick={handleManualIssue}
                 disabled={
                   !manualDto.ticketTypeId ||
@@ -257,16 +264,7 @@ export function TicketManager({ eventId }: TicketManagerProps) {
               </Button>
             </DialogContent>
           </Dialog>
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search tickets..."
-              className="pl-8"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="border rounded-lg">
@@ -386,14 +384,4 @@ export function TicketManager({ eventId }: TicketManagerProps) {
       </div>
     </div>
   );
-}
-
-function Card({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={`border rounded-lg ${className}`}>{children}</div>;
 }
