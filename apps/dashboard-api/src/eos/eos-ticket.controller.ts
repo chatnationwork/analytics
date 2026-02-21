@@ -39,13 +39,40 @@ export class EosTicketController {
     return this.ticketService.findAll(eventId);
   }
 
+  @Post(":id/resend")
+  @UseGuards(JwtAuthGuard)
+  async resendTicket(@Param("id") id: string) {
+    await this.ticketService.resendTicket(id);
+    return { success: true };
+  }
+
+  @Get("locations")
+  @UseGuards(JwtAuthGuard)
+  getLocations(@Param("eventId") eventId: string) {
+    return this.ticketService.getLocations(eventId);
+  }
+
+  @Post("locations")
+  @UseGuards(JwtAuthGuard)
+  createLocation(@Param("eventId") eventId: string, @Body() data: any) {
+    return this.ticketService.createLocation(eventId, data);
+  }
+
+  @Get("scan-logs")
+  @UseGuards(JwtAuthGuard)
+  getScanLogs(@Param("eventId") eventId: string) {
+    return this.ticketService.getScanLogs(eventId);
+  }
+
   @Post("check-in")
   @UseGuards(JwtAuthGuard)
-  checkIn(@Body() body: { ticketCode: string }) {
+  checkIn(
+    @Body() body: { ticketCode: string; locationId?: string },
+  ) {
     if (!body.ticketCode) {
       throw new BadRequestException("ticketCode is required");
     }
-    return this.ticketService.checkIn(body.ticketCode);
+    return this.ticketService.checkIn(body.ticketCode, body.locationId);
   }
 
   @Post("check-ins/bulk")
