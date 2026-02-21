@@ -135,7 +135,7 @@ export function TicketTypeManager({ eventId }: TicketTypeManagerProps) {
                     onChange={(e) =>
                       setNewType({
                         ...newType,
-                        price: parseFloat(e.target.value),
+                        price: parseFloat(e.target.value) || 0,
                       })
                     }
                   />
@@ -160,7 +160,7 @@ export function TicketTypeManager({ eventId }: TicketTypeManagerProps) {
                   onChange={(e) =>
                     setNewType({
                       ...newType,
-                      quantityTotal: parseInt(e.target.value),
+                      quantityTotal: parseInt(e.target.value) || 0,
                     })
                   }
                 />
