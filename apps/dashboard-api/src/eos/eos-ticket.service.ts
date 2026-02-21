@@ -8,10 +8,15 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import { EosTicket, Payment } from "@lib/database";
-import { EosTicketType } from "@lib/database";
-import { EosEvent } from "@lib/database";
-import { ContactEntity } from "@lib/database";
+import {
+  EosTicket,
+  Payment,
+  EosTicketType,
+  EosEvent,
+  ContactEntity,
+  EosLocation,
+  EosScanLog,
+} from "@lib/database";
 import { InitiatePurchaseDto } from "./dto/initiate-purchase.dto";
 import { TriggerService } from "../campaigns/trigger.service";
 import { CampaignTrigger } from "../campaigns/constants";
@@ -36,6 +41,10 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
     private readonly eventRepo: Repository<EosEvent>,
     @InjectRepository(ContactEntity)
     private readonly contactRepo: Repository<ContactEntity>,
+    @InjectRepository(EosLocation)
+    private readonly locationRepo: Repository<EosLocation>,
+    @InjectRepository(EosScanLog)
+    private readonly scanLogRepo: Repository<EosScanLog>,
     private readonly dataSource: DataSource,
     private readonly mpesaService: MpesaService,
     private readonly paymentCallbackService: PaymentCallbackService,
@@ -304,6 +313,25 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
     });
   }
 
+  async resendTicket(ticketId: string): Promise<void> {
+    const ticket = await this.ticketRepo.findOne({
+      where: { id: ticketId },
+      relations: ["ticketType"],
+    });
+
+    if (!ticket) {
+      throw new BadRequestException("Ticket not found");
+    }
+
+    if (ticket.status !== "valid") {
+      throw new BadRequestException(
+        `Cannot resend ticket with status: ${ticket.status}`,
+      );
+    }
+
+    await this.sendFulfillmentMessage(ticket.id);
+  }
+
   async findAll(eventId: string): Promise<EosTicket[]> {
     return this.ticketRepo.find({
       where: { ticketType: { eventId: eventId } },
@@ -312,17 +340,46 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
     });
   }
 
-  async checkIn(ticketCode: string): Promise<EosTicket> {
+  async checkIn(ticketCode: string, locationId?: string): Promise<EosTicket> {
     const ticket = await this.ticketRepo.findOne({
       where: { ticketCode },
-      relations: ["ticketType", "ticketType.event"],
+      relations: [
+        "ticketType",
+        "ticketType.event",
+        "ticketType.accessLocations",
+      ],
     });
 
     if (!ticket) {
       throw new BadRequestException("Invalid ticket code");
     }
 
+    // 1. Validate Location Access
+    if (locationId) {
+      const allowedLocations = ticket.ticketType.accessLocations || [];
+      if (allowedLocations.length > 0) {
+        const isAllowed = allowedLocations.some((loc) => loc.id === locationId);
+        if (!isAllowed) {
+          // Log failed attempt
+          await this.scanLogRepo.save({
+            ticketId: ticket.id,
+            locationId,
+            status: "failed_location_restricted",
+          });
+          throw new BadRequestException("Access denied at this location");
+        }
+      }
+    }
+
     if (ticket.status === "used") {
+      // Log failed attempt
+      if (locationId) {
+        await this.scanLogRepo.save({
+          ticketId: ticket.id,
+          locationId,
+          status: "failed_already_used",
+        });
+      }
       throw new BadRequestException("Ticket already used");
     }
 
@@ -335,6 +392,15 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
     ticket.checkedInAt = new Date();
     await this.ticketRepo.save(ticket);
 
+    // Log success
+    if (locationId) {
+      await this.scanLogRepo.save({
+        ticketId: ticket.id,
+        locationId,
+        status: "success",
+      });
+    }
+
     // Fire check-in trigger
     await this.triggerService.fire(CampaignTrigger.EVENT_CHECKIN, {
       tenantId: ticket.ticketType.event.organizationId,
@@ -343,10 +409,34 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
         ticketCode: ticket.ticketCode,
         eventName: ticket.ticketType.event.name,
         checkedInAt: ticket.checkedInAt.toISOString(),
+        locationId,
       },
     });
 
     return ticket;
+  }
+
+  async getLocations(eventId: string): Promise<EosLocation[]> {
+    return this.locationRepo.find({
+      where: { eventId },
+      order: { name: "ASC" },
+    });
+  }
+
+  async createLocation(eventId: string, data: any): Promise<EosLocation> {
+    const location = this.locationRepo.create({
+      ...data,
+      eventId,
+    });
+    return this.locationRepo.save(location);
+  }
+
+  async getScanLogs(eventId: string): Promise<EosScanLog[]> {
+    return this.scanLogRepo.find({
+      where: { ticket: { ticketType: { eventId } } },
+      relations: ["ticket", "location", "ticket.ticketType"],
+      order: { timestamp: "DESC" },
+    });
   }
 
   async bulkCheckIn(eventId: string, tickets: any[]): Promise<any> {
