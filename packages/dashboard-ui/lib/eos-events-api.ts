@@ -164,14 +164,33 @@ export const eventsApi = {
   listTickets: async (eventId: string) => {
     return fetchWithAuth<EosTicket[]>(`/eos/events/${eventId}/tickets`);
   },
-  checkIn: async (ticketCode: string) => {
+  resendTicket: async (eventId: string, ticketId: string) => {
+    return fetchWithAuth<any>(`/eos/events/${eventId}/tickets/${ticketId}/resend`, {
+      method: "POST",
+    });
+  },
+  checkIn: async (ticketCode: string, locationId?: string) => {
     return fetchWithAuth<any>("/eos/tickets/check-in", {
       method: "POST",
-      body: JSON.stringify({ ticketCode }),
+      body: JSON.stringify({ ticketCode, locationId }),
     });
   },
   getTicketStatus: async (id: string) => {
     return fetchWithAuth<any>(`/eos/tickets/${id}/status`);
+  },
+
+  // Locations & Scan Logs
+  listLocations: async (eventId: string) => {
+    return fetchWithAuth<any[]>(`/eos/events/${eventId}/tickets/locations`);
+  },
+  createLocation: async (eventId: string, data: any) => {
+    return fetchWithAuth<any>(`/eos/events/${eventId}/tickets/locations`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  listScanLogs: async (eventId: string) => {
+    return fetchWithAuth<any[]>(`/eos/events/${eventId}/tickets/scan-logs`);
   },
 
   // Event Lifecycle

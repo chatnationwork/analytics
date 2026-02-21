@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, Search } from "lucide-react";
+import { Loader2, CheckCircle, Search, Send } from "lucide-react";
 import { TicketStatusBadge } from "./TicketStatusBadge";
 import { toast } from "sonner";
 
@@ -28,6 +28,7 @@ export function TicketManager({ eventId }: TicketManagerProps) {
   const [search, setSearch] = useState("");
   const [checkInCode, setCheckInCode] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
+  const [resending, setResending] = useState<string | null>(null);
 
   const loadTickets = async () => {
     setLoading(true);
@@ -44,6 +45,19 @@ export function TicketManager({ eventId }: TicketManagerProps) {
   useEffect(() => {
     loadTickets();
   }, [eventId]);
+
+  const handleResend = async (ticketId: string) => {
+    setResending(ticketId);
+    try {
+      await eventsApi.resendTicket(eventId, ticketId);
+      toast.success("Ticket resent via WhatsApp");
+    } catch (e) {
+      console.error("Failed to resend ticket", e);
+      toast.error("Failed to resend ticket");
+    } finally {
+      setResending(null);
+    }
+  };
 
   const handleCheckIn = async (codeOverride?: string) => {
     const code = codeOverride || checkInCode;
@@ -184,22 +198,40 @@ export function TicketManager({ eventId }: TicketManagerProps) {
                     />
                   </TableCell>
                   <TableCell className="text-right">
-                    {ticket.status === "valid" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCheckIn(ticket.ticketCode)}
-                      >
-                        Check In
-                      </Button>
-                    ) : ticket.status === "used" ? (
-                      <Badge
-                        variant="outline"
-                        className="text-green-600 bg-green-50"
-                      >
-                        <CheckCircle className="mr-1 h-3 w-3" /> Checked In
-                      </Badge>
-                    ) : null}
+                    <div className="flex justify-end gap-2">
+                      {ticket.status === "valid" && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Resend via WhatsApp"
+                            onClick={() => handleResend(ticket.id)}
+                            disabled={resending === ticket.id}
+                          >
+                            {resending === ticket.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCheckIn(ticket.ticketCode)}
+                          >
+                            Check In
+                          </Button>
+                        </>
+                      )}
+                      {ticket.status === "used" && (
+                        <Badge
+                          variant="outline"
+                          className="text-green-600 bg-green-50"
+                        >
+                          <CheckCircle className="mr-1 h-3 w-3" /> Checked In
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

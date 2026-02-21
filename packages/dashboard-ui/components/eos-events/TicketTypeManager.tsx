@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 
 interface TicketTypeManagerProps {
@@ -34,6 +34,8 @@ export function TicketTypeManager({ eventId }: TicketTypeManagerProps) {
   const [ticketTypes, setTicketTypes] = useState<EosTicketType[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingType, setEditingType] = useState<EosTicketType | null>(null);
   const [newType, setNewType] = useState<{
     name: string;
     price: number;
@@ -73,6 +75,21 @@ export function TicketTypeManager({ eventId }: TicketTypeManagerProps) {
     } catch (e) {
       console.error("Failed to create ticket type", e);
       toast.error("Failed to create ticket type");
+    }
+  };
+
+  const handleUpdateCapacity = async () => {
+    if (!editingType) return;
+    try {
+      await eventsApi.updateTicketType(editingType.id, eventId, {
+        quantityTotal: editingType.quantityTotal,
+      });
+      toast.success("Ticket capacity updated");
+      setIsEditDialogOpen(false);
+      loadTicketTypes();
+    } catch (e) {
+      console.error("Failed to update ticket capacity", e);
+      toast.error("Failed to update capacity");
     }
   };
 
@@ -285,7 +302,18 @@ export function TicketTypeManager({ eventId }: TicketTypeManagerProps) {
                       <Badge variant="secondary">Inactive</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingType(type);
+                        setIsEditDialogOpen(true);
+                      }}
+                      disabled={!type.isActive}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -301,6 +329,42 @@ export function TicketTypeManager({ eventId }: TicketTypeManagerProps) {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Ticket Capacity</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-quantity">
+                Total Quantity for {editingType?.name}
+              </Label>
+              <Input
+                id="edit-quantity"
+                type="number"
+                value={editingType?.quantityTotal || 0}
+                onChange={(e) =>
+                  setEditingType(
+                    editingType
+                      ? {
+                          ...editingType,
+                          quantityTotal: parseInt(e.target.value) || 0,
+                        }
+                      : null,
+                  )
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Current sold: {editingType?.quantitySold}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateCapacity}>Update Capacity</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
