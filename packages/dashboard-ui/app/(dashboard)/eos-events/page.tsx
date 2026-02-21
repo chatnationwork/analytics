@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/eos-events/EventCard";
 import { eventsApi } from "@/lib/eos-events-api";
 import { EosEvent } from "@/types/eos-events";
-import { Loader2, Plus, Store, Zap } from "lucide-react";
+import { Loader2, Plus, Store, Zap, Activity } from "lucide-react";
 import { TabsNav, EosTab } from "@/components/eos-events/TabsNav";
 import { SplitLanding } from "@/components/eos-events/SplitLanding";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AggregateExhibitorManager } from "@/components/eos-events/AggregateExhibitorManager";
+import { AggregateSpeakerManager } from "@/components/eos-events/AggregateSpeakerManager";
 
 export default function EosEventsPage() {
   const [activeTab, setActiveTab] = useState<EosTab>("events");
@@ -74,29 +77,72 @@ export default function EosEventsPage() {
 
     if (activeTab === "speakers-exhibitors") {
       return (
-        <div className="text-center py-12 border rounded-lg bg-muted">
-          <Store className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium">Speakers & Exhibitors</h3>
-          <p className="text-muted-foreground mt-1">
-            Global management of speakers and exhibitors across all your events.
-          </p>
-          <div className="mt-6 text-sm text-muted-foreground italic">
-            Coming soon
-          </div>
+        <div className="space-y-12">
+          <AggregateExhibitorManager />
+          <hr className="border-border" />
+          <AggregateSpeakerManager />
         </div>
       );
     }
 
     if (activeTab === "engagements") {
       return (
-        <div className="text-center py-12 border rounded-lg bg-muted">
-          <Zap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium">Engagements</h3>
-          <p className="text-muted-foreground mt-1">
-            Aggregate engagement metrics and activities across your events.
-          </p>
-          <div className="mt-6 text-sm text-muted-foreground italic">
-            Coming soon
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold">Aggregate Engagement</h3>
+              <p className="text-sm text-muted-foreground">
+                Overview of interaction metrics across all your active events.
+              </p>
+            </div>
+            <Link href="/overview">
+              <Button variant="outline" size="sm">
+                <Activity className="mr-2 h-4 w-4" /> View Full Analytics
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-yellow-500" />
+                  Total Polls
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">Active</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Across all published events
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-blue-500" />
+                  Live Feedback
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">Real-time</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Collecting attendee reviews
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="text-center py-12 border rounded-lg bg-muted/30 border-dashed">
+            <Zap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">Detailed Engagement Reports</h3>
+            <p className="text-muted-foreground mt-1 max-w-md mx-auto">
+              For granular engagement data, please visit the main Analytics
+              Overview.
+            </p>
+            <Link href="/overview" className="mt-6 inline-block">
+              <Button>Go to Analytics</Button>
+            </Link>
           </div>
         </div>
       );
@@ -105,7 +151,8 @@ export default function EosEventsPage() {
     return null;
   };
 
-  const showLanding = !loading && !error && events.length === 0 && activeTab === "events";
+  const showLanding =
+    !loading && !error && events.length === 0 && activeTab === "events";
 
   return (
     <div className="p-8 space-y-6">
@@ -126,9 +173,7 @@ export default function EosEventsPage() {
         <TabsNav activeTab={activeTab} onTabChange={setActiveTab} />
       )}
 
-      <div className={!showLanding ? "mt-6" : ""}>
-        {renderTabContent()}
-      </div>
+      <div className={!showLanding ? "mt-6" : ""}>{renderTabContent()}</div>
     </div>
   );
 }

@@ -23,7 +23,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Check, X, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Loader2,
+  Plus,
+  Check,
+  X,
+  Trash2,
+  Globe,
+  QrCode,
+  UserPlus,
+  ExternalLink,
+  Copy,
+  MoreVertical,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface ExhibitorManagerProps {
@@ -111,6 +131,17 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
       console.error("Failed to remove exhibitor", e);
       toast.error("Failed to remove exhibitor");
     }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} link copied to clipboard`);
+  };
+
+  const getPortalUrl = (path: string, token?: string) => {
+    if (!token) return "#";
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    return `${baseUrl}/eos/${path}/${token}`;
   };
 
   if (loading) {
@@ -238,6 +269,7 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
               <TableHead>Name</TableHead>
               <TableHead>Booth</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Portals</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -271,6 +303,77 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
                       {exhibitor.status.charAt(0).toUpperCase() +
                         exhibitor.status.slice(1)}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuLabel>Public Portals</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() =>
+                            copyToClipboard(
+                              getPortalUrl(
+                                "onboarding",
+                                exhibitor.invitationToken,
+                              ),
+                              "Onboarding",
+                            )
+                          }
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          <span>Copy Onboarding Link</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            copyToClipboard(
+                              getPortalUrl("booth", exhibitor.invitationToken),
+                              "Booth",
+                            )
+                          }
+                        >
+                          <QrCode className="mr-2 h-4 w-4" />
+                          <span>Copy Booth Link</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            copyToClipboard(
+                              getPortalUrl(
+                                "exhibitor",
+                                exhibitor.invitationToken,
+                              ),
+                              "Profile",
+                            )
+                          }
+                        >
+                          <Globe className="mr-2 h-4 w-4" />
+                          <span>Copy Profile Link</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <a
+                            href={getPortalUrl(
+                              "booth",
+                              exhibitor.invitationToken,
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center"
+                          >
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            <span>Open Booth Portal</span>
+                          </a>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

@@ -20,10 +20,30 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Store, ExternalLink, Plus, MapPin } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Loader2,
+  Store,
+  ExternalLink,
+  Plus,
+  MapPin,
+  QrCode,
+  UserPlus,
+  Globe,
+  Copy,
+  MoreVertical,
+} from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
-export default function AllExhibitorsPage() {
+export function AggregateExhibitorManager() {
   const [exhibitors, setExhibitors] = useState<
     (EosExhibitor & { event?: EosEvent })[]
   >([]);
@@ -56,9 +76,20 @@ export default function AllExhibitorsPage() {
     loadAllExhibitors();
   }, []);
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} link copied to clipboard`);
+  };
+
+  const getPortalUrl = (path: string, token?: string) => {
+    if (!token) return "#";
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    return `${baseUrl}/eos/${path}/${token}`;
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="animate-spin h-8 w-8 text-primary" />
       </div>
     );
@@ -68,30 +99,25 @@ export default function AllExhibitorsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Exhibitors</h1>
-          <p className="text-muted-foreground">
-            Monitor partners and booth allocations.
+          <h3 className="text-xl font-bold">Aggregate Exhibitors</h3>
+          <p className="text-sm text-muted-foreground">
+            Monitor partners and booth allocations across all events.
           </p>
         </div>
-        <Link href="/eos-events">
-          <Button size="sm">
-            <Plus className="mr-2 h-4 w-4" /> New Partner (via Event)
-          </Button>
-        </Link>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Store className="h-5 w-5 text-primary" />
-            Event Partners
+            All Event Partners
           </CardTitle>
           <CardDescription>
             Managing onboarding and collateral for event exhibitors.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg">
+          <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -99,14 +125,15 @@ export default function AllExhibitorsPage() {
                   <TableHead>Event</TableHead>
                   <TableHead>Booth Details</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Portal</TableHead>
+                  <TableHead>Portals</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {exhibitors.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center py-12 text-muted-foreground"
                     >
                       No exhibitors found.
@@ -153,17 +180,79 @@ export default function AllExhibitorsPage() {
                           {ex.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        {(ex as any).invitationToken && (
-                          <Link
-                            href={`/eos/exhibitor/${(ex as any).invitationToken}`}
-                            target="_blank"
-                          >
-                            <Button variant="ghost" size="icon">
-                              <ExternalLink className="h-4 w-4" />
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                            >
+                              <MoreVertical className="h-4 w-4" />
                             </Button>
-                          </Link>
-                        )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel>
+                              Public Portals
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                copyToClipboard(
+                                  getPortalUrl(
+                                    "onboarding",
+                                    ex.invitationToken,
+                                  ),
+                                  "Onboarding",
+                                )
+                              }
+                            >
+                              <UserPlus className="mr-2 h-4 w-4" />
+                              <span>Copy Onboarding Link</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                copyToClipboard(
+                                  getPortalUrl("booth", ex.invitationToken),
+                                  "Booth",
+                                )
+                              }
+                            >
+                              <QrCode className="mr-2 h-4 w-4" />
+                              <span>Copy Booth Link</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                copyToClipboard(
+                                  getPortalUrl("exhibitor", ex.invitationToken),
+                                  "Profile",
+                                )
+                              }
+                            >
+                              <Globe className="mr-2 h-4 w-4" />
+                              <span>Copy Profile Link</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={getPortalUrl("booth", ex.invitationToken)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center"
+                              >
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                <span>Open Booth Portal</span>
+                              </a>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link href={`/eos-events/${ex.eventId}`}>
+                          <Button variant="ghost" size="icon">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   ))

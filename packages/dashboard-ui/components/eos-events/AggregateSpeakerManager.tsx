@@ -20,10 +20,19 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mic, ExternalLink, Calendar, Plus } from "lucide-react";
+import {
+  Loader2,
+  Mic,
+  ExternalLink,
+  Calendar,
+  Plus,
+  Copy,
+  Globe,
+} from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
-export default function AllSpeakersPage() {
+export function AggregateSpeakerManager() {
   const [speakers, setSpeakers] = useState<
     (EosSpeaker & { event?: EosEvent })[]
   >([]);
@@ -56,9 +65,20 @@ export default function AllSpeakersPage() {
     loadAllSpeakers();
   }, []);
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} link copied to clipboard`);
+  };
+
+  const getPortalUrl = (token?: string) => {
+    if (!token) return "#";
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    return `${baseUrl}/eos/speaker/${token}`;
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="animate-spin h-8 w-8 text-primary" />
       </div>
     );
@@ -68,30 +88,25 @@ export default function AllSpeakersPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Speakers</h1>
-          <p className="text-muted-foreground">
+          <h3 className="text-xl font-bold">Aggregate Speakers</h3>
+          <p className="text-sm text-muted-foreground">
             Manage all speakers across your events.
           </p>
         </div>
-        <Link href="/eos-events">
-          <Button size="sm">
-            <Plus className="mr-2 h-4 w-4" /> New Speaker (via Event)
-          </Button>
-        </Link>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Mic className="h-5 w-5 text-primary" />
-            Active Speakers
+            All Active Speakers
           </CardTitle>
           <CardDescription>
             List of all speakers registered for EOS events.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg">
+          <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -99,17 +114,18 @@ export default function AllSpeakersPage() {
                   <TableHead>Event</TableHead>
                   <TableHead>Talk Details</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Portal</TableHead>
+                  <TableHead>Portal</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {speakers.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center py-12 text-muted-foreground"
                     >
-                      No speakers found. Create one by selecting an event.
+                      No speakers found.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -154,17 +170,45 @@ export default function AllSpeakersPage() {
                           {speaker.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        {(speaker as any).invitationToken && (
-                          <Link
-                            href={`/eos/speaker/${(speaker as any).invitationToken}`}
-                            target="_blank"
-                          >
-                            <Button variant="ghost" size="icon">
-                              <ExternalLink className="h-4 w-4" />
+                      <TableCell>
+                        {speaker.invitationToken && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() =>
+                                copyToClipboard(
+                                  getPortalUrl(speaker.invitationToken),
+                                  "Speaker Portal",
+                                )
+                              }
+                              title="Copy Portal Link"
+                            >
+                              <Copy className="h-4 w-4" />
                             </Button>
-                          </Link>
+                            <a
+                              href={getPortalUrl(speaker.invitationToken)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <Globe className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          </div>
                         )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link href={`/eos-events/${speaker.eventId}`}>
+                          <Button variant="ghost" size="icon">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   ))

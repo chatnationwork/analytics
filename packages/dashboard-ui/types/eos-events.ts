@@ -50,6 +50,7 @@ export interface EosExhibitor {
   boothNumber?: string;
   boothLocation?: { x: number; y: number; width: number; height: number };
   status: "pending" | "approved" | "rejected";
+  invitationToken?: string;
 }
 
 export interface EosSpeaker {
@@ -64,6 +65,7 @@ export interface EosSpeaker {
   contactPhone?: string;
   contactEmail?: string;
   status: "pending" | "approved" | "rejected";
+  invitationToken?: string;
 }
 
 export interface EosTicket {
