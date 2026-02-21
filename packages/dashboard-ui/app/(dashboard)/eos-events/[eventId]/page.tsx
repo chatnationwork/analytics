@@ -228,7 +228,6 @@ export default function EosEventDetailsPage() {
     exhibitors: any[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
   const [ticketTypes, setTicketTypes] = useState<EosTicketType[]>([]);
   const [exhibitors, setExhibitors] = useState<EosExhibitor[]>([]);
   const [speakers, setSpeakers] = useState<any[]>([]);
@@ -343,155 +342,75 @@ export default function EosEventDetailsPage() {
       {event.status === "draft" && (
         <PublishReadinessCard
           items={readinessItems}
-          onTabChange={setActiveTab}
+          onTabChange={() => {}} // No-op now as we use routing
         />
       )}
 
       {metrics && <EventOverviewCard metrics={metrics} />}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="invitations">Invitations</TabsTrigger>
-          <TabsTrigger value="ticket-types">Ticket Types</TabsTrigger>
-          <TabsTrigger value="venue">Venue & Map</TabsTrigger>
-          <TabsTrigger value="exhibitors">Exhibitors</TabsTrigger>
-          <TabsTrigger value="speakers">Speakers</TabsTrigger>
-          <TabsTrigger value="engagement">Engagement</TabsTrigger>
-          <TabsTrigger value="tickets">Tickets</TabsTrigger>
-          <TabsTrigger value="pending-tickets">Pending Tickets</TabsTrigger>
-          <TabsTrigger value="locations">Locations</TabsTrigger>
-          <TabsTrigger value="scan-logs">Scan Logs</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
           <Card>
-            <CardContent className="p-6">
-              <h3 className="font-semibold mb-2">Description</h3>
-              <p className="text-muted-foreground">{event.description}</p>
+            <CardHeader>
+              <CardTitle className="text-lg">Event Description</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground whitespace-pre-wrap">
+                {event.description || "No description provided."}
+              </p>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="invitations">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Invitation Performance
+                Invitation Overview
               </CardTitle>
-              <Button
-                size="sm"
-                onClick={() => setIsInviteModalOpen(true)}
-                disabled={event.status !== "published"}
-              >
-                New Invitation
-              </Button>
+              <Link href={`/eos-events/${eventId}/invitations`}>
+                <Button size="sm" variant="outline">
+                  Manage Invitations
+                </Button>
+              </Link>
             </CardHeader>
             <CardContent>
               <CampaignStatsCard eventId={eventId} />
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
 
-        <TabsContent value="ticket-types">
+        <div className="space-y-6">
           <Card>
-            <CardContent className="p-6">
-              <TicketTypeManager eventId={eventId} />
+            <CardHeader>
+              <CardTitle className="text-lg">Event Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Start Date</span>
+                <span className="font-medium">
+                  {new Date(event.startsAt).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">End Date</span>
+                <span className="font-medium">
+                  {new Date(event.endsAt).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Location</span>
+                <span className="font-medium">{event.venueName || "TBD"}</span>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="venue">
-          <VenueMapEditor
-            eventId={eventId}
-            event={event}
-            venueLayout={venueLayout}
-            onUpdate={() => {
-              // Refresh data
-              eventsApi.get(eventId).then(setEvent);
-              eventsApi.getVenueLayout(eventId).then(setVenueLayout);
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="exhibitors">
-          <Card>
-            <CardContent className="p-6">
-              <ExhibitorManager eventId={eventId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="speakers">
-          <Card>
-            <CardContent className="p-6">
-              <SpeakerManager eventId={eventId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="engagement">
-          <Card>
-            <CardContent className="p-6">
-              <EngagementManager
-                eventId={eventId}
-                ownerId={eventId}
-                ownerType="event"
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tickets">
-          <Card>
-            <CardContent className="p-6">
-              <TicketManager eventId={eventId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="pending-tickets">
-          <Card>
-            <CardContent className="p-6">
-              <PendingTicketManager eventId={eventId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="locations">
-          <Card>
-            <CardContent className="p-6">
-              <LocationManager eventId={eventId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="scan-logs">
-          <Card>
-            <CardContent className="p-6">
-              <ScanLogViewer eventId={eventId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="analytics">
-          <Card>
-            <CardContent className="p-6">
-              <TicketingAnalytics eventId={eventId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
       <InviteModal
         event={event}
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
-        onSuccess={() => {
-          // Optionally refresh campaign stats here if we had a ref
-        }}
+        onSuccess={() => {}}
       />
     </div>
   );
