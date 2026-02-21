@@ -285,24 +285,39 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
       relations: ["ticketType", "ticketType.event", "hypeCard"],
     });
 
-    if (!ticket) return;
+    if (!ticket) return { triggeredCount: 0, campaignIds: [] };
 
     try {
-      await this.triggerService.fire(CampaignTrigger.TICKET_ISSUED, {
-        tenantId: ticket.ticketType.event.organizationId,
-        contactId: ticket.contactId,
-        context: {
-          ticketCode: ticket.ticketCode,
-          qrCodeUrl: ticket.qrCodeUrl,
-          eventName: ticket.ticketType.event.name,
-          hypeCardUrl: ticket.hypeCard?.outputUrl || "", // Added HypeCard URL
+      const results = await this.triggerService.fire(
+        CampaignTrigger.TICKET_ISSUED,
+        {
+          tenantId: ticket.ticketType.event.organizationId,
+          contactId: ticket.contactId,
+          context: {
+            ticketCode: ticket.ticketCode,
+            qrCodeUrl: ticket.qrCodeUrl,
+            eventName: ticket.ticketType.event.name,
+            hypeCardUrl: ticket.hypeCard?.outputUrl || "", // Added HypeCard URL
+          },
         },
-      });
-      this.logger.log(`Fulfillment message sent for ticket ${ticket.id}`);
+      );
+
+      if (results.triggeredCount > 0) {
+        this.logger.log(
+          `Trigger TICKET_ISSUED fired for ticket ${ticket.id}: ${results.triggeredCount} campaigns activated`,
+        );
+      } else {
+        this.logger.warn(
+          `Trigger TICKET_ISSUED fired for ticket ${ticket.id} but NO active campaigns were matched`,
+        );
+      }
+
+      return results;
     } catch (e) {
       this.logger.error(
         `Failed to fire TICKET_ISSUED for ticket ${ticket.id}: ${e.message}`,
       );
+      return { triggeredCount: 0, campaignIds: [] };
     }
   }
 
@@ -313,7 +328,9 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
     });
   }
 
-  async resendTicket(ticketId: string): Promise<void> {
+  async resendTicket(
+    ticketId: string,
+  ): Promise<{ triggeredCount: number; campaignIds: string[] }> {
     const ticket = await this.ticketRepo.findOne({
       where: { id: ticketId },
       relations: ["ticketType"],
@@ -329,7 +346,7 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
       );
     }
 
-    await this.sendFulfillmentMessage(ticket.id);
+    return this.sendFulfillmentMessage(ticket.id);
   }
 
   async findAll(eventId: string): Promise<EosTicket[]> {
@@ -428,7 +445,7 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
       ...data,
       eventId,
     });
-    return this.locationRepo.save(location);
+    return (await this.locationRepo.save(location)) as any;
   }
 
   async getScanLogs(eventId: string): Promise<EosScanLog[]> {
@@ -508,5 +525,87 @@ export class EosTicketService implements OnModuleInit, PaymentFulfilledHandler {
     }
 
     return results;
+  }
+
+  async manualIssueTicket(
+    organizationId: string,
+    eventId: string,
+    dto: {
+      ticketTypeId: string;
+      holderName: string;
+      holderPhone: string;
+      holderEmail?: string;
+      customTicketCode?: string;
+    },
+  ): Promise<EosTicket> {
+    return this.dataSource.transaction(async (manager) => {
+      const ticketType = await manager.findOne(EosTicketType, {
+        where: { id: dto.ticketTypeId, eventId },
+        relations: ["event"],
+      });
+
+      if (!ticketType) {
+        throw new BadRequestException("Ticket type not found");
+      }
+
+      // Resolve or create contact
+      let contact = await manager.findOne(ContactEntity, {
+        where: { tenantId: organizationId, contactId: dto.holderPhone },
+      });
+
+      if (!contact) {
+        contact = manager.create(ContactEntity, {
+          tenantId: organizationId,
+          contactId: dto.holderPhone,
+          name: dto.holderName,
+          email: dto.holderEmail,
+          firstSeen: new Date(),
+          lastSeen: new Date(),
+        });
+        contact = await manager.save(contact);
+      }
+
+      // Create valid ticket immediately
+      const ticket = new EosTicket();
+      Object.assign(ticket, {
+        ticketTypeId: ticketType.id,
+        contactId: contact.id,
+        holderName: dto.holderName,
+        holderEmail: dto.holderEmail,
+        holderPhone: dto.holderPhone,
+        amountPaid: 0, // Manual/VIP usually complimentary
+        ticketCode: dto.customTicketCode || `VIP_${nanoid(6).toUpperCase()}`,
+        paymentStatus: "completed",
+        status: "valid",
+      });
+
+      // Generate QR code
+      try {
+        ticket.qrCodeUrl = await QRCode.toDataURL(ticket.ticketCode, {
+          errorCorrectionLevel: "L",
+          margin: 2,
+          width: 180,
+        });
+      } catch (e) {
+        ticket.qrCodeUrl = `https://chart.googleapis.com/chart?cht=qr&chl=${ticket.ticketCode}&chs=180x180&choe=UTF-8&chld=L|2`;
+      }
+
+      const savedTicket = await manager.save(ticket);
+
+      // Increment sold count (even though we bypass limits, we should track)
+      ticketType.quantitySold += 1;
+      await manager.save(ticketType);
+
+      // Send fulfillment message
+      const triggerResults = await this.sendFulfillmentMessage(
+        savedTicket.id,
+        manager,
+      );
+
+      return {
+        ...savedTicket,
+        triggerResults,
+      };
+    });
   }
 }

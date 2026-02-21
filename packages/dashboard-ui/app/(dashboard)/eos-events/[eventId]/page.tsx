@@ -26,6 +26,10 @@ import { SpeakerManager } from "@/components/eos-events/SpeakerManager";
 import { TicketManager } from "@/components/eos-events/TicketManager";
 import { VenueMapEditor } from "@/components/eos-events/VenueMapEditor";
 import { EngagementManager } from "@/components/eos-events/EngagementManager";
+import { LocationManager } from "@/components/eos-events/LocationManager";
+import { ScanLogViewer } from "@/components/eos-events/ScanLogViewer";
+import { PendingTicketManager } from "@/components/eos-events/PendingTicketManager";
+import { TicketingAnalytics } from "@/components/eos-events/TicketingAnalytics";
 import { EventOverviewCard } from "@/components/eos-events/EventOverviewCard";
 import InviteModal from "@/components/eos-events/InviteModal";
 import {
@@ -355,6 +359,10 @@ export default function EosEventDetailsPage() {
           <TabsTrigger value="speakers">Speakers</TabsTrigger>
           <TabsTrigger value="engagement">Engagement</TabsTrigger>
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
+          <TabsTrigger value="pending-tickets">Pending Tickets</TabsTrigger>
+          <TabsTrigger value="locations">Locations</TabsTrigger>
+          <TabsTrigger value="scan-logs">Scan Logs</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -440,6 +448,38 @@ export default function EosEventDetailsPage() {
           <Card>
             <CardContent className="p-6">
               <TicketManager eventId={eventId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pending-tickets">
+          <Card>
+            <CardContent className="p-6">
+              <PendingTicketManager eventId={eventId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="locations">
+          <Card>
+            <CardContent className="p-6">
+              <LocationManager eventId={eventId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scan-logs">
+          <Card>
+            <CardContent className="p-6">
+              <ScanLogViewer eventId={eventId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <Card>
+            <CardContent className="p-6">
+              <TicketingAnalytics eventId={eventId} />
             </CardContent>
           </Card>
         </TabsContent>

@@ -14,7 +14,16 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, Search, Send } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { EosTicketType } from "@/types/eos-events";
+import { Loader2, CheckCircle, Search, Send, Plus } from "lucide-react";
 import { TicketStatusBadge } from "./TicketStatusBadge";
 import { toast } from "sonner";
 
@@ -29,6 +38,14 @@ export function TicketManager({ eventId }: TicketManagerProps) {
   const [checkInCode, setCheckInCode] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
   const [resending, setResending] = useState<string | null>(null);
+  const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
+  const [ticketTypes, setTicketTypes] = useState<EosTicketType[]>([]);
+  const [manualDto, setManualDto] = useState({
+    ticketTypeId: "",
+    holderName: "",
+    holderPhone: "",
+    customTicketCode: "",
+  });
 
   const loadTickets = async () => {
     setLoading(true);
@@ -44,18 +61,60 @@ export function TicketManager({ eventId }: TicketManagerProps) {
 
   useEffect(() => {
     loadTickets();
+    // Also load ticket types for manual issue
+    eventsApi
+      .listTicketTypes(eventId)
+      .then(setTicketTypes)
+      .catch(console.error);
   }, [eventId]);
 
   const handleResend = async (ticketId: string) => {
     setResending(ticketId);
     try {
-      await eventsApi.resendTicket(eventId, ticketId);
-      toast.success("Ticket resent via WhatsApp");
+      const res = await eventsApi.resendTicket(eventId, ticketId);
+      if (res.triggeredCount > 0) {
+        toast.success("Ticket delivery initiated via WhatsApp");
+      } else {
+        toast.warning(
+          "Ticket was verified, but no active WhatsApp campaign was found for this trigger.",
+        );
+      }
     } catch (e) {
       console.error("Failed to resend ticket", e);
       toast.error("Failed to resend ticket");
     } finally {
       setResending(null);
+    }
+  };
+
+  const handleManualIssue = async () => {
+    try {
+      const res: any = await eventsApi.manualIssueTicket(eventId, manualDto);
+      const triggered = res.triggerResults?.triggeredCount ?? 0;
+
+      if (triggered > 0) {
+        toast.success("Ticket issued and WhatsApp delivery initiated!");
+      } else {
+        toast.success("Ticket issued.");
+        toast.warning(
+          "Note: No active WhatsApp campaign found; message not sent.",
+          {
+            duration: 6000,
+          },
+        );
+      }
+
+      setIsManualDialogOpen(false);
+      setManualDto({
+        ticketTypeId: "",
+        holderName: "",
+        holderPhone: "",
+        customTicketCode: "",
+      });
+      loadTickets();
+    } catch (e) {
+      console.error("Manual issue failed", e);
+      toast.error("Failed to issue ticket");
     }
   };
 
@@ -111,7 +170,93 @@ export function TicketManager({ eventId }: TicketManagerProps) {
             </Button>
           </div>
         </Card>
-        <div className="flex items-end flex-col justify-end">
+        <div className="flex items-end gap-2 justify-end">
+          <Dialog
+            open={isManualDialogOpen}
+            onOpenChange={setIsManualDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="mr-2 h-4 w-4" /> Manual Issue (VIP)
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Manual Ticket Issuance</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="type">Ticket Type</Label>
+                  <select
+                    id="type"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={manualDto.ticketTypeId}
+                    onChange={(e) =>
+                      setManualDto({
+                        ...manualDto,
+                        ticketTypeId: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="">Select a ticket type...</option>
+                    {ticketTypes.map((tt) => (
+                      <option key={tt.id} value={tt.id}>
+                        {tt.name} (KES {tt.price})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="m-name">Holder Name</Label>
+                  <Input
+                    id="m-name"
+                    value={manualDto.holderName}
+                    onChange={(e) =>
+                      setManualDto({ ...manualDto, holderName: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="m-phone">Holder Phone (WhatsApp)</Label>
+                  <Input
+                    id="m-phone"
+                    placeholder="e.g. 2547..."
+                    value={manualDto.holderPhone}
+                    onChange={(e) =>
+                      setManualDto({
+                        ...manualDto,
+                        holderPhone: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="m-code">Custom Ticket Code (Optional)</Label>
+                  <Input
+                    id="m-code"
+                    placeholder="Defaults to VIP_XXXX"
+                    value={manualDto.customTicketCode}
+                    onChange={(e) =>
+                      setManualDto({
+                        ...manualDto,
+                        customTicketCode: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleManualIssue}
+                disabled={
+                  !manualDto.ticketTypeId ||
+                  !manualDto.holderPhone ||
+                  !manualDto.holderName
+                }
+              >
+                Issue & Send WhatsApp
+              </Button>
+            </DialogContent>
+          </Dialog>
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input

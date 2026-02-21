@@ -73,6 +73,8 @@ import { EosTicket } from "./entities/eos-ticket.entity";
 import { EosExhibitor } from "./entities/eos-exhibitor.entity";
 import { EosSpeaker } from "./entities/eos-speaker.entity";
 import { EosLead } from "./entities/eos-lead.entity";
+import { EosLocation } from "./entities/eos-location.entity";
+import { EosScanLog } from "./entities/eos-scan-log.entity";
 import { EosPoll } from "./entities/eos-poll.entity";
 import { EosPollOption } from "./entities/eos-poll-option.entity";
 import { EosPollResponse } from "./entities/eos-poll-response.entity";
@@ -138,6 +140,8 @@ const entities = [
   EosExhibitor,
   EosSpeaker,
   EosLead,
+  EosLocation,
+  EosScanLog,
   EosPoll,
   EosPollOption,
   EosPollResponse,

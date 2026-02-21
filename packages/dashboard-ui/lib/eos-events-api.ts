@@ -165,9 +165,12 @@ export const eventsApi = {
     return fetchWithAuth<EosTicket[]>(`/eos/events/${eventId}/tickets`);
   },
   resendTicket: async (eventId: string, ticketId: string) => {
-    return fetchWithAuth<any>(`/eos/events/${eventId}/tickets/${ticketId}/resend`, {
-      method: "POST",
-    });
+    return fetchWithAuth<any>(
+      `/eos/events/${eventId}/tickets/${ticketId}/resend`,
+      {
+        method: "POST",
+      },
+    );
   },
   checkIn: async (ticketCode: string, locationId?: string) => {
     return fetchWithAuth<any>("/eos/tickets/check-in", {
@@ -177,6 +180,15 @@ export const eventsApi = {
   },
   getTicketStatus: async (id: string) => {
     return fetchWithAuth<any>(`/eos/tickets/${id}/status`);
+  },
+  manualIssueTicket: async (eventId: string, data: any) => {
+    return fetchWithAuth<EosTicket>(
+      `/eos/events/${eventId}/tickets/manual-issue`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    );
   },
 
   // Locations & Scan Logs

@@ -76,6 +76,8 @@ export interface EosTicket {
   qrCodeUrl?: string;
   holderName?: string;
   holderEmail?: string;
+  holderPhone?: string;
+  amountPaid?: number;
   paymentStatus: "pending" | "completed" | "failed";
   status: "valid" | "used" | "cancelled";
 }

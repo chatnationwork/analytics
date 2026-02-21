@@ -66,9 +66,7 @@ export class EosTicketController {
 
   @Post("check-in")
   @UseGuards(JwtAuthGuard)
-  checkIn(
-    @Body() body: { ticketCode: string; locationId?: string },
-  ) {
+  checkIn(@Body() body: { ticketCode: string; locationId?: string }) {
     if (!body.ticketCode) {
       throw new BadRequestException("ticketCode is required");
     }
@@ -85,5 +83,16 @@ export class EosTicketController {
       throw new BadRequestException("tickets must be an array");
     }
     return this.ticketService.bulkCheckIn(eventId, body.tickets);
+  }
+
+  @Post("manual-issue")
+  @UseGuards(JwtAuthGuard)
+  manualIssue(
+    @Req() req: any,
+    @Param("eventId") eventId: string,
+    @Body() dto: any,
+  ) {
+    const organizationId = req.user.tenantId;
+    return this.ticketService.manualIssueTicket(organizationId, eventId, dto);
   }
 }

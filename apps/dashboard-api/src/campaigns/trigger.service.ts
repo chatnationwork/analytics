@@ -37,8 +37,12 @@ export class TriggerService {
    * Fire a predefined trigger. Looks up campaigns listening for this trigger
    * and enqueues message sends for the specified contact.
    */
-  async fire(trigger: CampaignTrigger, payload: TriggerPayload): Promise<void> {
+  async fire(
+    trigger: CampaignTrigger,
+    payload: TriggerPayload,
+  ): Promise<{ triggeredCount: number; campaignIds: string[] }> {
     const { tenantId, contactId } = payload;
+    const results = { triggeredCount: 0, campaignIds: [] as string[] };
 
     // Find active campaigns with this trigger type
     const campaigns = await this.campaignRepo.find({
@@ -49,7 +53,7 @@ export class TriggerService {
       },
     });
 
-    if (campaigns.length === 0) return;
+    if (campaigns.length === 0) return results;
 
     // Resolve the contact UUID from phone/contactId
     const contact = await this.contactRepository.findOne(tenantId, contactId);
@@ -57,7 +61,7 @@ export class TriggerService {
       this.logger.warn(
         `Trigger ${trigger}: contact ${contactId} not found for tenant ${tenantId}`,
       );
-      return;
+      return results;
     }
 
     // Check opt-in
@@ -65,13 +69,16 @@ export class TriggerService {
       this.logger.debug(
         `Trigger ${trigger}: contact ${contactId} is opted out or deactivated, skipping`,
       );
-      return;
+      return results;
     }
 
     for (const campaign of campaigns) {
       try {
         // Optional: match triggerConfig (e.g. specific eventId)
-        if (campaign.triggerConfig && !this.matchesTriggerConfig(campaign.triggerConfig, payload.context)) {
+        if (
+          campaign.triggerConfig &&
+          !this.matchesTriggerConfig(campaign.triggerConfig, payload.context)
+        ) {
           continue;
         }
 
@@ -80,19 +87,25 @@ export class TriggerService {
           campaign.id,
           contact.id,
           contact.contactId,
+          true, // isBusinessInitiated
+          payload.context,
         );
 
+        results.triggeredCount++;
+        results.campaignIds.push(campaign.id);
+
         this.logger.log(
-          `Trigger ${trigger}: sent campaign ${campaign.id} to contact ${contactId}`,
+          `Trigger ${trigger}: enqueued campaign ${campaign.id} for contact ${contactId}`,
         );
       } catch (error: unknown) {
-        const errMsg =
-          error instanceof Error ? error.message : String(error);
+        const errMsg = error instanceof Error ? error.message : String(error);
         this.logger.error(
           `Trigger ${trigger}: failed to send campaign ${campaign.id}: ${errMsg}`,
         );
       }
     }
+
+    return results;
   }
 
   /**
