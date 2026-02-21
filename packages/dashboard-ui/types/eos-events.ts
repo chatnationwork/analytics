@@ -89,6 +89,26 @@ export interface EosLead {
   aiIntent?: string;
   createdAt: string;
 }
+
+export interface EosLocation {
+  id: string;
+  eventId: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EosScanLog {
+  id: string;
+  ticketId: string;
+  locationId?: string;
+  status: string;
+  timestamp: string;
+  ticket?: EosTicket;
+  location?: EosLocation;
+}
+
 export interface EosEventMetrics {
   totalTickets: number;
   totalRevenue: number;
