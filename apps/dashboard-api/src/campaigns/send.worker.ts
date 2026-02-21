@@ -70,6 +70,7 @@ export class SendWorker extends WorkerHost {
       recipientPhone,
       messagePayload,
       isBusinessInitiated,
+      triggerContext,
     } = job.data;
 
     // Pre-send: check if 24h quota is exhausted for business-initiated sends
@@ -106,7 +107,7 @@ export class SendWorker extends WorkerHost {
                   if (Array.isArray(component.parameters)) {
                       for (const param of component.parameters) {
                           if (param.type === "text" && param.text) {
-                              param.text = this.templateRenderer.render(param.text, contact);
+                              param.text = this.templateRenderer.render(param.text, contact, triggerContext);
                           }
                       }
                   }
@@ -115,7 +116,7 @@ export class SendWorker extends WorkerHost {
       } else {
           // Handle Standard Text Message
           const textBody = (messagePayload as any)?.text?.body || "";
-          const renderedBody = this.templateRenderer.render(textBody, contact);
+          const renderedBody = this.templateRenderer.render(textBody, contact, triggerContext);
           
           renderedPayload = {
             ...messagePayload,
