@@ -28,9 +28,10 @@ export class TemplateRendererService {
    *
    * @param template - Message template string with placeholders
    * @param contact - Contact entity with data to fill placeholders
+   * @param context - Optional extra context for template variable substitution (prioritized)
    * @returns Rendered message with placeholders replaced
    */
-  render(template: string, contact: ContactEntity): string {
+  render(template: string, contact: ContactEntity, context?: Record<string, unknown>): string {
     // Match all {{...}} placeholders
     return template.replace(/\{\{([^}]+)\}\}/g, (match, content) => {
       // Split by pipe to get field and optional fallback
@@ -39,7 +40,7 @@ export class TemplateRendererService {
       const fallback = parts[1] || "";
 
       // Resolve the field value from contact
-      const value = this.resolveField(field, contact);
+      const value = this.resolveField(field, contact, context);
 
       // Return value if exists, otherwise return fallback
       return value ?? fallback;
@@ -50,15 +51,23 @@ export class TemplateRendererService {
    * Resolve a field path to its value in the contact entity.
    *
    * Supports:
+   * - Trigger context: ticketCode, qrCodeUrl (highest priority)
+   * - System variables: today, tomorrow, greeting
    * - Direct fields: name, email, contactId, pin, yearOfBirth
    * - Nested metadata: metadata.company, metadata.city, etc.
    *
    * @param field - Field path (e.g., "name" or "metadata.company")
    * @param contact - Contact entity
+   * @param context - Optional extra context
    * @returns Field value as string, or null if not found/empty
    */
-  private resolveField(field: string, contact: ContactEntity): string | null {
-    // Handle system variables
+  private resolveField(field: string, contact: ContactEntity, context?: Record<string, unknown>): string | null {
+    // 1. Check transient context first (high priority for event-driven data)
+    if (context && context[field] !== undefined && context[field] !== null && context[field] !== "") {
+      return String(context[field]);
+    }
+
+    // 2. Handle system variables
     if (field === "today") {
       return new Date().toLocaleDateString("en-GB"); // DD/MM/YYYY
     }
@@ -74,7 +83,7 @@ export class TemplateRendererService {
       return "Good evening";
     }
 
-    // Handle nested metadata fields: metadata.company, metadata.city, etc.
+    // 3. Handle nested metadata fields: metadata.company, metadata.city, etc.
     if (field.startsWith("metadata.")) {
       const metaKey = field.substring(9); // Remove "metadata." prefix
       const metaValue = contact.metadata?.[metaKey];
@@ -87,7 +96,7 @@ export class TemplateRendererService {
       return String(metaValue);
     }
 
-    // Handle direct contact fields
+    // 4. Handle direct contact fields
     const value = contact[field as keyof ContactEntity];
 
     // Return null if field is null, undefined, or empty string
