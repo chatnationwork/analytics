@@ -169,6 +169,48 @@ Company: N/A
 
 Thank you!`);
     });
+
+    it("should prioritize triggerContext over contact data", () => {
+      const template = "Hello {{name}}! Your code is {{ticketCode}}.";
+      const contact = {
+        name: "John Doe",
+      } as ContactEntity;
+      const context = {
+        name: "Jane Trigger",
+        ticketCode: "T-12345",
+      };
+
+      const result = service.render(template, contact, context);
+      expect(result).toBe("Hello Jane Trigger! Your code is T-12345.");
+    });
+
+    it("should use contact data when triggerContext is missing for a field", () => {
+      const template = "Hello {{name}}! Your code is {{ticketCode}}.";
+      const contact = {
+        name: "John Doe",
+      } as ContactEntity;
+      const context = {
+        ticketCode: "T-12345",
+      };
+
+      const result = service.render(template, contact, context);
+      expect(result).toBe("Hello John Doe! Your code is T-12345.");
+    });
+
+    it("should handle system variables correctly", () => {
+      const template = "{{greeting}}, today is {{today}}";
+      const contact = {} as ContactEntity;
+      const result = service.render(template, contact);
+      
+      const hour = new Date().getHours();
+      let expectedGreeting = "Good evening";
+      if (hour < 12) expectedGreeting = "Good morning";
+      else if (hour < 18) expectedGreeting = "Good afternoon";
+      
+      const expectedDate = new Date().toLocaleDateString("en-GB");
+      
+      expect(result).toBe(`${expectedGreeting}, today is ${expectedDate}`);
+    });
   });
 
   describe("extractPlaceholders", () => {
