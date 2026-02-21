@@ -5,11 +5,14 @@ import {
   CreateDateColumn,
   ManyToOne,
   OneToMany,
+  ManyToMany,
+  JoinTable,
   JoinColumn,
   Relation,
 } from "typeorm";
 import { EosEvent } from "@lib/database/entities/eos-event.entity";
 import { EosTicket } from "@lib/database/entities/eos-ticket.entity";
+import { EosLocation } from "@lib/database/entities/eos-location.entity";
 
 @Entity("eos_ticket_types")
 export class EosTicketType {
@@ -60,6 +63,14 @@ export class EosTicketType {
 
   @OneToMany(() => EosTicket, (t: EosTicket) => t.ticketType)
   tickets: Relation<EosTicket>[];
+
+  @ManyToMany(() => EosLocation)
+  @JoinTable({
+    name: "eos_ticket_type_locations",
+    joinColumn: { name: "ticket_type_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "location_id", referencedColumnName: "id" },
+  })
+  accessLocations: Relation<EosLocation>[];
 
   @Column({ type: "jsonb", nullable: true })
   metadata: Record<string, any>;

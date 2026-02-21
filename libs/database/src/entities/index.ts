@@ -57,6 +57,8 @@ export * from "./contact-segment.entity";
 export * from "./campaign-message.entity";
 export * from "./campaign-schedule.entity";
 export * from "./eos-event.entity";
+export * from "./eos-location.entity";
+export * from "./eos-scan-log.entity";
 export * from "./eos-ticket-type.entity";
 export * from "./eos-ticket.entity";
 export * from "./eos-exhibitor.entity";
