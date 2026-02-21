@@ -19,20 +19,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { templatesApi, Template } from "@/lib/templates-api";
 import { eventsApi } from "@/lib/eos-events-api";
+import { broadcastApi } from "@/lib/broadcast-api";
+import { Campaign } from "@/lib/broadcast-types";
 import { EosEvent } from "@/types/eos-events";
 import { toast } from "sonner";
-import {
-  Loader2,
-  Users,
-  Send,
-  AlertCircle,
-  Code,
-  FileText,
-} from "lucide-react";
+import { Loader2, Send, AlertCircle, Zap, Radio } from "lucide-react";
+
+// Trigger events that can be linked
+const TRIGGER_EVENT_LABELS: Record<string, string> = {
+  "ticket.issued": "Ticket Issued",
+  "ticket.purchased": "Ticket Purchased",
+  "event.checkin": "Attendee Checked In",
+  "event.registration": "Event Registration",
+  "event.completed": "Event Completed",
+  "exhibitor.invited": "Exhibitor Invited",
+  "exhibitor.approved": "Exhibitor Approved",
+};
 
 interface InviteModalProps {
   event: EosEvent;
@@ -49,12 +55,6 @@ export default function InviteModal({
 }: InviteModalProps) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
-  const [method, setMethod] = useState<"template" | "manual">("template");
-  const [rawJson, setRawJson] = useState("");
-  const [rawBodyText, setRawBodyText] = useState("");
-  const [jsonError, setJsonError] = useState<string | null>(null);
-  const [manualVariables, setManualVariables] = useState<string[]>([]);
-
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [audienceType, setAudienceType] = useState<"all" | "tags">("all");
@@ -64,12 +64,16 @@ export default function InviteModal({
     {},
   );
 
+  // Trigger campaign state
+  const [triggerCampaigns, setTriggerCampaigns] = useState<Campaign[]>([]);
+  const [loadingTriggers, setLoadingTriggers] = useState(false);
+
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
 
   useEffect(() => {
     if (isOpen) {
       loadTemplates();
-      // Pre-fill some defaults if variables are detected
+      loadTriggerCampaigns();
       setTemplateParams({
         eventName: event.name,
         eventDate: new Date(event.startsAt).toLocaleDateString(),
@@ -77,31 +81,6 @@ export default function InviteModal({
       });
     }
   }, [isOpen, event]);
-
-  // Handle JSON parsing and metadata extraction
-  useEffect(() => {
-    if (method === "manual" && rawJson.trim()) {
-      try {
-        JSON.parse(rawJson);
-        setJsonError(null);
-      } catch (e) {
-        setJsonError("Invalid JSON syntax");
-      }
-    } else {
-      setJsonError(null);
-    }
-  }, [rawJson, method]);
-
-  // Extract variables from manual body text
-  useEffect(() => {
-    if (method === "manual" && rawBodyText.trim()) {
-      const matches = rawBodyText.match(/\{\{\d+\}\}/g) || [];
-      const vars = matches.map((v) => v.replace(/\{\{|\}\}/g, ""));
-      setManualVariables([...new Set(vars)]);
-    } else {
-      setManualVariables([]);
-    }
-  }, [rawBodyText, method]);
 
   async function loadTemplates() {
     setLoading(true);
@@ -112,6 +91,22 @@ export default function InviteModal({
       toast.error("Failed to load WhatsApp templates");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadTriggerCampaigns() {
+    setLoadingTriggers(true);
+    try {
+      const res = await broadcastApi.listCampaigns();
+      // Filter to only event_triggered campaigns that are running
+      const triggers = (res.data || []).filter(
+        (c: Campaign) => c.triggerType && c.status === "running",
+      );
+      setTriggerCampaigns(triggers);
+    } catch (err) {
+      console.error("Failed to load trigger campaigns", err);
+    } finally {
+      setLoadingTriggers(false);
     }
   }
 
@@ -127,20 +122,9 @@ export default function InviteModal({
   };
 
   const handleSend = async () => {
-    if (method === "template" && !selectedTemplateId) {
+    if (!selectedTemplateId) {
       toast.error("Please select a template");
       return;
-    }
-
-    if (method === "manual") {
-      if (!rawJson.trim() || jsonError) {
-        toast.error("Please provide a valid JSON payload");
-        return;
-      }
-      if (!rawBodyText.trim()) {
-        toast.error("Please provide message body text for preview");
-        return;
-      }
     }
 
     setSending(true);
@@ -159,13 +143,9 @@ export default function InviteModal({
 
       await eventsApi.sendInvites(event.id, {
         name: `Invite: ${event.name} - ${new Date().toLocaleDateString()}`,
-        templateId: method === "template" ? selectedTemplateId : undefined,
-        rawTemplate: method === "manual" ? JSON.parse(rawJson) : undefined,
+        templateId: selectedTemplateId,
         audienceFilter,
-        templateParams: {
-          ...templateParams,
-          // If manual, we might want to ensure params for detected variables exist
-        },
+        templateParams,
       });
 
       toast.success("Invitation campaign launched successfully");
@@ -186,139 +166,121 @@ export default function InviteModal({
         </DialogHeader>
 
         <div className="py-4 overflow-y-auto max-h-[70vh] px-1 -mx-1 space-y-6">
-          <Tabs value={method} onValueChange={(v) => setMethod(v as any)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="template" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Select Template
-              </TabsTrigger>
-              <TabsTrigger value="manual" className="flex items-center gap-2">
-                <Code className="h-4 w-4" />
-                Paste JSON
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="template" className="space-y-4 pt-4">
-              {/* Template Selection */}
-              <div className="space-y-2">
-                <Label>WhatsApp Template</Label>
-                <Select
-                  value={selectedTemplateId}
-                  onValueChange={setSelectedTemplateId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an approved template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name} ({t.language})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {loading && <Loader2 className="h-4 w-4 animate-spin mt-1" />}
-              </div>
-
-              {/* Template Variables */}
-              {selectedTemplate && selectedTemplate.variables?.length > 0 && (
-                <div className="space-y-3 p-3 bg-muted rounded-md border">
-                  <Label className="text-xs font-bold uppercase text-muted-foreground">
-                    Template Variables
-                  </Label>
-                  {selectedTemplate.variables.map((v) => (
-                    <div key={v} className="space-y-1">
-                      <Label
-                        htmlFor={`var-${v}`}
-                        className="text-xs font-medium"
-                      >
-                        Variable {"{{" + v + "}}"}
-                      </Label>
-                      <Input
-                        id={`var-${v}`}
-                        value={templateParams[v] || ""}
-                        onChange={(e) =>
-                          setTemplateParams({
-                            ...templateParams,
-                            [v]: e.target.value,
-                          })
-                        }
-                        placeholder={`Value for ${v}`}
-                        className="h-8 text-sm bg-background"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="manual" className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="rawJson">JSON Payload</Label>
-                  {jsonError && (
-                    <span className="text-[10px] text-red-500 font-medium">
-                      {jsonError}
-                    </span>
-                  )}
-                </div>
-                <Textarea
-                  id="rawJson"
-                  value={rawJson}
-                  onChange={(e) => setRawJson(e.target.value)}
-                  placeholder="Paste WhatsApp JSON here..."
-                  className="font-mono text-[10px] h-[120px] resize-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="rawBodyText">
-                  Message Body (for variables)
+          {/* Active Trigger Campaigns */}
+          {triggerCampaigns.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-400" />
+                <Label className="text-sm font-semibold">
+                  Active Trigger Campaigns
                 </Label>
-                <Textarea
-                  id="rawBodyText"
-                  value={rawBodyText}
-                  onChange={(e) => setRawBodyText(e.target.value)}
-                  placeholder="e.g. Hello {{1}}, welcome to {{2}}!"
-                  className="text-sm h-[80px] resize-none"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Include variables like {"{{1}}"}, {"{{2}}"} to enable the
-                  inputs below.
-                </p>
               </div>
-
-              {manualVariables.length > 0 && (
-                <div className="space-y-3 p-3 bg-muted rounded-md border">
-                  <Label className="text-xs font-bold uppercase text-muted-foreground">
-                    Detected Variables
-                  </Label>
-                  {manualVariables.map((v) => (
-                    <div key={v} className="space-y-1">
-                      <Label
-                        htmlFor={`manual-var-${v}`}
-                        className="text-xs font-medium"
-                      >
-                        Variable {"{{" + v + "}}"}
-                      </Label>
-                      <Input
-                        id={`manual-var-${v}`}
-                        value={templateParams[v] || ""}
-                        onChange={(e) =>
-                          setTemplateParams({
-                            ...templateParams,
-                            [v]: e.target.value,
-                          })
-                        }
-                        placeholder={`Value for ${v}`}
-                        className="h-8 text-sm bg-background"
-                      />
+              <div className="space-y-2">
+                {triggerCampaigns.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-amber-500/20 bg-amber-500/5"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">
+                        {c.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Trigger:{" "}
+                        {TRIGGER_EVENT_LABELS[c.triggerType || ""] ||
+                          c.triggerType}
+                      </div>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2 ml-3">
+                      <Badge
+                        variant="outline"
+                        className="text-emerald-400 border-emerald-400/30 bg-emerald-400/10"
+                      >
+                        <Radio className="h-2.5 w-2.5 mr-1 animate-pulse" />
+                        Active
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                These campaigns auto-send when their trigger event fires (e.g.,
+                ticket issued, check-in).
+              </p>
+              <Separator />
+            </div>
+          )}
+
+          {loadingTriggers && triggerCampaigns.length === 0 && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Checking for active triggers...
+            </div>
+          )}
+
+          {/* Template Selection */}
+          <div className="space-y-2">
+            <Label>WhatsApp Template</Label>
+            <Select
+              value={selectedTemplateId}
+              onValueChange={setSelectedTemplateId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select an approved template" />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name} ({t.language})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {loading && <Loader2 className="h-4 w-4 animate-spin mt-1" />}
+          </div>
+
+          {/* Template Preview */}
+          {selectedTemplate && (
+            <div className="p-3 rounded-lg border bg-muted/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Preview</Label>
+                <Badge variant="outline" className="text-[10px]">
+                  {selectedTemplate.language}
+                </Badge>
+              </div>
+              <div className="text-sm whitespace-pre-wrap bg-background p-3 rounded border">
+                {selectedTemplate.bodyText || "No preview text available."}
+              </div>
+            </div>
+          )}
+
+          {/* Template Variables */}
+          {selectedTemplate && selectedTemplate.variables?.length > 0 && (
+            <div className="space-y-3 p-3 bg-muted rounded-md border">
+              <Label className="text-xs font-bold uppercase text-muted-foreground">
+                Template Variables
+              </Label>
+              {selectedTemplate.variables.map((v) => (
+                <div key={v} className="space-y-1">
+                  <Label htmlFor={`var-${v}`} className="text-xs font-medium">
+                    Variable {"{{" + v + "}}"}
+                  </Label>
+                  <Input
+                    id={`var-${v}`}
+                    value={templateParams[v] || ""}
+                    onChange={(e) =>
+                      setTemplateParams({
+                        ...templateParams,
+                        [v]: e.target.value,
+                      })
+                    }
+                    placeholder={`Value for ${v}`}
+                    className="h-8 text-sm bg-background"
+                  />
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+              ))}
+            </div>
+          )}
 
           {/* Audience Selection */}
           <div className="space-y-3">
@@ -396,12 +358,7 @@ export default function InviteModal({
           </Button>
           <Button
             onClick={handleSend}
-            disabled={
-              sending ||
-              (method === "template" && !selectedTemplateId) ||
-              (method === "manual" &&
-                (!rawJson.trim() || !!jsonError || !rawBodyText.trim()))
-            }
+            disabled={sending || !selectedTemplateId}
           >
             {sending ? (
               <>
