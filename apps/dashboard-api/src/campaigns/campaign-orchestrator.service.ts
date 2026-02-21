@@ -46,6 +46,8 @@ export interface CampaignSendJob {
   attempt: number;
   /** Whether this send counts against the 24h conversation tier quota. */
   isBusinessInitiated: boolean;
+  /** Optional transient context from event triggers (e.g. ticket code, QR URL) */
+  triggerContext?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -186,6 +188,7 @@ export class CampaignOrchestratorService {
     contactId: string,
     contactPhone: string,
     isBusinessInitiated: boolean = true,
+    context?: Record<string, unknown>,
   ): Promise<void> {
     const campaign = await this.campaignsService.findById(tenantId, campaignId);
 
@@ -208,6 +211,7 @@ export class CampaignOrchestratorService {
       messagePayload: campaign.messageTemplate,
       attempt: 0,
       isBusinessInitiated,
+      triggerContext: context,
     };
 
     await this.sendQueue.add(CAMPAIGN_JOBS.SEND_MESSAGE, jobData, {
