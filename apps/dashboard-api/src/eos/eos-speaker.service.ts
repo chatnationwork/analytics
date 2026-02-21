@@ -56,11 +56,21 @@ export class EosSpeakerService {
   }
 
   async findAll(eventId: string): Promise<EosSpeaker[]> {
-    return this.speakerRepo.find({
+    const speakers = await this.speakerRepo.find({
       where: { eventId },
       relations: ["contact"],
       order: { createdAt: "DESC" },
     });
+
+    // Self-healing
+    for (const s of speakers) {
+      if (!s.invitationToken) {
+        s.invitationToken = nanoid(32);
+        await this.speakerRepo.save(s);
+      }
+    }
+
+    return speakers;
   }
 
   async findOne(id: string): Promise<EosSpeaker> {
@@ -71,6 +81,12 @@ export class EosSpeakerService {
 
     if (!speaker) {
       throw new NotFoundException("Speaker not found");
+    }
+
+    // Self-healing
+    if (!speaker.invitationToken) {
+      speaker.invitationToken = nanoid(32);
+      await this.speakerRepo.save(speaker);
     }
 
     return speaker;

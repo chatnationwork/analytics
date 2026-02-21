@@ -138,16 +138,35 @@ export class EosExhibitorService {
       organizationId: event.organizationId, // Populate redundant orgId for easier RLS
       contactId,
       status: "pending",
+      invitationToken: nanoid(32), // Generate token for manual creation too
     });
     return this.exhibitorRepo.save(exhibitor);
   }
 
   async findAll(eventId: string) {
-    return this.exhibitorRepo.find({
+    const exhibitors = await this.exhibitorRepo.find({
       where: { eventId },
       order: { createdAt: "DESC" },
       relations: ["contact"], // Include contact details
     });
+
+    // Self-healing: Ensure all exhibitors have tokens
+    for (const ex of exhibitors) {
+      let needsSave = false;
+      if (!ex.invitationToken) {
+        ex.invitationToken = nanoid(32);
+        needsSave = true;
+      }
+      if (!ex.boothToken) {
+        ex.boothToken = nanoid(32);
+        needsSave = true;
+      }
+      if (needsSave) {
+        await this.exhibitorRepo.save(ex);
+      }
+    }
+
+    return exhibitors;
   }
 
   async findOne(id: string) {
@@ -156,6 +175,21 @@ export class EosExhibitorService {
       relations: ["contact"],
     });
     if (!exhibitor) throw new NotFoundException("Exhibitor not found");
+
+    // Self-healing
+    let needsSave = false;
+    if (!exhibitor.invitationToken) {
+      exhibitor.invitationToken = nanoid(32);
+      needsSave = true;
+    }
+    if (!exhibitor.boothToken) {
+      exhibitor.boothToken = nanoid(32);
+      needsSave = true;
+    }
+    if (needsSave) {
+      await this.exhibitorRepo.save(exhibitor);
+    }
+
     return exhibitor;
   }
 
@@ -168,7 +202,7 @@ export class EosExhibitorService {
 
   async findByBoothToken(token: string) {
     return this.exhibitorRepo.findOne({
-      where: { boothToken: token },
+      where: [{ boothToken: token }, { invitationToken: token }],
       relations: ["contact", "event"],
     });
   }

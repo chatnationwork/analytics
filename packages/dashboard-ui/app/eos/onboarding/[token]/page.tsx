@@ -37,7 +37,7 @@ export default function ExhibitorOnboardingPage() {
         );
         if (!res.ok) throw new Error("Invalid token");
         const data = await res.json();
-        setInfo(data);
+        setInfo(data.data);
       } catch (e) {
         toast.error("Invalid or expired invitation");
       } finally {

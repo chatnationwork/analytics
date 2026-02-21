@@ -30,11 +30,11 @@ export default function BoothScannerPage() {
     const fetchInfo = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/eos/public/exhibitors/booth/${token}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/eos/public/exhibitors/booth/${token}`,
         );
         if (!res.ok) throw new Error("Invalid token");
         const data = await res.json();
-        setInfo(data);
+        setInfo(data.data);
       } catch (e) {
         toast.error("Invalid or expired booth access");
       } finally {
@@ -51,7 +51,7 @@ export default function BoothScannerPage() {
     setSubmitting(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/eos/public/exhibitors/booth/${token}/capture-lead`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/eos/public/exhibitors/booth/${token}/capture-lead`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

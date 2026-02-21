@@ -213,7 +213,10 @@ export function AggregateExhibitorManager() {
                             <DropdownMenuItem
                               onClick={() =>
                                 copyToClipboard(
-                                  getPortalUrl("booth", ex.invitationToken),
+                                  getPortalUrl(
+                                    "booth",
+                                    ex.boothToken || ex.invitationToken,
+                                  ),
                                   "Booth",
                                 )
                               }
@@ -235,7 +238,10 @@ export function AggregateExhibitorManager() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem asChild>
                               <a
-                                href={getPortalUrl("booth", ex.invitationToken)}
+                                href={getPortalUrl(
+                                  "booth",
+                                  ex.boothToken || ex.invitationToken,
+                                )}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center"

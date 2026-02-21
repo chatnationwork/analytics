@@ -48,14 +48,14 @@ export default function SpeakerPortalPage() {
         );
         if (!res.ok) throw new Error("Invalid token");
         const json = await res.json();
-        setData(json);
+        setData(json.data);
         setFormData({
-          name: json.speaker.name,
-          bio: json.speaker.bio || "",
-          headshotUrl: json.speaker.headshotUrl || "",
-          talkTitle: json.speaker.talkTitle || "",
-          presentationUrl: json.speaker.presentationUrl || "",
-          sessionTime: json.speaker.sessionTime || "",
+          name: json.data.speaker.name,
+          bio: json.data.speaker.bio || "",
+          headshotUrl: json.data.speaker.headshotUrl || "",
+          talkTitle: json.data.speaker.talkTitle || "",
+          presentationUrl: json.data.speaker.presentationUrl || "",
+          sessionTime: json.data.speaker.sessionTime || "",
         });
       } catch (e) {
         toast.error("Invalid or expired speaker access");

@@ -49,13 +49,13 @@ export default function ExhibitorPortalPage() {
         );
         if (!res.ok) throw new Error("Invalid token");
         const json = await res.json();
-        setData(json);
+        setData(json.data);
         setFormData({
-          description: json.exhibitor.description || "",
-          logoUrl: json.exhibitor.logoUrl || "",
-          brochureUrl: json.exhibitor.brochureUrl || "",
-          demoVideoUrl: json.exhibitor.demoVideoUrl || "",
-          productImages: json.exhibitor.productImages || [],
+          description: json.data.exhibitor.description || "",
+          logoUrl: json.data.exhibitor.logoUrl || "",
+          brochureUrl: json.data.exhibitor.brochureUrl || "",
+          demoVideoUrl: json.data.exhibitor.demoVideoUrl || "",
+          productImages: json.data.exhibitor.productImages || [],
         });
       } catch (e) {
         toast.error("Invalid or expired exhibitor access");

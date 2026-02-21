@@ -51,6 +51,7 @@ export interface EosExhibitor {
   boothLocation?: { x: number; y: number; width: number; height: number };
   status: "pending" | "approved" | "rejected";
   invitationToken?: string;
+  boothToken?: string;
 }
 
 export interface EosSpeaker {

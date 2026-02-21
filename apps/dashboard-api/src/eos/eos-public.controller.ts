@@ -53,7 +53,7 @@ export class EosPublicController {
     return this.exhibitorService.update(exhibitor.id, {
       ...body,
       status: "pending",
-      invitationToken: null, // Clear token after use
+      // Keep invitationToken for profile portal access
     });
   }
 

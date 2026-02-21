@@ -335,7 +335,11 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
                         <DropdownMenuItem
                           onClick={() =>
                             copyToClipboard(
-                              getPortalUrl("booth", exhibitor.invitationToken),
+                              getPortalUrl(
+                                "booth",
+                                exhibitor.boothToken ||
+                                  exhibitor.invitationToken,
+                              ),
                               "Booth",
                             )
                           }
@@ -362,7 +366,7 @@ export function ExhibitorManager({ eventId }: ExhibitorManagerProps) {
                           <a
                             href={getPortalUrl(
                               "booth",
-                              exhibitor.invitationToken,
+                              exhibitor.boothToken || exhibitor.invitationToken,
                             )}
                             target="_blank"
                             rel="noopener noreferrer"
